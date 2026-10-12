@@ -1,0 +1,47 @@
+plugins {
+	id 'java'
+	id 'war'
+}
+
+group = 'com.kisia'
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+	mavenCentral()
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+dependencies {
+	// Spring Boot 3.5.16 기준으로 라이브러리 버전을 통일
+	implementation platform(
+			'org.springframework.boot:spring-boot-dependencies:3.5.16'
+	)
+
+	providedRuntime platform(
+			'org.springframework.boot:spring-boot-dependencies:3.5.16'
+	)
+
+	// REST API 및 입력값 검증
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// 실행할 Tomcat은 WAS01에서 제공
+	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+
+	// 테스트
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+tasks.named('war') {
+	archiveFileName = 'shoppingmall.war'
+}
