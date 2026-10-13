@@ -1,14 +1,12 @@
 plugins {
 	id 'java'
 	id 'war'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.kisia'
 version = '0.0.1-SNAPSHOT'
-
-repositories {
-	mavenCentral()
-}
 
 java {
 	toolchain {
@@ -16,32 +14,30 @@ java {
 	}
 }
 
+repositories {
+	mavenCentral()
+}
+
 dependencies {
-	// Spring Boot 3.5.16 기준으로 라이브러리 버전을 통일
-	implementation platform(
-			'org.springframework.boot:spring-boot-dependencies:3.5.16'
-	)
-
-	providedRuntime platform(
-			'org.springframework.boot:spring-boot-dependencies:3.5.16'
-	)
-
-	// REST API 및 입력값 검증
-	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-	// 실행할 Tomcat은 WAS01에서 제공
-	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat-runtime'
 
-	// 테스트
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// 기존 DB, JWT 등 프로젝트 의존성은 이곳에 유지
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.named('bootWar') {
+	archiveFileName = 'staybooking.war'
+}
+
 tasks.named('war') {
-	archiveFileName = 'shoppingmall.war'
+	enabled = false
 }
