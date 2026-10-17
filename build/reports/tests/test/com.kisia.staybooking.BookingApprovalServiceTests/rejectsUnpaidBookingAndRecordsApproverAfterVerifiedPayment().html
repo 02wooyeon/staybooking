@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta http-equiv="x-ua-compatible" content="IE=edge"/>
+<title>Test results - rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()</title>
+<link href="../css/base-style.css" rel="stylesheet" type="text/css"/>
+<link href="../css/style.css" rel="stylesheet" type="text/css"/>
+<script src="../js/report.js" type="text/javascript"></script>
+</head>
+<body>
+<div id="content">
+<div class="breadcrumbs">
+<a class="breadcrumb" href="../index.html">all</a> &gt; 
+<a class="breadcrumb" href="index.html">com.kisia.staybooking.BookingApprovalServiceTests</a> &gt; 
+<span class="breadcrumb">rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()</span>
+</div>
+<div class="tab-container">
+<ul class="tabLinks">
+<li>
+<a class="successGroup" href="#">Gradle Test Run :test</a>
+</li>
+</ul>
+<div class="tab">
+<h2>Gradle Test Run :test</h2>
+<h1>rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()</h1>
+<div class="tab-container">
+<ul class="tabLinks">
+<li>
+<a class="" href="#">summary</a>
+</li>
+<li>
+<a class="" href="#">standard output</a>
+</li>
+<li>
+<a class="" href="#">error output</a>
+</li>
+</ul>
+<div class="tab">
+<h2>summary</h2>
+<div>
+<div class="summary">
+<table>
+<tr>
+<td>
+<div class="summaryGroup">
+<table>
+<tr>
+<td>
+<div class="infoBox">
+<div class="counter">1</div>
+<p>tests</p>
+</div>
+</td>
+<td>
+<div class="infoBox">
+<div class="counter">0</div>
+<p>failures</p>
+</div>
+</td>
+<td>
+<div class="infoBox">
+<div class="counter">0</div>
+<p>skipped</p>
+</div>
+</td>
+<td>
+<div class="infoBox duration">
+<div class="counter">0.619s</div>
+<p>duration</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</td>
+<td>
+<div class="infoBox success successRate">
+<div class="percent">100%</div>
+<p>successful</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="tab">
+<h2>standard output</h2>
+<span class="code">
+<pre id="root-0-test-stdout-rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()">Hibernate: insert into users (created_at,email,login_id,mileage_balance,name,nickname,password_hash,phone,role,status,updated_at,user_id) values (?,?,?,?,?,?,?,?,?,?,?,default)
+Hibernate: insert into users (created_at,email,login_id,mileage_balance,name,nickname,password_hash,phone,role,status,updated_at,user_id) values (?,?,?,?,?,?,?,?,?,?,?,default)
+Hibernate: insert into accommodations (address,check_in_time,check_out_time,created_at,description,latitude,longitude,name,status,updated_at,accommodation_id) values (?,?,?,?,?,?,?,?,?,?,default)
+Hibernate: insert into rooms (accommodation_id,capacity,created_at,description,name,price,status,total_quantity,updated_at,room_id) values (?,?,?,?,?,?,?,?,?,default)
+Hibernate: insert into bookings (approved_at,approved_by,cancel_reason,cancel_reason_type,cancel_source,cancelled_at,cancelled_by,check_in_date,check_out_date,completed_at,completed_by,created_at,guests,payment_expires_at,room_id,status,total_amount,updated_at,used_mileage,user_id,booking_id) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,default)
+Hibernate: insert into payments (booking_id,created_at,order_id,paid_amount,paid_at,payment_key,payment_method,status,updated_at,payment_id) values (?,?,?,?,?,?,?,?,?,default)
+Hibernate: update users set role = 'ROLE_APPROVER' where user_id = ?
+Hibernate: update bookings set status = 'PENDING' where booking_id = ?
+Hibernate: select ue1_0.user_id,ue1_0.created_at,ue1_0.email,ue1_0.login_id,ue1_0.mileage_balance,ue1_0.name,ue1_0.nickname,ue1_0.password_hash,ue1_0.phone,ue1_0.role,ue1_0.status,ue1_0.updated_at from users ue1_0 where ue1_0.user_id=?
+Hibernate: select be1_0.booking_id,be1_0.approved_at,be1_0.approved_by,be1_0.cancel_reason,be1_0.cancel_reason_type,be1_0.cancel_source,be1_0.cancelled_at,be1_0.cancelled_by,be1_0.check_in_date,be1_0.check_out_date,be1_0.completed_at,be1_0.completed_by,be1_0.created_at,be1_0.guests,be1_0.payment_expires_at,be1_0.room_id,be1_0.status,be1_0.total_amount,be1_0.updated_at,be1_0.used_mileage,be1_0.user_id from bookings be1_0 where be1_0.booking_id=? for update
+Hibernate: select pe1_0.payment_id,pe1_0.booking_id,pe1_0.created_at,pe1_0.order_id,pe1_0.paid_amount,pe1_0.paid_at,pe1_0.payment_key,pe1_0.payment_method,pe1_0.status,pe1_0.updated_at from payments pe1_0 where pe1_0.booking_id=? and pe1_0.status=?
+Hibernate: update payments set status = 'PAID', paid_at = CURRENT_TIMESTAMP where payment_id = ?
+Hibernate: select ue1_0.user_id,ue1_0.created_at,ue1_0.email,ue1_0.login_id,ue1_0.mileage_balance,ue1_0.name,ue1_0.nickname,ue1_0.password_hash,ue1_0.phone,ue1_0.role,ue1_0.status,ue1_0.updated_at from users ue1_0 where ue1_0.user_id=?
+Hibernate: select be1_0.booking_id,be1_0.approved_at,be1_0.approved_by,be1_0.cancel_reason,be1_0.cancel_reason_type,be1_0.cancel_source,be1_0.cancelled_at,be1_0.cancelled_by,be1_0.check_in_date,be1_0.check_out_date,be1_0.completed_at,be1_0.completed_by,be1_0.created_at,be1_0.guests,be1_0.payment_expires_at,be1_0.room_id,be1_0.status,be1_0.total_amount,be1_0.updated_at,be1_0.used_mileage,be1_0.user_id from bookings be1_0 where be1_0.booking_id=? for update
+Hibernate: select pe1_0.payment_id,pe1_0.booking_id,pe1_0.created_at,pe1_0.order_id,pe1_0.paid_amount,pe1_0.paid_at,pe1_0.payment_key,pe1_0.payment_method,pe1_0.status,pe1_0.updated_at from payments pe1_0 where pe1_0.booking_id=? and pe1_0.status=?
+</pre>
+<button class="clipboard-copy-btn" aria-label="Copy to clipboard" data-copy-element-id="root-0-test-stdout-rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()">Copy</button>
+</span>
+</div>
+<div class="tab">
+<h2>error output</h2>
+<span class="code">
+<pre id="root-0-test-stderr-rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()">Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+WARNING: A Java agent has been loaded dynamically (/home/arc/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.18.11/82212e5b3633e7a65fca8bec525762cfb6c9bae4/byte-buddy-agent-1.18.11.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+</pre>
+<button class="clipboard-copy-btn" aria-label="Copy to clipboard" data-copy-element-id="root-0-test-stderr-rejectsUnpaidBookingAndRecordsApproverAfterVerifiedPayment()">Copy</button>
+</span>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<p>
+<div>
+<label class="hidden" id="label-for-line-wrapping-toggle" for="line-wrapping-toggle">Wrap lines
+<input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
+</label>
+</div>Generated by 
+<a href="https://www.gradle.org">Gradle 9.7.1</a> at Oct 17, 2026, 6:40:15 PM</p>
+</div>
+</div>
+</body>
+</html>
