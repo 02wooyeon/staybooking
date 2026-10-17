@@ -1,0 +1,264 @@
+<!doctype html>
+
+<html lang="ko">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>
+    숙소 상세 | 스테이북
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/css/style.css">
+
+</head>
+
+
+<body>
+
+<header class="site-header">
+
+  <a
+    class="logo"
+    href="/">
+    스테이북
+  </a>
+
+  <nav
+    id="header-nav"
+    class="header-nav">
+  </nav>
+
+</header>
+
+
+<main class="hotel-detail-page">
+
+  <div class="hotel-back">
+
+    <a href="/accommodation/list.html">
+      ← 숙소 목록으로
+    </a>
+
+  </div>
+
+
+  <div
+    id="detail-alert"
+    class="alert alert-error"
+    hidden>
+  </div>
+
+
+  <p id="detail-loading">
+    숙소 정보를 불러오는 중입니다...
+  </p>
+
+
+  <div
+    id="accommodation-detail"
+    hidden>
+
+
+    <!-- =========================
+         사진 갤러리
+         ========================= -->
+
+    <section class="hotel-gallery">
+
+      <div
+        id="detail-main-image"
+        class="hotel-gallery-main">
+      </div>
+
+      <div
+        id="detail-sub-images"
+        class="hotel-gallery-side">
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         숙소 제목 영역
+         ========================= -->
+
+    <section class="hotel-summary">
+
+      <div>
+
+        <span
+          id="detail-status"
+          class="hotel-status">
+        </span>
+
+        <h1 id="detail-name">
+        </h1>
+
+        <p
+          id="detail-address"
+          class="hotel-address">
+        </p>
+
+      </div>
+
+      <div class="hotel-time-box">
+
+        <div>
+          <span>체크인</span>
+          <strong
+            id="detail-check-in">
+          </strong>
+        </div>
+
+        <div>
+          <span>체크아웃</span>
+          <strong
+            id="detail-check-out">
+          </strong>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         페이지 메뉴
+         ========================= -->
+
+    <nav class="hotel-tabs">
+
+      <a href="#overview">
+        숙소 정보
+      </a>
+
+      <a href="#facilities">
+        편의시설
+      </a>
+
+      <a href="#rules">
+        이용 규칙
+      </a>
+
+      <a href="#rooms">
+        객실
+      </a>
+
+    </nav>
+
+
+    <!-- =========================
+         숙소 정보
+         ========================= -->
+
+    <section
+      id="overview"
+      class="hotel-content-card">
+
+      <h2>
+        숙소 소개
+      </h2>
+
+      <p
+        id="detail-description"
+        class="hotel-description">
+      </p>
+
+    </section>
+
+
+    <!-- =========================
+         편의시설
+         ========================= -->
+
+    <section
+      id="facilities"
+      class="hotel-content-card">
+
+      <div class="hotel-section-title">
+
+        <h2>
+          편의시설
+        </h2>
+
+      </div>
+
+      <ul
+        id="detail-amenities"
+        class="hotel-amenities">
+      </ul>
+
+    </section>
+
+
+    <!-- =========================
+         이용 규칙
+         ========================= -->
+
+    <section
+      id="rules"
+      class="hotel-content-card">
+
+      <h2>
+        이용 규칙
+      </h2>
+
+      <ul
+        id="detail-rules"
+        class="hotel-rules">
+      </ul>
+
+    </section>
+
+
+    <!-- =========================
+         객실
+         ========================= -->
+
+    <section
+      id="rooms"
+      class="hotel-rooms-section">
+
+      <div class="hotel-room-heading">
+
+        <h2>
+          객실 선택
+        </h2>
+
+        <span id="room-count">
+        </span>
+
+      </div>
+
+
+      <div
+        id="room-list"
+        class="hotel-room-list">
+      </div>
+
+    </section>
+
+
+  </div>
+
+</main>
+
+
+<script src="/assets/js/api.js"></script>
+
+<script src="/assets/js/common.js"></script>
+
+<script src="/assets/js/accommodation-detail.js"></script>
+
+
+</body>
+
+</html>
