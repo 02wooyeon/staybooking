@@ -1,0 +1,28 @@
+package com.kisia.staybooking.accommodation;
+
+import java.math.BigDecimal;
+import java.time.LocalTime;
+import java.util.List;
+
+// 필드 이름은 화면(accommodation-detail.js)과 맞춘다.
+// amenities, rules, images는 아직 DB 테이블이 없어 빈 목록으로 준다.
+public record AccommodationDetail(
+    Long accommodationId,
+    String name,
+    String address,
+    String description,
+    LocalTime checkInTime,
+    LocalTime checkOutTime,
+    BigDecimal latitude,
+    BigDecimal longitude,
+    AccommodationStatus status,
+    List<String> amenities,
+    List<String> rules,
+    List<String> images,
+    List<RoomSummary> rooms
+) {
+    // status는 availableCount가 0이면 SOLD_OUT, 아니면 AVAILABLE
+    public record RoomSummary(Long roomId, String name, String description, String image, long price,
+                              int maxGuests, int availableCount, String status) {
+    }
+}

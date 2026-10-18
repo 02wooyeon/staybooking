@@ -72,6 +72,13 @@ public class UserEntity extends AuditedEntity {
         this.email = Objects.requireNonNull(email);
     }
 
+    public UserEntity(String loginId, String passwordHash, String name, String nickname,
+                      String email, String phone) {
+        this(loginId, passwordHash, name, email);
+        this.nickname = nickname;
+        this.phone = phone;
+    }
+
     public Long getUserId() { return userId; }
     public String getLoginId() { return loginId; }
     public String getPasswordHash() { return passwordHash; }
