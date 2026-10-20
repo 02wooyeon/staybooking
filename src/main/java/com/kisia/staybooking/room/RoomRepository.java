@@ -1,5 +1,7 @@
 package com.kisia.staybooking.room;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -12,4 +14,7 @@ public interface RoomRepository extends JpaRepository<RoomEntity, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RoomEntity r join fetch r.accommodation where r.roomId = :roomId")
     Optional<RoomEntity> findByIdForUpdate(@Param("roomId") Long roomId);
+
+    List<RoomEntity> findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(
+        Collection<Long> accommodationIds, RoomStatus status);
 }

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>회원가입 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="auth-page">
+  <header class="site-header">
+    <a class="logo" href="/">스테이북</a>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="auth-card" aria-labelledby="signup-title">
+      <h1 id="signup-title">회원가입</h1>
+      <p class="auth-sub">스테이북 계정을 만들고 숙소를 예약해 보세요.</p>
+
+      <div id="signup-alert" class="alert" role="alert" hidden></div>
+
+      <form id="signup-form" novalidate>
+        <div class="field">
+          <label for="email">이메일 <span class="req" aria-hidden="true">*</span></label>
+          <div class="input-with-button">
+            <input id="email" name="email" type="email" maxlength="100"
+                   autocomplete="email" placeholder="example@email.com" required autofocus>
+            <button id="check-email" type="button" class="btn-inline">중복 확인</button>
+          </div>
+          <p id="email-status" class="field-status" hidden></p>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="password">비밀번호 <span class="req" aria-hidden="true">*</span></label>
+          <div class="input-with-button">
+            <input id="password" name="password" type="password" maxlength="20"
+                   autocomplete="new-password" aria-describedby="password-rules" required>
+            <button type="button" class="btn-inline" data-toggle-password="password"
+                    aria-pressed="false" aria-label="비밀번호 보기">보기</button>
+          </div>
+          <ul id="password-rules" class="rules">
+            <li data-rule="length">8~20자</li>
+            <li data-rule="mix">영문·숫자·특수문자 포함</li>
+            <li data-rule="space">공백 없음</li>
+            <li data-rule="email">이메일 아이디 미포함</li>
+          </ul>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="password-confirm">비밀번호 확인 <span class="req" aria-hidden="true">*</span></label>
+          <input id="password-confirm" name="passwordConfirm" type="password" maxlength="20"
+                 autocomplete="new-password" required>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="name">이름 <span class="req" aria-hidden="true">*</span></label>
+          <input id="name" name="name" type="text" maxlength="20" autocomplete="name"
+                 placeholder="홍길동" required>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="phone">휴대폰 번호 <span class="req" aria-hidden="true">*</span></label>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="13"
+                 autocomplete="tel" placeholder="010-1234-5678" required>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <fieldset class="agree">
+          <legend class="sr-only">약관 동의</legend>
+          <label class="check check-all">
+            <input id="agree-all" type="checkbox"> <span>전체 동의</span>
+          </label>
+          <label class="check">
+            <input id="agree-terms" type="checkbox"> <span><b>[필수]</b> 이용약관 동의</span>
+          </label>
+          <label class="check">
+            <input id="agree-privacy" type="checkbox"> <span><b>[필수]</b> 개인정보 수집·이용 동의</span>
+          </label>
+          <label class="check">
+            <input id="agree-marketing" type="checkbox"> <span>[선택] 마케팅 정보 수신 동의</span>
+          </label>
+          <p id="agree-error" class="field-error" hidden>필수 약관에 동의해 주세요.</p>
+        </fieldset>
+
+        <button id="signup-submit" class="btn-primary" type="submit">가입하기</button>
+      </form>
+
+      <div class="auth-links">
+        이미 계정이 있으신가요? <a href="/auth/login.html">로그인</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/common.js"></script>
+  <script src="/assets/js/signup.js"></script>
+</body>
+</html>
