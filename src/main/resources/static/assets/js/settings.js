@@ -1,40 +1,10 @@
 /*
  * 마이페이지(설정 화면): 왼쪽 메뉴로 내 정보 관리 / 마일리지 / 설정을 전환한다.
- * 백엔드 연동 전이라 회원 정보·마일리지는 mock 데이터,
+ * 회원 정보와 현재 마일리지는 API에서 조회하고,
  * 일반 설정은 이 브라우저의 localStorage에만 저장한다.
  */
 (function () {
   'use strict';
-
-  var USE_MOCK_DATA = true;
-
-  /*
-   * 백엔드 연동 전 mock 데이터
-   *
-   * 실제 API:
-   * GET /api/v1/members/me
-   */
-  var MOCK_PROFILE = {
-    name: '홍길동',
-    email: 'hong@example.com',
-    nickname: '길동',
-    phone: '010-1234-5678',
-    createdAt: '2026-10-01'
-  };
-
-  /*
-   * 실제 API: 미정 (mileage_histories 테이블 기준)
-   * type: EARN(적립), USE(사용), REFUND(환불)
-   */
-  var MOCK_MILEAGE = {
-    balance: 12500,
-    histories: [
-      { type: 'EARN', amount: 9000, description: '스테이 강남 숙박 완료 적립', createdAt: '2026-10-12' },
-      { type: 'REFUND', amount: 5000, description: '한강 스테이 예약 취소 환불', createdAt: '2026-10-09' },
-      { type: 'USE', amount: 5000, description: '한강 스테이 예약 결제', createdAt: '2026-10-08' },
-      { type: 'EARN', amount: 3500, description: '부산 오션뷰 숙박 완료 적립', createdAt: '2026-09-21' }
-    ]
-  };
 
   var PHONE_RE = /^01[016789]-?\d{3,4}-?\d{4}$/;
   var NICKNAME_RE = /^[가-힣A-Za-z0-9]{2,20}$/;
@@ -89,8 +59,6 @@
     phoneInput.value = profile.phone || '';
   }
 
-  if (USE_MOCK_DATA) renderProfile(MOCK_PROFILE);
-
   // 숫자만 남기고 010-1234-5678 형태로 자동 하이픈
   phoneInput.addEventListener('input', function () {
     var d = phoneInput.value.replace(/\D/g, '').slice(0, 11);
@@ -129,12 +97,7 @@
     }
     if (!ok) return;
 
-    // 실제 API: PATCH /api/v1/members/me (연동 전에는 화면 메시지만 표시)
-    Ui.setLoading(profileSubmit, true, '저장 중...');
-    setTimeout(function () {
-      Ui.setLoading(profileSubmit, false);
-      Ui.showAlert(profileAlert, '회원 정보가 저장되었습니다.', 'success');
-    }, 300);
+    Ui.showAlert(profileAlert, '회원 정보 수정 API는 아직 준비 중입니다.');
   });
 
   /* ---------- 마일리지 ---------- */
@@ -142,7 +105,7 @@
   var historyList = document.getElementById('mileage-history');
   var historyEmpty = document.getElementById('mileage-empty');
   var filterButtons = document.querySelectorAll('[data-mileage-filter]');
-  var mileage = USE_MOCK_DATA ? MOCK_MILEAGE : { balance: 0, histories: [] };
+  var mileage = { balance: 0, histories: [] };
 
   function formatPoint(value) {
     return value.toLocaleString('ko-KR') + ' P';
@@ -181,10 +144,27 @@
     historyEmpty.hidden = items.length > 0;
   }
 
-  document.getElementById('mileage-balance').textContent = mileage.balance.toLocaleString('ko-KR');
-  document.getElementById('mileage-earned').textContent = formatPoint(sumBy('EARN'));
-  document.getElementById('mileage-used').textContent = formatPoint(sumBy('USE'));
-  renderMileageHistory('all');
+  function renderMileageSummary() {
+    document.getElementById('mileage-balance').textContent = mileage.balance.toLocaleString('ko-KR');
+    document.getElementById('mileage-earned').textContent = formatPoint(sumBy('EARN'));
+    document.getElementById('mileage-used').textContent = formatPoint(sumBy('USE'));
+    renderMileageHistory('all');
+  }
+
+  renderMileageSummary();
+
+  headerReady.then(function (me) {
+    if (!me) {
+      Ui.showAlert(profileAlert, '로그인 후 내 정보를 확인할 수 있습니다.');
+      profileSubmit.disabled = true;
+      return;
+    }
+    renderProfile(me);
+    mileage.balance = Number(me.mileageBalance || 0);
+    renderMileageSummary();
+  }).catch(function () {
+    Ui.showAlert(profileAlert, '내 정보를 불러오지 못했습니다.');
+  });
 
   filterButtons.forEach(function (button) {
     button.addEventListener('click', function () {
