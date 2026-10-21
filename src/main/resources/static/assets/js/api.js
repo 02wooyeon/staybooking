@@ -167,6 +167,17 @@
         if (e.status === 401) return null;
         throw e;
       }
+    },
+
+    /** 로그인한 사용자의 예약 목록 */
+    getMyBookings: function () {
+      return authed('GET', '/api/v1/bookings/me');
+    },
+
+    /** 사용자는 예약을 즉시 취소하지 않고 승인자에게 취소를 신청한다. */
+    requestBookingCancellation: function (bookingId, form) {
+      return authed('POST', '/api/v1/bookings/' + encodeURIComponent(bookingId)
+        + '/cancellation-requests', form);
     }
   };
 })();
