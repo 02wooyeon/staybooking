@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>내 예약 | 스테이북</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/css/style.css">
+
+  <style>
+    /* ========================================
+       내 예약 목록
+       ======================================== */
+
+    .my-booking-page {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 42px 0 80px;
+    }
+
+    .my-booking-title {
+      margin-bottom: 30px;
+    }
+
+    .my-booking-title h1 {
+      margin: 0 0 7px;
+      font-size: 30px;
+    }
+
+    .my-booking-title p {
+      margin: 0;
+      color: var(--text-sub);
+    }
+
+    .my-booking-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .my-booking-tab {
+      padding: 9px 17px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .my-booking-tab.active {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .my-booking-list {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .my-booking-card {
+      display: grid;
+      grid-template-columns: 210px 1fr 180px;
+      overflow: hidden;
+
+      background: var(--card);
+
+      border: 1px solid var(--border);
+      border-radius: 15px;
+    }
+
+    .my-booking-image {
+      min-height: 190px;
+    }
+
+    .my-booking-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .my-booking-info {
+      padding: 24px;
+    }
+
+    .my-booking-status {
+      display: inline-block;
+
+      margin-bottom: 9px;
+
+      padding: 5px 10px;
+
+      border-radius: 999px;
+
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .my-booking-status.pending {
+      background: var(--warn-bg);
+      color: var(--warn);
+    }
+
+    .my-booking-status.accepted {
+      background: #ddf4ff;
+      color: #0969da;
+    }
+
+    .my-booking-status.completed {
+      background: var(--ok-bg);
+      color: var(--ok);
+    }
+
+    .my-booking-status.cancelled {
+      background: var(--error-bg);
+      color: var(--error);
+    }
+
+    .my-booking-info h2 {
+      margin: 0 0 5px;
+      font-size: 22px;
+    }
+
+    .my-booking-room-name {
+      margin: 0 0 16px;
+      color: var(--text-sub);
+    }
+
+    .my-booking-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+    }
+
+    .my-booking-detail-grid span {
+      display: block;
+
+      margin-bottom: 3px;
+
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .my-booking-detail-grid strong {
+      font-size: 15px;
+    }
+
+    .my-booking-actions {
+      display: flex;
+      flex-direction: column;
+
+      justify-content: center;
+      align-items: stretch;
+
+      gap: 10px;
+
+      padding: 22px;
+
+      border-left: 1px solid var(--border);
+    }
+
+    .my-booking-price {
+      margin-bottom: 8px;
+      text-align: right;
+    }
+
+    .my-booking-price span {
+      display: block;
+
+      color: var(--text-sub);
+      font-size: 13px;
+    }
+
+    .my-booking-price strong {
+      color: var(--brand);
+      font-size: 22px;
+    }
+
+    .my-booking-detail-button,
+    .my-booking-cancel-button {
+      width: 100%;
+      height: 42px;
+
+      border-radius: 999px;
+
+      font: inherit;
+      font-weight: 700;
+
+      cursor: pointer;
+    }
+
+    .my-booking-detail-button {
+      border: 0;
+
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .my-booking-detail-button:hover {
+      background: var(--brand-dark);
+    }
+
+    .my-booking-cancel-button {
+      border: 1px solid var(--border);
+
+      background: #fff;
+      color: var(--text);
+    }
+
+    .my-booking-cancel-button:hover {
+      background: var(--bg);
+    }
+
+    .my-booking-cancel-button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .my-booking-empty {
+      padding: 70px 20px;
+
+      text-align: center;
+
+      background: var(--card);
+
+      border: 1px solid var(--border);
+      border-radius: 15px;
+
+      color: var(--text-sub);
+    }
+
+    @media (max-width: 800px) {
+
+      .my-booking-card {
+        grid-template-columns: 1fr;
+      }
+
+      .my-booking-image {
+        height: 220px;
+      }
+
+      .my-booking-actions {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .my-booking-price {
+        text-align: left;
+      }
+
+    }
+
+    @media (max-width: 520px) {
+
+      .my-booking-page {
+        width: calc(100% - 24px);
+      }
+
+      .my-booking-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+    }
+  </style>
+</head>
+
+
+<body>
+
+<header class="site-header">
+
+  <a
+    class="logo"
+    href="/">
+    스테이북
+  </a>
+
+  <nav
+    id="header-nav"
+    class="header-nav">
+  </nav>
+
+</header>
+
+
+<main class="my-booking-page">
+
+  <section class="my-booking-title">
+
+    <h1>
+      내 예약 정보
+    </h1>
+
+    <p>
+      내가 예약한 숙소와 예약 상태를 확인할 수 있습니다.
+    </p>
+
+  </section>
+
+
+  <div
+    id="my-booking-alert"
+    class="alert alert-error"
+    hidden>
+  </div>
+
+
+  <!-- 예약 상태 필터 -->
+  <div class="my-booking-tabs">
+
+    <button
+      class="my-booking-tab active"
+      type="button"
+      data-status="ALL">
+
+      전체
+
+    </button>
+
+    <button
+      class="my-booking-tab"
+      type="button"
+      data-status="PENDING">
+
+      예약 진행
+
+    </button>
+
+    <button
+      class="my-booking-tab"
+      type="button"
+      data-status="COMPLETED">
+
+      이용 완료
+
+    </button>
+
+    <button
+      class="my-booking-tab"
+      type="button"
+      data-status="CANCELLED">
+
+      취소
+
+    </button>
+
+  </div>
+
+
+  <section
+    id="my-booking-list"
+    class="my-booking-list">
+  </section>
+
+</main>
+
+
+<script src="/assets/js/api.js"></script>
+<script src="/assets/js/common.js"></script>
+
+
+<script>
+(function () {
+  'use strict';
+
+
+  /*
+   * 백엔드 연동 전 mock 데이터
+   *
+   * 실제 API:
+   * GET /api/v1/bookings/me
+   */
+  var MOCK_BOOKINGS = [
+
+    {
+      bookingId: 1001,
+
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'SXZLHLT79U565WUE',
+
+      accommodationId:
+        1,
+
+      accommodationName:
+        '스테이 강남',
+
+      roomName:
+        '스탠다드 더블',
+
+      image:
+        null,
+
+      checkIn:
+        '2026-11-18',
+
+      checkOut:
+        '2026-11-20',
+
+      guests:
+        2,
+
+      totalPrice:
+        180000,
+
+      status:
+        'PENDING'
+    },
+
+
+    {
+      bookingId: 1002,
+
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'ZDACEAY966R36ZXQ',
+
+      accommodationId:
+        3,
+
+      accommodationName:
+        '한강 스테이',
+
+      roomName:
+        '리버뷰 더블',
+
+      image:
+        null,
+
+      checkIn:
+        '2026-09-10',
+
+      checkOut:
+        '2026-09-12',
+
+      guests:
+        2,
+
+      totalPrice:
+        300000,
+
+      status:
+        'COMPLETED'
+    },
+
+
+    {
+      bookingId: 1003,
+
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'G6G4ST9Q4FYLW923',
+
+      accommodationId:
+        2,
+
+      accommodationName:
+        '서울 시티 호텔',
+
+      roomName:
+        '스탠다드 싱글',
+
+      image:
+        null,
+
+      checkIn:
+        '2026-08-01',
+
+      checkOut:
+        '2026-08-02',
+
+      guests:
+        1,
+
+      totalPrice:
+        75000,
+
+      status:
+        'CANCELLED'
+    }
+
+  ];
+
+
+  var list =
+    document.getElementById(
+      'my-booking-list'
+    );
+
+  var tabs =
+    document.querySelectorAll(
+      '.my-booking-tab'
+    );
+
+
+  /*
+   * 팀원 공통 헤더
+   */
+  Ui.renderHeader();
+
+
+  /*
+   * 최초에는 전체 예약 표시
+   */
+  renderBookings(
+    MOCK_BOOKINGS
+  );
+
+
+  /*
+   * 상태 필터 버튼
+   */
+  tabs.forEach(
+    function (tab) {
+
+      tab.addEventListener(
+        'click',
+        function () {
+
+          tabs.forEach(
+            function (item) {
+              item.classList.remove(
+                'active'
+              );
+            }
+          );
+
+          tab.classList.add(
+            'active'
+          );
+
+
+          var status =
+            tab.dataset.status;
+
+
+          if (
+            status === 'ALL'
+          ) {
+
+            renderBookings(
+              MOCK_BOOKINGS
+            );
+
+            return;
+          }
+
+
+          var filtered =
+            MOCK_BOOKINGS.filter(
+              function (booking) {
+
+                /*
+                 * ACCEPTED도 예약 진행에 포함
+                 */
+                if (
+                  status === 'PENDING'
+                ) {
+
+                  return (
+                    booking.status ===
+                      'PENDING' ||
+
+                    booking.status ===
+                      'ACCEPTED'
+                  );
+                }
+
+                return (
+                  booking.status ===
+                  status
+                );
+              }
+            );
+
+
+          renderBookings(
+            filtered
+          );
+        }
+      );
+    }
+  );
+
+
+  function renderBookings(
+    bookings
+  ) {
+
+    list.textContent = '';
+
+
+    if (
+      bookings.length === 0
+    ) {
+
+      var empty =
+        document.createElement(
+          'div'
+        );
+
+      empty.className =
+        'my-booking-empty';
+
+      empty.textContent =
+        '해당하는 예약 내역이 없습니다.';
+
+      list.append(
+        empty
+      );
+
+      return;
+    }
+
+
+    bookings.forEach(
+      function (booking) {
+
+        var card =
+          document.createElement(
+            'article'
+          );
+
+        card.className =
+          'my-booking-card';
+
+
+        /*
+         * 이미지
+         */
+        var imageBox =
+          document.createElement(
+            'div'
+          );
+
+        imageBox.className =
+          'my-booking-image';
+
+
+        if (
+          booking.image
+        ) {
+
+          var image =
+            document.createElement(
+              'img'
+            );
+
+          image.src =
+            booking.image;
+
+          image.alt =
+            booking
+              .accommodationName +
+            ' 숙소 사진';
+
+          imageBox.append(
+            image
+          );
+
+        } else {
+
+          var placeholder =
+            document.createElement(
+              'div'
+            );
+
+          placeholder.className =
+            'image-placeholder';
+
+          placeholder.textContent =
+            '숙소 이미지';
+
+          imageBox.append(
+            placeholder
+          );
+        }
+
+
+        /*
+         * 중앙 예약 정보
+         */
+        var info =
+          document.createElement(
+            'div'
+          );
+
+        info.className =
+          'my-booking-info';
+
+
+        var status =
+          document.createElement(
+            'span'
+          );
+
+        status.className =
+          'my-booking-status ' +
+          getStatusClass(
+            booking.status
+          );
+
+        status.textContent =
+          getStatusText(
+            booking.status
+          );
+
+
+        var title =
+          document.createElement(
+            'h2'
+          );
+
+        title.textContent =
+          booking
+            .accommodationName;
+
+
+        var roomName =
+          document.createElement(
+            'p'
+          );
+
+        roomName.className =
+          'my-booking-room-name';
+
+        roomName.textContent =
+          booking.roomName;
+
+
+        var detailGrid =
+          document.createElement(
+            'div'
+          );
+
+        detailGrid.className =
+          'my-booking-detail-grid';
+
+
+        detailGrid.append(
+          createInfo(
+            '체크인',
+            booking.checkIn
+          ),
+
+          createInfo(
+            '체크아웃',
+            booking.checkOut
+          ),
+
+          createInfo(
+            '인원',
+            booking.guests +
+            '명'
+          ),
+
+          createInfo(
+            '예약번호',
+            Ui.formatBookingNumber(
+              booking.bookingNumber
+            )
+          )
+        );
+
+
+        info.append(
+          status,
+          title,
+          roomName,
+          detailGrid
+        );
+
+
+        /*
+         * 오른쪽 버튼/금액
+         */
+        var actions =
+          document.createElement(
+            'div'
+          );
+
+        actions.className =
+          'my-booking-actions';
+
+
+        var priceBox =
+          document.createElement(
+            'div'
+          );
+
+        priceBox.className =
+          'my-booking-price';
+
+
+        var priceLabel =
+          document.createElement(
+            'span'
+          );
+
+        priceLabel.textContent =
+          '예약 금액';
+
+
+        var price =
+          document.createElement(
+            'strong'
+          );
+
+        price.textContent =
+          formatPrice(
+            booking.totalPrice
+          ) +
+          '원';
+
+
+        priceBox.append(
+          priceLabel,
+          price
+        );
+
+
+        var detailButton =
+          document.createElement(
+            'button'
+          );
+
+        detailButton.type =
+          'button';
+
+        detailButton.className =
+          'my-booking-detail-button';
+
+        detailButton.textContent =
+          '예약 상세';
+
+
+        /*
+         * 아직 예약 상세 페이지는 안 만들었으므로
+         * mock 알림만 표시
+         */
+        detailButton.addEventListener(
+          'click',
+          function () {
+
+            alert(
+              '예약번호 ' +
+              Ui.formatBookingNumber(
+                booking.bookingNumber
+              ) +
+              '\n\n' +
+              booking
+                .accommodationName +
+              '\n' +
+              booking.roomName +
+              '\n' +
+              booking.checkIn +
+              ' ~ ' +
+              booking.checkOut
+            );
+          }
+        );
+
+
+        var cancelButton =
+          document.createElement(
+            'button'
+          );
+
+        cancelButton.type =
+          'button';
+
+        cancelButton.className =
+          'my-booking-cancel-button';
+
+
+        /*
+         * 완료/취소 예약은
+         * 다시 취소할 수 없음
+         */
+        var canCancel =
+          booking.status ===
+            'PENDING' ||
+
+          booking.status ===
+            'ACCEPTED';
+
+
+        if (
+          canCancel
+        ) {
+
+          cancelButton.textContent =
+            '예약 취소';
+
+          cancelButton.addEventListener(
+            'click',
+            function () {
+
+              /*
+               * 실제 백엔드 연동 시:
+               *
+               * POST
+               * /api/v1/bookings/{bookingId}/cancel
+               */
+              var confirmed =
+                confirm(
+                  '이 예약을 취소하시겠습니까?'
+                );
+
+
+              if (
+                !confirmed
+              ) {
+                return;
+              }
+
+
+              booking.status =
+                'CANCELLED';
+
+              renderBookings(
+                MOCK_BOOKINGS
+              );
+            }
+          );
+
+        } else {
+
+          cancelButton.textContent =
+            booking.status ===
+              'COMPLETED'
+              ? '이용 완료'
+              : '취소 완료';
+
+          cancelButton.disabled =
+            true;
+        }
+
+
+        actions.append(
+          priceBox,
+          detailButton,
+          cancelButton
+        );
+
+
+        card.append(
+          imageBox,
+          info,
+          actions
+        );
+
+
+        list.append(
+          card
+        );
+      }
+    );
+  }
+
+
+  function createInfo(
+    label,
+    value
+  ) {
+
+    var box =
+      document.createElement(
+        'div'
+      );
+
+    var labelElement =
+      document.createElement(
+        'span'
+      );
+
+    labelElement.textContent =
+      label;
+
+
+    var valueElement =
+      document.createElement(
+        'strong'
+      );
+
+    valueElement.textContent =
+      value;
+
+
+    box.append(
+      labelElement,
+      valueElement
+    );
+
+
+    return box;
+  }
+
+
+  function getStatusText(
+    status
+  ) {
+
+    switch (
+      status
+    ) {
+
+      case 'PENDING':
+        return '예약 대기';
+
+      case 'ACCEPTED':
+        return '예약 확정';
+
+      case 'COMPLETED':
+        return '이용 완료';
+
+      case 'CANCELLED':
+        return '예약 취소';
+
+      default:
+        return status;
+    }
+  }
+
+
+  function getStatusClass(
+    status
+  ) {
+
+    switch (
+      status
+    ) {
+
+      case 'PENDING':
+        return 'pending';
+
+      case 'ACCEPTED':
+        return 'accepted';
+
+      case 'COMPLETED':
+        return 'completed';
+
+      case 'CANCELLED':
+        return 'cancelled';
+
+      default:
+        return '';
+    }
+  }
+
+
+  function formatPrice(
+    value
+  ) {
+
+    return Number(
+      value
+    ).toLocaleString(
+      'ko-KR'
+    );
+  }
+
+})();
+</script>
+
+</body>
+</html>
