@@ -102,4 +102,17 @@ public class CancellationRequestEntity extends AuditedEntity {
         this.decisionReason = reason;
         this.status = CancellationRequestStatus.REJECTED;
     }
+
+    public void approve(UserEntity actor, LocalDateTime decidedAt, String reason) {
+        if (status != CancellationRequestStatus.REQUESTED) {
+            throw new IllegalStateException("Cancellation request has already been decided");
+        }
+        if (reason != null && reason.length() > 255) {
+            throw new IllegalArgumentException("Decision reason is too long");
+        }
+        this.decidedBy = Objects.requireNonNull(actor);
+        this.decidedAt = Objects.requireNonNull(decidedAt);
+        this.decisionReason = reason;
+        this.status = CancellationRequestStatus.APPROVED;
+    }
 }

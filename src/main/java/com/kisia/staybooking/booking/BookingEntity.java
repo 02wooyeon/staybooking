@@ -156,4 +156,24 @@ public class BookingEntity extends AuditedEntity {
         completedAt = nowUtc;
         status = BookingStatus.COMPLETED;
     }
+
+    /**
+     * 예약 취소의 최종 상태 전이. 사용자 신청이 승인된 경우와 운영자가 직접 취소한
+     * 경우 모두 이 메서드를 거치므로 누가, 어떤 사유로 취소했는지 예약에 남는다.
+     */
+    public void cancel(UserEntity actor, CancellationSource source,
+                       CancellationReasonType reasonType, String reason, LocalDateTime nowUtc) {
+        if (status != BookingStatus.PENDING && status != BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Only paid or approved bookings can be cancelled");
+        }
+        if (reason != null && reason.length() > 255) {
+            throw new IllegalArgumentException("Cancellation reason is too long");
+        }
+        cancelledBy = Objects.requireNonNull(actor);
+        cancelSource = Objects.requireNonNull(source);
+        cancelReasonType = Objects.requireNonNull(reasonType);
+        cancelledAt = Objects.requireNonNull(nowUtc);
+        cancelReason = reason;
+        status = BookingStatus.CANCELLED;
+    }
 }
