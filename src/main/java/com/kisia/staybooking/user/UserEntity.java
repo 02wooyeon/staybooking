@@ -79,6 +79,12 @@ public class UserEntity extends AuditedEntity {
         this.phone = phone;
     }
 
+    public UserEntity(String loginId, String passwordHash, String name, String nickname,
+                      String email, String phone, UserRole role) {
+        this(loginId, passwordHash, name, nickname, email, phone);
+        this.role = Objects.requireNonNull(role);
+    }
+
     public Long getUserId() { return userId; }
     public String getLoginId() { return loginId; }
     public String getPasswordHash() { return passwordHash; }
