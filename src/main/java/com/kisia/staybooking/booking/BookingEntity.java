@@ -157,6 +157,14 @@ public class BookingEntity extends AuditedEntity {
         status = BookingStatus.COMPLETED;
     }
 
+    /** 결제 금액 검증이 끝난 예약만 승인 대기 상태로 전환한다. */
+    public void markPaid(LocalDateTime nowUtc) {
+        if (status != BookingStatus.PAYMENT_PENDING || !nowUtc.isBefore(paymentExpiresAt)) {
+            throw new IllegalStateException("Booking payment is unavailable");
+        }
+        status = BookingStatus.PENDING;
+    }
+
     /**
      * 예약 취소의 최종 상태 전이. 사용자 신청이 승인된 경우와 운영자가 직접 취소한
      * 경우 모두 이 메서드를 거치므로 누가, 어떤 사유로 취소했는지 예약에 남는다.

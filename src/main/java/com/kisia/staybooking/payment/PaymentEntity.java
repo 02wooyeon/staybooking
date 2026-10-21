@@ -81,4 +81,13 @@ public class PaymentEntity extends AuditedEntity {
     public long getPaidAmount() { return paidAmount; }
     public PaymentStatus getStatus() { return status; }
     public LocalDateTime getPaidAt() { return paidAt; }
+
+    public void complete(String verifiedPaymentKey, LocalDateTime nowUtc) {
+        if (status != PaymentStatus.READY || verifiedPaymentKey == null || verifiedPaymentKey.isBlank()) {
+            throw new IllegalStateException("Payment cannot be completed");
+        }
+        paymentKey = verifiedPaymentKey;
+        paidAt = Objects.requireNonNull(nowUtc);
+        status = PaymentStatus.PAID;
+    }
 }
