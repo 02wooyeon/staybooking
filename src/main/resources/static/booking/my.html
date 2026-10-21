@@ -298,7 +298,7 @@
   <section class="my-booking-title">
 
     <h1>
-      내 예약
+      내 예약 정보
     </h1>
 
     <p>
@@ -385,6 +385,13 @@
     {
       bookingId: 1001,
 
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'SXZLHLT79U565WUE',
+
+      accommodationId:
+        1,
+
       accommodationName:
         '스테이 강남',
 
@@ -414,6 +421,13 @@
     {
       bookingId: 1002,
 
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'ZDACEAY966R36ZXQ',
+
+      accommodationId:
+        3,
+
       accommodationName:
         '한강 스테이',
 
@@ -442,6 +456,13 @@
 
     {
       bookingId: 1003,
+
+      // 서버가 생성하는 예약번호 (영문 대문자+숫자 16자리)
+      bookingNumber:
+        'G6G4ST9Q4FYLW923',
+
+      accommodationId:
+        2,
 
       accommodationName:
         '서울 시티 호텔',
@@ -745,8 +766,9 @@
 
           createInfo(
             '예약번호',
-            '#' +
-            booking.bookingId
+            Ui.formatBookingNumber(
+              booking.bookingNumber
+            )
           )
         );
 
@@ -831,8 +853,10 @@
           function () {
 
             alert(
-              '예약번호 #' +
-              booking.bookingId +
+              '예약번호 ' +
+              Ui.formatBookingNumber(
+                booking.bookingNumber
+              ) +
               '\n\n' +
               booking
                 .accommodationName +
