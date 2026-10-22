@@ -62,7 +62,7 @@
 </td>
 <td>
 <div class="infoBox duration">
-<div class="counter">0.578s</div>
+<div class="counter">0.856s</div>
 <p>duration</p>
 </div>
 </td>
@@ -93,12 +93,14 @@
 </thead>
 <tbody>
 <tr>
-<td class="success">contextLoads()</td>
+<td class="success">
+<a href="contextLoads().html">contextLoads()</a>
+</td>
 <td class="path" hidden="">contextLoads()</td>
 <td>1</td>
 <td>0</td>
 <td>0</td>
-<td data-sort-value="11">0.011s</td>
+<td data-sort-value="298">0.298s</td>
 <td class="success" data-sort-value="100">100%</td>
 </tr>
 </tbody>
@@ -108,10 +110,8 @@
 <div class="tab">
 <h2>standard output</h2>
 <span class="code">
-<pre id="root-0-test-stdout-com.kisia.staybooking.StaybookingApplicationTests">2026-10-21T20:32:18.783+09:00  INFO 289838 --- [    Test worker] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.kisia.staybooking.StaybookingApplicationTests]: StaybookingApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-10-21T20:32:18.784+09:00  INFO 289838 --- [    Test worker] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.kisia.staybooking.StaybookingApplication for test class com.kisia.staybooking.StaybookingApplicationTests
-2026-10-21T20:32:18.784+09:00  INFO 289838 --- [    Test worker] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.kisia.staybooking.StaybookingApplicationTests]: StaybookingApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-2026-10-21T20:32:18.785+09:00  INFO 289838 --- [    Test worker] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.kisia.staybooking.StaybookingApplication for test class com.kisia.staybooking.StaybookingApplicationTests
+<pre id="root-0-test-stdout-com.kisia.staybooking.StaybookingApplicationTests">21:20:33.947 [Test worker] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.kisia.staybooking.StaybookingApplicationTests]: StaybookingApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+21:20:33.985 [Test worker] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.kisia.staybooking.StaybookingApplication for test class com.kisia.staybooking.StaybookingApplicationTests
 
   .   ____          _            __ _ _
  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
@@ -120,41 +120,11 @@
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
 
- :: Spring Boot ::                (v4.1.1)
+ :: Spring Boot ::               (v3.5.16)
 
-2026-10-21T20:32:18.803+09:00  INFO 289838 --- [    Test worker] c.k.s.StaybookingApplicationTests        : Starting StaybookingApplicationTests using Java 25.0.2 with PID 289838 (started by arc in /home/arc/TP/staybooking)
-2026-10-21T20:32:18.803+09:00  INFO 289838 --- [    Test worker] c.k.s.StaybookingApplicationTests        : No active profile set, falling back to 1 default profile: &quot;default&quot;
-2026-10-21T20:32:18.907+09:00  INFO 289838 --- [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-10-21T20:32:18.921+09:00  INFO 289838 --- [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 12 ms. Found 7 JPA repository interfaces.
-2026-10-21T20:32:18.980+09:00  INFO 289838 --- [    Test worker] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
-2026-10-21T20:32:18.998+09:00  INFO 289838 --- [    Test worker] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-10-21T20:32:18.999+09:00  INFO 289838 --- [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Starting...
-2026-10-21T20:32:19.001+09:00  INFO 289838 --- [    Test worker] com.zaxxer.hikari.pool.HikariPool        : HikariPool-3 - Added connection conn37: url=jdbc:h2:mem:955bdd32-f5ff-4983-8e57-5f926f780403 user=SA
-2026-10-21T20:32:19.001+09:00  INFO 289838 --- [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Start completed.
-2026-10-21T20:32:19.002+09:00  INFO 289838 --- [    Test worker] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
-	Database JDBC URL [jdbc:h2:mem:955bdd32-f5ff-4983-8e57-5f926f780403]
-	Database driver: H2 JDBC Driver
-	Database dialect: H2Dialect
-	Database version: 2.3.232
-	Default catalog/schema: 955BDD32-F5FF-4983-8E57-5F926F780403/PUBLIC
-	Autocommit mode: undefined/unknown
-	Isolation level: READ_COMMITTED [default READ_COMMITTED]
-	JDBC fetch size: 100
-	Pool: DataSourceConnectionProvider
-	Minimum pool size: undefined/unknown
-	Maximum pool size: undefined/unknown
-2026-10-21T20:32:19.095+09:00  INFO 289838 --- [    Test worker] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-10-21T20:32:19.116+09:00  INFO 289838 --- [    Test worker] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-10-21T20:32:19.253+09:00  WARN 289838 --- [    Test worker] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-10-21T20:32:19.271+09:00  WARN 289838 --- [    Test worker] .s.a.UserDetailsServiceAutoConfiguration : 
-
-Using generated security password: f2d6ef2c-cfeb-4f9c-b68d-7def3baf059e
-
-This generated password is for development use only. Your security configuration must be updated before running your application in production.
-
-2026-10-21T20:32:19.272+09:00  INFO 289838 --- [    Test worker] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
-2026-10-21T20:32:19.295+09:00  INFO 289838 --- [    Test worker] o.s.b.w.a.WelcomePageHandlerMapping      : Adding welcome page: class path resource [static/index.html]
-2026-10-21T20:32:19.347+09:00  INFO 289838 --- [    Test worker] c.k.s.StaybookingApplicationTests        : Started StaybookingApplicationTests in 0.559 seconds (process running for 14.2)
+2026-10-12T21:20:34.117+09:00  INFO 38653 --- [staybooking] [    Test worker] c.k.s.StaybookingApplicationTests        : Starting StaybookingApplicationTests using Java 25.0.2 with PID 38653 (started by root1 in /Users/root1/Project/staybooking)
+2026-10-12T21:20:34.117+09:00  INFO 38653 --- [staybooking] [    Test worker] c.k.s.StaybookingApplicationTests        : No active profile set, falling back to 1 default profile: &quot;default&quot;
+2026-10-12T21:20:34.454+09:00  INFO 38653 --- [staybooking] [    Test worker] c.k.s.StaybookingApplicationTests        : Started StaybookingApplicationTests in 0.423 seconds (process running for 0.818)
 </pre>
 <button class="clipboard-copy-btn" aria-label="Copy to clipboard" data-copy-element-id="root-0-test-stdout-com.kisia.staybooking.StaybookingApplicationTests">Copy</button>
 </span>
@@ -169,7 +139,7 @@ This generated password is for development use only. Your security configuration
 <input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
 </label>
 </div>Generated by 
-<a href="https://www.gradle.org">Gradle 9.7.1</a> at Oct 21, 2026, 8:32:19 PM</p>
+<a href="https://www.gradle.org">Gradle 9.7.1</a> at 2026. 10. 12. 오후 9:20:34</p>
 </div>
 </div>
 </body>
