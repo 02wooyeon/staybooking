@@ -39,5 +39,18 @@ class AdminStatisticsApiTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.activeMembers").isNumber())
             .andExpect(jsonPath("$.unansweredQuestions").isNumber());
+
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary"))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(member)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.grossPaidAmount").isNumber())
+            .andExpect(jsonPath("$.approvedRefundAmount").isNumber())
+            .andExpect(jsonPath("$.netPaidAmount").isNumber())
+            .andExpect(jsonPath("$.requestedRefundAmount").isNumber());
     }
 }

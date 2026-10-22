@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     long countByStatus(PaymentStatus status);
+    @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p where p.status in :statuses")
+    long sumPaidAmountByStatusIn(@Param("statuses") List<PaymentStatus> statuses);
     @EntityGraph(attributePaths = "booking")
     List<PaymentEntity> findAllByOrderByCreatedAtDesc();
     Page<PaymentEntity> findAllByOrderByCreatedAtDescPaymentIdDesc(Pageable pageable);

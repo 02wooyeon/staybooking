@@ -1,5 +1,7 @@
 package com.kisia.staybooking.statistics;
 
+import java.util.List;
+
 import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.accommodation.AccommodationStatus;
 import com.kisia.staybooking.booking.BookingRepository;
@@ -53,5 +55,15 @@ public class AdminStatisticsService {
             refunds.countByStatus(RefundStatus.REQUESTED),
             questions.countVisibleUnanswered()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminPaymentSummary paymentSummary() {
+        long grossPaidAmount = payments.sumPaidAmountByStatusIn(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED));
+        long approvedRefundAmount = refunds.sumAmountByStatus(RefundStatus.APPROVED);
+        long requestedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REQUESTED);
+        return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
+            Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
     }
 }

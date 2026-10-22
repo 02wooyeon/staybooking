@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.Collection;
 public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
  long countByStatus(RefundStatus status);
+ @Query("select coalesce(sum(r.amount), 0) from RefundEntity r where r.status = :status")
+ long sumAmountByStatus(@Param("status") RefundStatus status);
  @EntityGraph(attributePaths={"booking","processedBy"})
  List<RefundEntity> findAllByOrderByCreatedAtDesc();
  @EntityGraph(attributePaths={"booking","processedBy"})

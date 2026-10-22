@@ -12,7 +12,9 @@ import com.kisia.staybooking.qna.QnaEntity;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.statistics.AdminOverview;
+import com.kisia.staybooking.statistics.AdminPaymentSummary;
 import com.kisia.staybooking.statistics.AdminStatisticsService;
+import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRole;
 import jakarta.persistence.EntityManager;
@@ -69,5 +71,51 @@ class AdminStatisticsServiceTests {
         assertEquals(1, result.paidPayments());
         assertEquals(1, result.requestedRefunds());
         assertEquals(1, result.unansweredQuestions());
+    }
+
+    @Test
+    void paymentSummaryCountsOriginalPaidAmountsAndOnlyApprovedRefunds() {
+        UserEntity admin = new UserEntity("paymentsummary", "hash", "Admin", null,
+            "paymentsummary@example.test", null, UserRole.ROLE_ADMIN);
+        em.persist(admin);
+        AccommodationEntity stay = new AccommodationEntity("Stay", "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0));
+        em.persist(stay);
+        RoomEntity room = new RoomEntity(stay, "Standard", 100_000, 2, 1);
+        em.persist(room);
+
+        long[] amounts = {100_000, 80_000, 50_000, 20_000, 30_000};
+        BookingEntity[] bookings = new BookingEntity[amounts.length];
+        PaymentEntity[] payments = new PaymentEntity[amounts.length];
+        for (int i = 0; i < amounts.length; i++) {
+            bookings[i] = new BookingEntity(admin, room,
+                LocalDate.now().plusDays(2 + i * 2), LocalDate.now().plusDays(3 + i * 2),
+                1, amounts[i], 0, LocalDateTime.now().plusDays(1));
+            em.persist(bookings[i]);
+            payments[i] = new PaymentEntity(bookings[i], "summary-order-" + i, "CARD", amounts[i]);
+            em.persist(payments[i]);
+            if (i != 3) payments[i].complete("summary-key-" + i, LocalDateTime.now());
+        }
+        payments[1].refund(20_000);
+        payments[2].refund(50_000);
+
+        RefundEntity requested = new RefundEntity(bookings[0], 10_000, "Pending");
+        RefundEntity partial = new RefundEntity(bookings[1], 20_000, "Partial");
+        RefundEntity full = new RefundEntity(bookings[2], 50_000, "Full");
+        RefundEntity rejected = new RefundEntity(bookings[4], 5_000, "Rejected");
+        em.persist(requested);
+        em.persist(partial);
+        em.persist(full);
+        em.persist(rejected);
+        partial.process(admin, RefundStatus.APPROVED, LocalDateTime.now());
+        full.process(admin, RefundStatus.APPROVED, LocalDateTime.now());
+        rejected.process(admin, RefundStatus.REJECTED, LocalDateTime.now());
+        em.flush();
+
+        AdminPaymentSummary result = statistics.paymentSummary();
+        assertEquals(260_000, result.grossPaidAmount());
+        assertEquals(70_000, result.approvedRefundAmount());
+        assertEquals(190_000, result.netPaidAmount());
+        assertEquals(10_000, result.requestedRefundAmount());
     }
 }

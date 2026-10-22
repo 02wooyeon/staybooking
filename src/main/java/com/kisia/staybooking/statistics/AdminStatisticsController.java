@@ -17,4 +17,9 @@ public class AdminStatisticsController {
     public AdminOverview overview() {
         return statistics.overview();
     }
+
+    @GetMapping("/payment-summary")
+    public AdminPaymentSummary paymentSummary() {
+        return statistics.paymentSummary();
+    }
 }
