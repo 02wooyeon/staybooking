@@ -50,6 +50,24 @@ class AdminMutationPersistenceTests {
     @Autowired private BookingCancellationService cancellations;
 
     @Test
+    void createdAccommodationAndRoomKeepRequestedDescriptionAndStatus() {
+        String tag = Long.toString(System.nanoTime());
+        AccommodationEntity stay = accommodationsAdmin.create(
+            new AdminAccommodationController.AccommodationRequest("New stay " + tag, "Busan",
+                LocalTime.of(15, 0), LocalTime.of(11, 0), "Opening soon", AccommodationStatus.INACTIVE));
+        RoomEntity room = accommodationsAdmin.createRoom(stay.getAccommodationId(),
+            new AdminAccommodationController.RoomRequest("Suite", 180_000, 3, 2,
+                "Under preparation", RoomStatus.INACTIVE));
+
+        AccommodationEntity savedStay = accommodations.findById(stay.getAccommodationId()).orElseThrow();
+        RoomEntity savedRoom = rooms.findById(room.getRoomId()).orElseThrow();
+        assertEquals("Opening soon", savedStay.getDescription());
+        assertEquals(AccommodationStatus.INACTIVE, savedStay.getStatus());
+        assertEquals("Under preparation", savedRoom.getDescription());
+        assertEquals(RoomStatus.INACTIVE, savedRoom.getStatus());
+    }
+
+    @Test
     void memberAndInventoryUpdatesSurviveReload() {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("admin" + tag, "hash", "Admin", null,
