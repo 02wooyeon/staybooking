@@ -95,4 +95,5 @@ public class UserEntity extends AuditedEntity {
     public UserRole getRole() { return role; }
     public UserStatus getStatus() { return status; }
     public long getMileageBalance() { return mileageBalance; }
+    public void changeStatus(UserStatus status) { this.status = Objects.requireNonNull(status); }
 }
