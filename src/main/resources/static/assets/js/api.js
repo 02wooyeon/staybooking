@@ -174,6 +174,10 @@
       return authed('GET', '/api/v1/bookings/me');
     },
 
+    getMyBooking: function (bookingId) {
+      return authed('GET', '/api/v1/bookings/' + encodeURIComponent(bookingId));
+    },
+
     getAccommodation: function (accommodationId, search) {
       var query = search ? '?' + search.toString() : '';
       return request('GET', '/api/v1/accommodations/' + encodeURIComponent(accommodationId) + query);
@@ -189,6 +193,18 @@
 
     completeDemoPayment: function (bookingId) {
       return authed('POST', '/api/v1/payments/demo-complete', { bookingId: bookingId });
+    },
+
+    preparePayment: function (bookingId, paymentMethod) {
+      return authed('POST', '/api/v1/payments/prepare', {
+        bookingId: bookingId, paymentMethod: paymentMethod
+      });
+    },
+
+    confirmTossPayment: function (orderId, paymentKey, amount) {
+      return authed('POST', '/api/v1/payments/toss/confirm', {
+        orderId: orderId, paymentKey: paymentKey, amount: amount
+      });
     },
 
     /** 사용자는 예약을 즉시 취소하지 않고 승인자에게 취소를 신청한다. */

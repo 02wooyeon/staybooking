@@ -28,9 +28,16 @@ public class PaymentService {
     public PaymentEntity prepare(Long userId, Long bookingId, String paymentMethod) {
         BookingEntity booking = ownedBooking(userId, bookingId);
         ensurePaymentPending(booking);
-        return payments.findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(bookingId, PaymentStatus.READY)
-            .orElseGet(() -> payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod,
-                booking.getTotalAmount() - booking.getUsedMileage())));
+        PaymentEntity ready = payments.findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(
+            bookingId, PaymentStatus.READY).orElse(null);
+        if (ready != null) {
+            if (!ready.getPaymentMethod().equals(paymentMethod)) {
+                throw new IllegalStateException("A different payment method is already prepared");
+            }
+            return ready;
+        }
+        return payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod,
+            booking.getTotalAmount() - booking.getUsedMileage()));
     }
 
     @Transactional

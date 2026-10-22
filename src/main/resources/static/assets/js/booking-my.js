@@ -7,6 +7,7 @@
   var tabs = document.querySelectorAll('.my-booking-tab');
   var bookings = [];
   var demoPaymentEnabled = false;
+  var tossPaymentEnabled = false;
   var selected = 'ALL';
   var statusLabels = {
     PAYMENT_PENDING: '결제 대기',
@@ -105,7 +106,12 @@
       var cancel = document.createElement('button');
       cancel.type = 'button';
       cancel.className = 'my-booking-cancel-button';
-      if (booking.status === 'PAYMENT_PENDING' && demoPaymentEnabled && !paymentExpired(booking)) {
+      if (booking.status === 'PAYMENT_PENDING' && tossPaymentEnabled && !paymentExpired(booking)) {
+        cancel.textContent = '결제하기';
+        cancel.addEventListener('click', function () {
+          window.location.href = '/payment/checkout.html?bookingId=' + encodeURIComponent(booking.bookingId);
+        });
+      } else if (booking.status === 'PAYMENT_PENDING' && demoPaymentEnabled && !paymentExpired(booking)) {
         cancel.textContent = '테스트 결제 (실제 청구 없음)';
         cancel.addEventListener('click', function () { completeDemoPayment(booking, cancel); });
       } else if (booking.status === 'PENDING' || booking.status === 'COMPLETED') {
@@ -177,6 +183,7 @@
       var results = await Promise.all([BookingApi.getMyBookings(), BookingApi.getPaymentCapabilities()]);
       bookings = results[0];
       demoPaymentEnabled = results[1].demoEnabled === true;
+      tossPaymentEnabled = results[1].tossEnabled === true;
       render();
       if (new URLSearchParams(window.location.search).has('created')) {
         Ui.showAlert(alertBox, '예약이 접수되었습니다. 결제 후 승인 대기 상태로 넘어갑니다.', 'success');

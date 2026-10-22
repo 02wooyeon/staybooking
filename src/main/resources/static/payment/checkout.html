@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>예약 결제 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <style>
+    main { width: min(720px, calc(100% - 32px)); margin: 48px auto 80px; }
+    .payment-summary { padding: 20px; border: 1px solid #ddd; border-radius: 12px; margin: 20px 0; }
+    .payment-summary p { margin: 8px 0; }
+    #payment-button { width: 100%; padding: 15px; border: 0; border-radius: 9px; cursor: pointer; }
+    #payment-button:disabled { cursor: not-allowed; opacity: .6; }
+  </style>
+</head>
+<body data-payment-page="checkout">
+<main>
+  <h1>예약 결제</h1>
+  <div id="payment-alert" class="alert alert-error" hidden></div>
+  <div class="payment-summary">
+    <p id="payment-stay">예약을 확인하고 있습니다.</p>
+    <p id="payment-dates"></p>
+    <strong id="payment-amount"></strong>
+  </div>
+  <div id="payment-method"></div>
+  <div id="payment-agreement"></div>
+  <button id="payment-button" type="button" disabled>결제하기</button>
+  <p><a href="/booking/my.html">내 예약으로 돌아가기</a></p>
+</main>
+<script src="/assets/js/api.js"></script>
+<script src="/assets/js/common.js"></script>
+<script src="https://js.tosspayments.com/v2/standard"></script>
+<script src="/assets/js/payment.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,12 +21,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/payments")
 public class PaymentController {
     private final PaymentService payments;
+    private final TossPaymentConfirmationService tossConfirmations;
+    private final TossPaymentGateway tossGateway;
     private final boolean demoEnabled;
 
-    public PaymentController(PaymentService payments,
+    public PaymentController(PaymentService payments, TossPaymentConfirmationService tossConfirmations,
+                             TossPaymentGateway tossGateway,
                              @Value("${staybooking.payment.demo-enabled:false}") boolean demoEnabled) {
         this.payments = payments;
-        this.demoEnabled = demoEnabled;
+        this.tossConfirmations = tossConfirmations;
+        this.tossGateway = tossGateway;
+        this.demoEnabled = demoEnabled && !tossGateway.isConfigured();
     }
 
     @PostMapping("/prepare")
@@ -43,9 +49,16 @@ public class PaymentController {
             request.amount()));
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/capabilities")
+    @GetMapping("/capabilities")
     public PaymentCapabilities capabilities() {
-        return new PaymentCapabilities(demoEnabled);
+        return new PaymentCapabilities(demoEnabled, tossGateway.isConfigured(), tossGateway.clientKey());
+    }
+
+    @PostMapping("/toss/confirm")
+    public PaymentResponse confirmToss(@AuthenticationPrincipal AuthenticatedUser me,
+                                       @Valid @RequestBody PaymentCompleteRequest request) {
+        return PaymentResponse.from(tossConfirmations.confirm(me.userId(), request.orderId(),
+            request.paymentKey(), request.amount()));
     }
 
     @PostMapping("/demo-complete")
@@ -62,7 +75,7 @@ public class PaymentController {
         }
     }
 
-    public record PaymentCapabilities(boolean demoEnabled) { }
+    public record PaymentCapabilities(boolean demoEnabled, boolean tossEnabled, String tossClientKey) { }
 
     public record DemoCompleteRequest(@NotNull @Positive Long bookingId) { }
 
@@ -70,7 +83,7 @@ public class PaymentController {
                                         @NotBlank @Size(max = 30) String paymentMethod) { }
 
     public record PaymentCompleteRequest(@NotBlank @Size(max = 100) String orderId,
-                                         @NotBlank @Size(max = 255) String paymentKey,
+                                         @NotBlank @Size(max = 200) String paymentKey,
                                          @Positive long amount) { }
 
     public record PaymentResponse(Long paymentId, Long bookingId, String orderId, long amount, String status) {
