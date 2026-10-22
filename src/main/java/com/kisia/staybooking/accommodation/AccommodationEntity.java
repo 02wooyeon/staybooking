@@ -71,4 +71,11 @@ public class AccommodationEntity extends AuditedEntity {
     public LocalTime getCheckInTime() { return checkInTime; }
     public LocalTime getCheckOutTime() { return checkOutTime; }
     public AccommodationStatus getStatus() { return status; }
+
+    public void update(String name, String address, LocalTime checkInTime, LocalTime checkOutTime,
+                       String description, AccommodationStatus status) {
+        this.name = Objects.requireNonNull(name); this.address = Objects.requireNonNull(address);
+        this.checkInTime = Objects.requireNonNull(checkInTime); this.checkOutTime = Objects.requireNonNull(checkOutTime);
+        this.description = description; this.status = Objects.requireNonNull(status);
+    }
 }
