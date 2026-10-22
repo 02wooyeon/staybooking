@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final int REFRESH_TOKEN_BYTES = 32;
-    private static final int MIN_EMAIL_ID_IN_PASSWORD = 4;
 
     private final UserRepository users;
     private final RefreshTokenRepository refreshTokens;
@@ -62,9 +61,7 @@ public class AuthService {
     public SignupResponse signup(SignupRequest request) {
         String email = normalizeEmail(request.email());
         List<String> invalid = new ArrayList<>();
-        String emailId = email.substring(0, Math.max(email.indexOf('@'), 0));
-        if (emailId.length() >= MIN_EMAIL_ID_IN_PASSWORD
-                && request.password().toLowerCase(Locale.ROOT).contains(emailId)) {
+        if (PasswordRules.containsEmailId(email, request.password())) {
             invalid.add("password");
         }
         if (!request.password().equals(request.passwordConfirm())) {

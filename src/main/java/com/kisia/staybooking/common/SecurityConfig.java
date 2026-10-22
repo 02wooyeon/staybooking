@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/accommodations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/mine").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/public", "/api/v1/qna/{qnaId}").permitAll()
+                // 후기 사진은 비회원도 본다. 누가 볼 수 있는지는 FileService가 파일마다 다시 검사한다.
+                .requestMatchers(HttpMethod.GET, "/api/v1/uploads/Images/{fileId}").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/approver/**").hasAnyRole("APPROVER", "ADMIN")
                 .requestMatchers("/api/**").authenticated()
