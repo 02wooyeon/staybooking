@@ -6,10 +6,12 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
  long countByStatus(RefundStatus status);
  List<RefundEntity> findAllByOrderByCreatedAtDesc();
  boolean existsByBookingBookingId(Long bookingId);
+ List<RefundEntity> findByBookingBookingIdIn(Collection<Long> bookingIds);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select r from RefundEntity r where r.refundId = :id")
  Optional<RefundEntity> findByIdForUpdate(@Param("id") Long id);
