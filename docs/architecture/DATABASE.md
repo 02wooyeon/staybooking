@@ -46,6 +46,7 @@ erDiagram
 | `created_at`, `updated_at` | DATETIME(6) NN | 생성·수정 시각 |
 
 공개 회원가입으로 만들 수 있는 역할은 `ROLE_USER`뿐입니다. 승인자와 관리자는 관리자 작업 또는 초기 데이터로 부여합니다.
+관리자 회원 API는 일반 회원을 `ROLE_APPROVER`로 지정하거나 다시 `ROLE_USER`로 돌릴 수 있습니다. `ROLE_ADMIN` 부여·변경은 이 API에서 허용하지 않습니다.
 정지·탈퇴 시 Refresh Token은 폐기하며, 재활성화 후에도 이전 Access Token을 사용할 수 없습니다.
 
 ### `accommodations`

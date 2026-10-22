@@ -107,4 +107,16 @@ public class UserEntity extends AuditedEntity {
             tokenVersion++;
         }
     }
+    public void changeAssignableRole(UserRole role) {
+        if (this.role == UserRole.ROLE_ADMIN) {
+            throw new IllegalStateException("Administrator role cannot be changed here");
+        }
+        if (role != UserRole.ROLE_USER && role != UserRole.ROLE_APPROVER) {
+            throw new IllegalArgumentException("Only user and approver roles are assignable");
+        }
+        if (this.role != role) {
+            this.role = role;
+            tokenVersion++;
+        }
+    }
 }
