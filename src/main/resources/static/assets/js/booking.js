@@ -118,6 +118,26 @@
   };
 
 
+  /*
+   * 로그인 전 화면 확인용 계정 정보
+   * (마이페이지 mock과 같은 값)
+   *
+   * 실제 API:
+   * GET /api/v1/members/me
+   * → name, phone, mileageBalance
+   */
+  var MOCK_PROFILE = {
+    name: '홍길동',
+    phone: '010-1234-5678',
+    mileageBalance: 12500
+  };
+
+
+  // 회원가입·마이페이지와 같은 규칙
+  var NAME_RE = /^[가-힣A-Za-z ]{2,20}$/;
+  var PHONE_RE = /^01[016789]-?\d{3,4}-?\d{4}$/;
+
+
   var form =
     document.getElementById(
       'booking-form'
@@ -193,14 +213,106 @@
       'booking-submit-button'
     );
 
+  var submitErrorEl =
+    document.getElementById(
+      'booking-submit-error'
+    );
 
-  Ui.renderHeader();
+  var guestName =
+    document.getElementById(
+      'booking-guest-name'
+    );
+
+  var guestPhone =
+    document.getElementById(
+      'booking-guest-phone'
+    );
+
+  var mileageInput =
+    document.getElementById(
+      'booking-mileage'
+    );
+
+  var mileageAllButton =
+    document.getElementById(
+      'booking-mileage-all'
+    );
+
+  var mileageBalanceEl =
+    document.getElementById(
+      'booking-mileage-balance'
+    );
+
+  var mileageHelpEl =
+    document.getElementById(
+      'booking-mileage-help'
+    );
+
+  var mileageDiscountEl =
+    document.getElementById(
+      'booking-mileage-discount'
+    );
+
+  var finalPriceEl =
+    document.getElementById(
+      'booking-final-price'
+    );
+
+  var methodButtons =
+    document.querySelectorAll(
+      '.payment-method'
+    );
+
+  var easyPayButtons =
+    document.querySelectorAll(
+      '.easy-pay-option'
+    );
+
+  var cardPanel =
+    document.getElementById(
+      'payment-card-panel'
+    );
+
+  var easyPanel =
+    document.getElementById(
+      'payment-easy-panel'
+    );
+
+  var mileageOnlyNote =
+    document.getElementById(
+      'payment-mileage-only'
+    );
+
+  var cardNumber =
+    document.getElementById(
+      'booking-card-number'
+    );
+
+  var cardExpiry =
+    document.getElementById(
+      'booking-card-expiry'
+    );
+
+  var cardCvc =
+    document.getElementById(
+      'booking-card-cvc'
+    );
+
+
+  // 보유 마일리지와 선택한 결제수단
+  var mileageBalance = 0;
+  var paymentMethod = 'CARD';
+  var easyPayProvider = null;
+
+
+  var headerReady =
+    Ui.renderHeader();
 
 
   /*
    * 상세 페이지에서 전달된 값
    *
-   * /booking/create.html
+   * /booking/quote.html
    * ?accommodationId=1
    * &roomId=101
    */
@@ -313,6 +425,198 @@
 
 
   /*
+   * 이용자 정보·마일리지 기본값
+   * 로그인 상태면 내 정보 API 값을, 아니면 mock 값을 사용한다.
+   */
+  headerReady.then(
+    function (me) {
+
+      var profile =
+        me ||
+        (USE_MOCK_DATA ? MOCK_PROFILE : null);
+
+      if (!profile) {
+        return;
+      }
+
+      // 사용자가 먼저 입력한 값은 덮어쓰지 않는다
+      if (!guestName.value) {
+        guestName.value =
+          profile.name || '';
+      }
+
+      if (!guestPhone.value) {
+        guestPhone.value =
+          formatPhone(
+            profile.phone || ''
+          );
+      }
+
+      mileageBalance =
+        Math.max(
+          0,
+          Number(profile.mileageBalance) || 0
+        );
+
+      mileageBalanceEl.textContent =
+        formatPrice(
+          mileageBalance
+        ) +
+        ' P';
+
+      updatePrice();
+    }
+  );
+
+
+  guestPhone.addEventListener(
+    'input',
+    function () {
+
+      guestPhone.value =
+        formatPhone(
+          guestPhone.value
+        );
+    }
+  );
+
+
+  /*
+   * 마일리지
+   * 보유량과 숙박 금액 중 작은 값까지만 사용할 수 있다.
+   */
+  mileageInput.addEventListener(
+    'input',
+    function () {
+
+      hideAlert();
+
+      updatePrice();
+    }
+  );
+
+
+  mileageInput.addEventListener(
+    'blur',
+    function () {
+
+      mileageInput.value =
+        getUsedMileage();
+    }
+  );
+
+
+  mileageAllButton.addEventListener(
+    'click',
+    function () {
+
+      mileageInput.value =
+        getMaxMileage();
+
+      updatePrice();
+    }
+  );
+
+
+  /*
+   * 결제수단 선택
+   */
+  methodButtons.forEach(
+    function (button) {
+
+      button.addEventListener(
+        'click',
+        function () {
+
+          hideAlert();
+
+          paymentMethod =
+            button.dataset.method;
+
+          setChecked(
+            methodButtons,
+            button
+          );
+
+          updatePaymentPanels();
+        }
+      );
+    }
+  );
+
+
+  easyPayButtons.forEach(
+    function (button) {
+
+      button.addEventListener(
+        'click',
+        function () {
+
+          hideAlert();
+
+          easyPayProvider =
+            button.dataset.provider;
+
+          setChecked(
+            easyPayButtons,
+            button
+          );
+        }
+      );
+    }
+  );
+
+
+  // 0000-0000-0000-0000
+  cardNumber.addEventListener(
+    'input',
+    function () {
+
+      var digits =
+        cardNumber.value
+          .replace(/\D/g, '')
+          .slice(0, 16);
+
+      cardNumber.value =
+        digits.replace(
+          /(\d{4})(?=\d)/g,
+          '$1-'
+        );
+    }
+  );
+
+
+  // MM/YY
+  cardExpiry.addEventListener(
+    'input',
+    function () {
+
+      var digits =
+        cardExpiry.value
+          .replace(/\D/g, '')
+          .slice(0, 4);
+
+      cardExpiry.value =
+        digits.length > 2
+          ? digits.slice(0, 2) + '/' + digits.slice(2)
+          : digits;
+    }
+  );
+
+
+  cardCvc.addEventListener(
+    'input',
+    function () {
+
+      cardCvc.value =
+        cardCvc.value
+          .replace(/\D/g, '')
+          .slice(0, 4);
+    }
+  );
+
+
+  /*
    * 날짜 / 인원이 바뀔 때
    * 예상 금액 재계산
    */
@@ -414,7 +718,33 @@
         guests:
           Number(
             guests.value
-          )
+          ),
+
+        guestName:
+          guestName.value.trim(),
+
+        guestPhone:
+          guestPhone.value.trim(),
+
+        // 서버가 보유 마일리지·숙박 금액으로 다시 검증한다
+        usedMileage:
+          getUsedMileage(),
+
+        paymentMethod:
+          getFinalAmount() === 0
+            ? 'MILEAGE'
+            : paymentMethod,
+
+        easyPayProvider:
+          paymentMethod === 'EASY_PAY'
+            ? easyPayProvider
+            : null
+
+        /*
+         * 카드 번호·유효기간·CVC는 이 요청에 넣지 않는다.
+         * 실제 연동 시 PG 결제창(SDK)이 카드사로 직접 보내고,
+         * 서버는 PG 결제 결과만 검증한다. (PAY-01, PAY-02)
+         */
       };
 
 
@@ -422,18 +752,19 @@
         USE_MOCK_DATA
       ) {
 
-        alert(
-          '예약 요청 화면 테스트가 완료되었습니다.\n\n' +
-          '객실: ' +
-          room.roomName +
-          '\n체크인: ' +
-          checkIn.value +
-          '\n체크아웃: ' +
-          checkOut.value +
-          '\n인원: ' +
-          guests.value +
-          '명'
-        );
+        /*
+         * 연동 전: 서버 대신 예약을 만들어 이 탭에 저장하고 결제 단계로 넘어간다.
+         * (카드 번호 등 카드 정보는 저장하지 않는다)
+         */
+        var mockBooking =
+          createMockBooking(
+            requestBody
+          );
+
+        window.location.href =
+          mockBooking.status === 'PAYMENT_PENDING'
+            ? '/booking/payment/pay.html?bookingId=' + encodeURIComponent(mockBooking.bookingId)
+            : '/booking/payment/complete.html?bookingId=' + encodeURIComponent(mockBooking.bookingId);
 
         return;
       }
@@ -732,7 +1063,139 @@
     }
 
 
+    /* 이용자 정보 */
+
+    if (
+      !NAME_RE.test(
+        guestName.value.trim()
+      )
+    ) {
+
+      return fail(
+        guestName,
+        '이용자 성명은 한글 또는 영문 2~20자로 입력해 주세요.'
+      );
+    }
+
+
+    if (
+      !PHONE_RE.test(
+        guestPhone.value.trim()
+      )
+    ) {
+
+      return fail(
+        guestPhone,
+        '이용자 연락처를 010-1234-5678 형식으로 입력해 주세요.'
+      );
+    }
+
+
+    /* 마일리지 */
+
+    var mileageValue =
+      Number(
+        mileageInput.value || 0
+      );
+
+    if (
+      !Number.isInteger(mileageValue) ||
+      mileageValue < 0 ||
+      mileageValue > getMaxMileage()
+    ) {
+
+      return fail(
+        mileageInput,
+        '마일리지는 0 ~ ' +
+        formatPrice(
+          getMaxMileage()
+        ) +
+        'P 사이로 입력해 주세요.'
+      );
+    }
+
+
+    /* 결제수단 (마일리지로 전액 결제하면 생략) */
+
+    if (
+      getFinalAmount() === 0
+    ) {
+      return true;
+    }
+
+
+    if (
+      paymentMethod === 'EASY_PAY'
+    ) {
+
+      if (!easyPayProvider) {
+
+        return fail(
+          easyPayButtons[0],
+          '간편 결제 수단을 선택해 주세요.'
+        );
+      }
+
+      return true;
+    }
+
+
+    if (
+      !isValidCardNumber(
+        cardNumber.value
+      )
+    ) {
+
+      return fail(
+        cardNumber,
+        '카드 번호를 확인해 주세요.'
+      );
+    }
+
+
+    if (
+      !isValidExpiry(
+        cardExpiry.value
+      )
+    ) {
+
+      return fail(
+        cardExpiry,
+        '카드 유효기간을 확인해 주세요.'
+      );
+    }
+
+
+    if (
+      !/^\d{3,4}$/.test(
+        cardCvc.value
+      )
+    ) {
+
+      return fail(
+        cardCvc,
+        'CVC 3~4자리를 입력해 주세요.'
+      );
+    }
+
+
     return true;
+  }
+
+
+  // 오류 문구를 보여 주고 해당 칸으로 이동
+  function fail(
+    input,
+    message
+  ) {
+
+    showError(
+      message
+    );
+
+    input.focus();
+
+    return false;
   }
 
 
@@ -757,6 +1220,8 @@
       totalPriceEl.textContent =
         '-';
 
+      updateMileage();
+
       return;
     }
 
@@ -779,6 +1244,337 @@
         nights
       ) +
       '원';
+
+    updateMileage();
+  }
+
+
+  /*
+   * 숙박 금액 (일정 미선택이면 null)
+   */
+  function getStayAmount() {
+
+    if (
+      !checkIn.value ||
+      !checkOut.value ||
+      checkOut.value <=
+        checkIn.value
+    ) {
+      return null;
+    }
+
+    return (
+      room.price *
+      calculateNights(
+        checkIn.value,
+        checkOut.value
+      )
+    );
+  }
+
+
+  // 사용할 수 있는 최대 마일리지 = min(보유, 숙박 금액)
+  function getMaxMileage() {
+
+    var stay =
+      getStayAmount();
+
+    return stay === null
+      ? mileageBalance
+      : Math.min(
+          mileageBalance,
+          stay
+        );
+  }
+
+
+  // 입력값을 0 ~ 최대 사용 가능 범위의 정수로 맞춘 값
+  function getUsedMileage() {
+
+    var value =
+      Math.floor(
+        Number(
+          mileageInput.value
+        ) || 0
+      );
+
+    return Math.min(
+      Math.max(
+        value,
+        0
+      ),
+      getMaxMileage()
+    );
+  }
+
+
+  function getFinalAmount() {
+
+    var stay =
+      getStayAmount();
+
+    return stay === null
+      ? null
+      : stay - getUsedMileage();
+  }
+
+
+  /*
+   * 마일리지 사용액·최종 금액 표시
+   */
+  function updateMileage() {
+
+    var max =
+      getMaxMileage();
+
+    var used =
+      getUsedMileage();
+
+    var finalAmount =
+      getFinalAmount();
+
+
+    mileageInput.max =
+      max;
+
+    mileageAllButton.disabled =
+      max === 0;
+
+    mileageHelpEl.textContent =
+      getStayAmount() === null
+        ? '숙박 일정을 선택하면 사용할 수 있는 최대 마일리지가 계산됩니다.'
+        : '최대 ' +
+          formatPrice(max) +
+          'P까지 사용할 수 있습니다.';
+
+    mileageDiscountEl.textContent =
+      used > 0
+        ? '-' + formatPrice(used) + '원'
+        : '0원';
+
+    finalPriceEl.textContent =
+      finalAmount === null
+        ? '-'
+        : formatPrice(finalAmount) + '원';
+
+    updatePaymentPanels();
+  }
+
+
+  /*
+   * 선택한 결제수단 입력 칸만 보여 준다.
+   * 마일리지로 전액 결제하면 결제수단을 숨긴다.
+   */
+  function updatePaymentPanels() {
+
+    var mileageOnly =
+      getFinalAmount() === 0;
+
+    cardPanel.hidden =
+      mileageOnly ||
+      paymentMethod !== 'CARD';
+
+    easyPanel.hidden =
+      mileageOnly ||
+      paymentMethod !== 'EASY_PAY';
+
+    mileageOnlyNote.hidden =
+      !mileageOnly;
+
+    methodButtons.forEach(
+      function (button) {
+        button.disabled =
+          mileageOnly;
+      }
+    );
+  }
+
+
+  function setChecked(
+    buttons,
+    selected
+  ) {
+
+    buttons.forEach(
+      function (button) {
+
+        button.setAttribute(
+          'aria-checked',
+          button === selected
+            ? 'true'
+            : 'false'
+        );
+      }
+    );
+  }
+
+
+  /*
+   * 연동 전 mock 예약 (결제 화면 payment.js가 읽는다)
+   * 실제로는 POST /api/v1/bookings 응답과 서버가 만든 값을 쓴다.
+   */
+  function createMockBooking(
+    body
+  ) {
+
+    // 서버가 만들 예약번호와 같은 형식 (영문 대문자+숫자 16자리, 0·O·1·I 제외)
+    var BOOKING_NUMBER_CHARS =
+      'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+    var randomBytes =
+      new Uint8Array(16);
+
+    crypto.getRandomValues(
+      randomBytes
+    );
+
+    var bookingNumber =
+      Array.from(
+        randomBytes,
+        function (b) {
+          return BOOKING_NUMBER_CHARS[b % 32];
+        }
+      ).join('');
+
+    var bookingId =
+      Date.now();
+
+    var finalAmount =
+      getFinalAmount();
+
+    var booking = {
+      bookingId: bookingId,
+      bookingNumber: bookingNumber,
+      orderId: 'ORDER_' + bookingId,
+      accommodationName: room.accommodationName,
+      roomName: room.roomName,
+      checkIn: body.checkIn,
+      checkOut: body.checkOut,
+      nights: calculateNights(body.checkIn, body.checkOut),
+      guests: body.guests,
+      guestName: body.guestName,
+      guestPhone: body.guestPhone,
+      stayAmount: getStayAmount(),
+      usedMileage: body.usedMileage,
+      finalAmount: finalAmount,
+      paymentMethod: body.paymentMethod,
+      easyPayProvider: body.easyPayProvider,
+      // 마일리지로 전액 결제하면 결제 단계 없이 승인 대기
+      status: finalAmount === 0 ? 'PENDING' : 'PAYMENT_PENDING',
+      paymentExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    };
+
+    try {
+      var store =
+        JSON.parse(
+          sessionStorage.getItem('staybookMockPayments')
+        ) || {};
+
+      store[bookingId] =
+        booking;
+
+      sessionStorage.setItem(
+        'staybookMockPayments',
+        JSON.stringify(store)
+      );
+    } catch (e) { /* 저장소를 못 쓰면 결제 화면에서 예약을 찾지 못한다 */ }
+
+    return booking;
+  }
+
+
+  // 010-1234-5678 형태로 자동 하이픈 (회원가입 화면과 같은 방식)
+  function formatPhone(
+    value
+  ) {
+
+    var d =
+      String(value)
+        .replace(/\D/g, '')
+        .slice(0, 11);
+
+    if (d.length > 7) {
+      return d.slice(0, 3) + '-' + d.slice(3, d.length - 4) + '-' + d.slice(d.length - 4);
+    }
+
+    if (d.length > 3) {
+      return d.slice(0, 3) + '-' + d.slice(3);
+    }
+
+    return d;
+  }
+
+
+  // 16자리 + Luhn 검사 (입력 실수 확인용, 실제 승인은 PG가 한다)
+  function isValidCardNumber(
+    value
+  ) {
+
+    var digits =
+      value.replace(/\D/g, '');
+
+    if (
+      !/^\d{16}$/.test(digits)
+    ) {
+      return false;
+    }
+
+    var sum = 0;
+
+    for (var i = 0; i < digits.length; i++) {
+
+      var n =
+        Number(
+          digits[digits.length - 1 - i]
+        );
+
+      if (i % 2 === 1) {
+        n *= 2;
+        if (n > 9) n -= 9;
+      }
+
+      sum += n;
+    }
+
+    return sum % 10 === 0;
+  }
+
+
+  // MM/YY, 이번 달까지 유효
+  function isValidExpiry(
+    value
+  ) {
+
+    var match =
+      /^(\d{2})\/(\d{2})$/.exec(value);
+
+    if (!match) {
+      return false;
+    }
+
+    var month =
+      Number(match[1]);
+
+    var year =
+      2000 + Number(match[2]);
+
+    if (
+      month < 1 ||
+      month > 12
+    ) {
+      return false;
+    }
+
+    var now =
+      new Date();
+
+    return (
+      year > now.getFullYear() ||
+      (
+        year === now.getFullYear() &&
+        month >= now.getMonth() + 1
+      )
+    );
   }
 
 
@@ -940,6 +1736,13 @@
 
     alertBox.hidden =
       false;
+
+    // 스크롤해도 보이도록 예약 요청 버튼 위에도 표시
+    submitErrorEl.textContent =
+      message;
+
+    submitErrorEl.hidden =
+      false;
   }
 
 
@@ -949,6 +1752,12 @@
       '';
 
     alertBox.hidden =
+      true;
+
+    submitErrorEl.textContent =
+      '';
+
+    submitErrorEl.hidden =
       true;
   }
 
