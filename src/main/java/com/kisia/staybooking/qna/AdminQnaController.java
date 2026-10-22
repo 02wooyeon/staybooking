@@ -3,6 +3,7 @@ package com.kisia.staybooking.qna;
 import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
+import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -18,6 +19,12 @@ public class AdminQnaController {
     @GetMapping
     public List<QnaResponse> all(@AuthenticationPrincipal AuthenticatedUser me) {
         return service.allForAdmin(me.userId());
+    }
+
+    @GetMapping("/search")
+    public PageResponse<QnaResponse> search(@AuthenticationPrincipal AuthenticatedUser me,
+                                            @Valid @ModelAttribute AdminQnaSearchRequest request) {
+        return service.searchForAdmin(me.userId(), request);
     }
 
     @PutMapping("/{qnaId}/answer")

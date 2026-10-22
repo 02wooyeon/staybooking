@@ -5,11 +5,14 @@ import java.util.List;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
 import com.kisia.staybooking.user.UserStatus;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -78,6 +81,18 @@ public class QnaService {
     public List<QnaResponse> allForAdmin(Long adminId) {
         requireAdmin(adminId);
         return questions.findAllByOrderByCreatedAtDesc().stream().map(this::response).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<QnaResponse> searchForAdmin(Long adminId, AdminQnaSearchRequest request) {
+        requireAdmin(adminId);
+        int page = request.page() == null ? 0 : request.page();
+        int size = request.size() == null ? 20 : request.size();
+        String q = request.q() == null || request.q().isBlank() ? null : request.q().trim();
+        Page<QnaEntity> result = questions.searchForAdmin(request.userId(), request.answered(),
+            request.deleted(), q, PageRequest.of(page, size));
+        return new PageResponse<>(result.getContent().stream().map(this::response).toList(),
+            page, size, result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional
