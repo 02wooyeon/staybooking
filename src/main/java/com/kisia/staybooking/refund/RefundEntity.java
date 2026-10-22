@@ -15,5 +15,5 @@ public class RefundEntity extends AuditedEntity {
  protected RefundEntity(){}
  public RefundEntity(BookingEntity booking,long amount,String reason){this.booking=booking;this.amount=amount;this.reason=reason;}
  public Long getRefundId(){return refundId;} public BookingEntity getBooking(){return booking;} public long getAmount(){return amount;} public RefundStatus getStatus(){return status;} public UserEntity getProcessedBy(){return processedBy;} public LocalDateTime getProcessedAt(){return processedAt;} public String getReason(){return reason;}
- public void process(UserEntity admin,RefundStatus status,LocalDateTime at){if(this.status!=RefundStatus.REQUESTED)throw new IllegalStateException("Refund already processed");this.status=status;processedBy=admin;processedAt=at;}
+ public void process(UserEntity admin,RefundStatus status,LocalDateTime at){if(this.status!=RefundStatus.REQUESTED)throw new IllegalStateException("Refund already processed");if(status!=RefundStatus.APPROVED && status!=RefundStatus.REJECTED)throw new IllegalArgumentException("Refund decision must be approved or rejected");this.status=status;processedBy=admin;processedAt=at;}
 }

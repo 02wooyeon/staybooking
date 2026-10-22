@@ -1,0 +1,98 @@
+package com.kisia.staybooking;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import com.kisia.staybooking.accommodation.AccommodationEntity;
+import com.kisia.staybooking.accommodation.AccommodationRepository;
+import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.accommodation.AdminAccommodationController;
+import com.kisia.staybooking.auth.AuthenticatedUser;
+import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.BookingRepository;
+import com.kisia.staybooking.refund.AdminRefundController;
+import com.kisia.staybooking.refund.RefundEntity;
+import com.kisia.staybooking.refund.RefundRepository;
+import com.kisia.staybooking.refund.RefundStatus;
+import com.kisia.staybooking.room.RoomEntity;
+import com.kisia.staybooking.room.RoomRepository;
+import com.kisia.staybooking.room.RoomStatus;
+import com.kisia.staybooking.user.AdminMemberController;
+import com.kisia.staybooking.user.UserEntity;
+import com.kisia.staybooking.user.UserRepository;
+import com.kisia.staybooking.user.UserRole;
+import com.kisia.staybooking.user.UserStatus;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+class AdminMutationPersistenceTests {
+    @Autowired private AdminMemberController members;
+    @Autowired private AdminAccommodationController accommodationsAdmin;
+    @Autowired private AdminRefundController refundsAdmin;
+    @Autowired private UserRepository users;
+    @Autowired private AccommodationRepository accommodations;
+    @Autowired private RoomRepository rooms;
+    @Autowired private BookingRepository bookings;
+    @Autowired private RefundRepository refunds;
+
+    @Test
+    void memberAndInventoryUpdatesSurviveReload() {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("admin" + tag, "hash", "Admin", null,
+            "admin" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        UserEntity member = users.save(new UserEntity("member" + tag, "hash", "Member",
+            "member" + tag + "@example.test"));
+        members.changeStatus(new AuthenticatedUser(admin.getUserId(), UserRole.ROLE_ADMIN),
+            member.getUserId(), new AdminMemberController.StatusRequest(UserStatus.SUSPENDED));
+        assertEquals(UserStatus.SUSPENDED, users.findById(member.getUserId()).orElseThrow().getStatus());
+
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Old " + tag, "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
+        accommodationsAdmin.update(stay.getAccommodationId(),
+            new AdminAccommodationController.AccommodationRequest("New " + tag, "Busan",
+                LocalTime.of(16, 0), LocalTime.of(12, 0), "Updated", AccommodationStatus.INACTIVE));
+        accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(),
+            new AdminAccommodationController.RoomRequest("Deluxe", 130_000, 3, 2,
+                "Updated room", RoomStatus.INACTIVE));
+        assertEquals("New " + tag, accommodations.findById(stay.getAccommodationId()).orElseThrow().getName());
+        RoomEntity saved = rooms.findById(room.getRoomId()).orElseThrow();
+        assertEquals("Deluxe", saved.getName());
+        assertEquals(2, saved.getTotalQuantity());
+        assertEquals(RoomStatus.INACTIVE, saved.getStatus());
+    }
+
+    @Test
+    void refundDecisionPersistsAndRequestCannotBeReprocessed() {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("refundadmin" + tag, "hash", "Admin", null,
+            "refundadmin" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        UserEntity guest = users.save(new UserEntity("refundguest" + tag, "hash", "Guest",
+            "refundguest" + tag + "@example.test"));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Refund stay " + tag,
+            "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
+        BookingEntity booking = bookings.save(new BookingEntity(guest, room,
+            LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
+            LocalDateTime.now().plusHours(1)));
+        RefundEntity refund = refunds.save(new RefundEntity(booking, 100_000, "Test refund"));
+        AuthenticatedUser actor = new AuthenticatedUser(admin.getUserId(), UserRole.ROLE_ADMIN);
+
+        assertThrows(IllegalArgumentException.class, () -> refundsAdmin.process(actor,
+            refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REQUESTED)));
+        assertEquals(RefundStatus.REQUESTED, refunds.findById(refund.getRefundId()).orElseThrow().getStatus());
+        refundsAdmin.process(actor, refund.getRefundId(),
+            new AdminRefundController.ProcessRequest(RefundStatus.APPROVED));
+        RefundEntity saved = refunds.findById(refund.getRefundId()).orElseThrow();
+        assertEquals(RefundStatus.APPROVED, saved.getStatus());
+        assertEquals(admin.getUserId(), saved.getProcessedBy().getUserId());
+        assertNotNull(saved.getProcessedAt());
+        assertThrows(IllegalStateException.class, () -> refundsAdmin.process(actor,
+            refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REJECTED)));
+    }
+}
