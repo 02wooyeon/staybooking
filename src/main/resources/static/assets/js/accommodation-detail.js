@@ -19,7 +19,14 @@
 
   async function loadDetail() {
     try {
-      var response = await fetch('/api/v1/accommodations/' + encodeURIComponent(accommodationId), {
+      var stay = new URLSearchParams();
+      if (params.get('checkIn') && params.get('checkOut')) {
+        stay.set('checkIn', params.get('checkIn'));
+        stay.set('checkOut', params.get('checkOut'));
+      }
+      var url = '/api/v1/accommodations/' + encodeURIComponent(accommodationId)
+        + (stay.toString() ? '?' + stay.toString() : '');
+      var response = await fetch(url, {
         headers: { Accept: 'application/json' },
         cache: 'no-store'
       });
@@ -139,8 +146,21 @@
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'hotel-booking-button' + (available ? '' : ' disabled');
-      button.textContent = available ? '예약 화면 준비 중' : '예약 마감';
-      button.disabled = true;
+      button.textContent = available ? '예약하기' : '예약 마감';
+      button.disabled = !available;
+      if (available) {
+        button.addEventListener('click', function () {
+          var bookingParams = new URLSearchParams();
+          bookingParams.set('accommodationId', accommodationId);
+          bookingParams.set('roomId', room.roomId);
+          if (params.get('checkIn') && params.get('checkOut')) {
+            bookingParams.set('checkIn', params.get('checkIn'));
+            bookingParams.set('checkOut', params.get('checkOut'));
+          }
+          if (params.get('guests')) bookingParams.set('guests', params.get('guests'));
+          window.location.href = '/booking/create.html?' + bookingParams.toString();
+        });
+      }
       right.append(label, price, button);
 
       card.append(left, center, right);

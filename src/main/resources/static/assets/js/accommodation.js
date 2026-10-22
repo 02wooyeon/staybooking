@@ -41,7 +41,7 @@
    *
    * 백엔드 숙소 API 구현이 완료되면 false로 변경한다.
    */
-  var USE_MOCK_DATA = true;
+  var USE_MOCK_DATA = false;
 
   var MOCK_ACCOMMODATIONS = [
   {
@@ -570,11 +570,14 @@ if (accommodation.mainImage) {
        * 예:
        * /accommodation/detail.html?id=3
        */
-      link.href =
-        '/accommodation/detail.html?id=' +
-        encodeURIComponent(
-          accommodation.accommodationId
-        );
+      var detailParams = new URLSearchParams();
+      detailParams.set('id', accommodation.accommodationId);
+      if (checkIn.value && checkOut.value) {
+        detailParams.set('checkIn', checkIn.value);
+        detailParams.set('checkOut', checkOut.value);
+      }
+      if (guests.value) detailParams.set('guests', guests.value);
+      link.href = '/accommodation/detail.html?' + detailParams.toString();
 
       content.append(
         name,

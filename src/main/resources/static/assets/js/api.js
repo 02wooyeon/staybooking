@@ -174,6 +174,15 @@
       return authed('GET', '/api/v1/bookings/me');
     },
 
+    getAccommodation: function (accommodationId, search) {
+      var query = search ? '?' + search.toString() : '';
+      return request('GET', '/api/v1/accommodations/' + encodeURIComponent(accommodationId) + query);
+    },
+
+    createBooking: function (form) {
+      return authed('POST', '/api/v1/bookings', form);
+    },
+
     /** 사용자는 예약을 즉시 취소하지 않고 승인자에게 취소를 신청한다. */
     requestBookingCancellation: function (bookingId, form) {
       return authed('POST', '/api/v1/bookings/' + encodeURIComponent(bookingId)
