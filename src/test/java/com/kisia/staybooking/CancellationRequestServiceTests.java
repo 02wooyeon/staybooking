@@ -129,11 +129,19 @@ class CancellationRequestServiceTests {
         assertEquals(BookingStatus.CANCELLED, approved.getBooking().getStatus());
         assertEquals("USER_REQUEST", approved.getBooking().getCancelSource().name());
 
+        CancellationRequestEntity directRequest = requests.request(owner.getUserId(),
+            directBooking.getBookingId(), CancellationReasonType.USER_FAULT, "Please cancel");
         BookingEntity directlyCancelled = directCancellations.cancel(admin.getUserId(), directBooking.getBookingId(),
             CancellationReasonType.ACCOMMODATION_FAULT, "Operational issue");
         assertEquals(BookingStatus.CANCELLED, directlyCancelled.getStatus());
         assertEquals("ADMIN_DIRECT", directlyCancelled.getCancelSource().name());
         assertEquals(admin.getUserId(), directlyCancelled.getCancelledBy().getUserId());
+        assertEquals(CancellationRequestStatus.APPROVED, directRequest.getStatus());
+        assertEquals(admin.getUserId(), directRequest.getDecidedBy().getUserId());
+        assertEquals(directlyCancelled.getCancelledAt(), directRequest.getDecidedAt());
+        assertEquals(false, bookingQueries.mine(owner.getUserId()).stream()
+            .filter(item -> item.bookingId().equals(directBooking.getBookingId()))
+            .findFirst().orElseThrow().cancellationRequested());
         assertEquals(2, refunds.count());
     }
 }

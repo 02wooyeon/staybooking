@@ -25,12 +25,14 @@ public class BookingCancellationService {
 
     private final UserRepository users;
     private final BookingRepository bookings;
+    private final CancellationRequestRepository requests;
     private final RefundRequestService refunds;
 
     public BookingCancellationService(UserRepository users, BookingRepository bookings,
-                                      RefundRequestService refunds) {
+                                      CancellationRequestRepository requests, RefundRequestService refunds) {
         this.users = users;
         this.bookings = bookings;
+        this.requests = requests;
         this.refunds = refunds;
     }
 
@@ -55,7 +57,11 @@ public class BookingCancellationService {
         }
         CancellationSource source = actor.getRole() == UserRole.ROLE_ADMIN
             ? CancellationSource.ADMIN_DIRECT : CancellationSource.APPROVER_DIRECT;
-        booking.cancel(actor, source, reasonType, reason, LocalDateTime.now(ZoneOffset.UTC));
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        booking.cancel(actor, source, reasonType, reason, nowUtc);
+        // 예약 잠금 아래에서 미처리 신청도 함께 마무리해 사용자 화면에 대기로 남지 않게 한다.
+        requests.findByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED)
+            .ifPresent(request -> request.approve(actor, nowUtc, "운영자 직접 취소로 처리됨"));
         refunds.record(booking);
         return booking;
     }

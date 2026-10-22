@@ -40,6 +40,7 @@ flowchart TD
 
 - 사용자는 `PENDING` 또는 `COMPLETED`인 **본인 예약**에만 신청합니다. 미처리 신청은 예약당 1건만 둡니다.
 - 승인자/관리자는 신청을 승인·거절하거나 직접 취소할 수 있습니다. 직접 취소는 사유 필수입니다.
+- 미처리 취소 신청이 있는 예약을 승인자/관리자가 직접 취소하면, 해당 신청도 같은 처리에서 승인 상태로 마무리합니다. 실제 취소 출처는 `APPROVER_DIRECT` 또는 `ADMIN_DIRECT`로 남고 환불 검토 건은 한 번만 생성됩니다.
 - 취소 신청자는 `booking_cancellation_requests.requested_by`, 판단자는 `decided_by`, 실제 취소 처리자는 `bookings.cancelled_by`에 남깁니다.
 - 승인 시 `bookings.approved_by`·`completed_by`와 각 시각에 동일한 처리자를 기록합니다. 이는 예약 완료 기록입니다.
 - 결제 만료에 따른 시스템 취소는 `cancel_source=SYSTEM`, `cancelled_by=NULL`입니다.
