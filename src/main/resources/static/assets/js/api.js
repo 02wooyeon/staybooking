@@ -178,6 +178,31 @@
     requestBookingCancellation: function (bookingId, form) {
       return authed('POST', '/api/v1/bookings/' + encodeURIComponent(bookingId)
         + '/cancellation-requests', form);
+    },
+
+    getPublicQna: function () {
+      return request('GET', '/api/v1/qna/public');
+    },
+
+    getMyQna: function () {
+      return authed('GET', '/api/v1/qna/mine');
+    },
+
+    getQna: async function (qnaId) {
+      var token = await ensureToken();
+      return request('GET', '/api/v1/qna/' + encodeURIComponent(qnaId), { token: token });
+    },
+
+    createQna: function (form) {
+      return authed('POST', '/api/v1/qna', form);
+    },
+
+    updateQna: function (qnaId, form) {
+      return authed('PUT', '/api/v1/qna/' + encodeURIComponent(qnaId), form);
+    },
+
+    deleteQna: function (qnaId) {
+      return authed('DELETE', '/api/v1/qna/' + encodeURIComponent(qnaId));
     }
   };
 })();
