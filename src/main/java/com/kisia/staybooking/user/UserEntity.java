@@ -62,6 +62,10 @@ public class UserEntity extends AuditedEntity {
     @ColumnDefault("0")
     private long mileageBalance;
 
+    @Column(name = "token_version", nullable = false)
+    @ColumnDefault("0")
+    private long tokenVersion;
+
     protected UserEntity() {
     }
 
@@ -95,5 +99,12 @@ public class UserEntity extends AuditedEntity {
     public UserRole getRole() { return role; }
     public UserStatus getStatus() { return status; }
     public long getMileageBalance() { return mileageBalance; }
-    public void changeStatus(UserStatus status) { this.status = Objects.requireNonNull(status); }
+    public long getTokenVersion() { return tokenVersion; }
+    public void changeStatus(UserStatus status) {
+        UserStatus next = Objects.requireNonNull(status);
+        if (this.status != next) {
+            this.status = next;
+            tokenVersion++;
+        }
+    }
 }

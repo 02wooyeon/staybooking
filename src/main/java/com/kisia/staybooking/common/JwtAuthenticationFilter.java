@@ -5,6 +5,8 @@ import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.auth.JwtTokenProvider;
+import com.kisia.staybooking.user.UserRepository;
+import com.kisia.staybooking.user.UserStatus;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,9 +24,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwt;
+    private final UserRepository users;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwt) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwt, UserRepository users) {
         this.jwt = jwt;
+        this.users = users;
     }
 
     @Override
@@ -34,9 +38,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             try {
                 AuthenticatedUser user = jwt.parseAccessToken(header.substring(BEARER_PREFIX.length()));
-                var authentication = UsernamePasswordAuthenticationToken.authenticated(
-                    user, null, List.of(new SimpleGrantedAuthority(user.role().name())));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                users.findById(user.userId())
+                    .filter(current -> current.getStatus() == UserStatus.ACTIVE
+                        && current.getRole() == user.role()
+                        && current.getTokenVersion() == user.tokenVersion())
+                    .ifPresent(current -> {
+                        var authentication = UsernamePasswordAuthenticationToken.authenticated(
+                            user, null, List.of(new SimpleGrantedAuthority(current.getRole().name())));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    });
             } catch (JwtException | IllegalArgumentException e) {
                 SecurityContextHolder.clearContext();
             }

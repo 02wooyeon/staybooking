@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import com.kisia.staybooking.auth.JwtTokenProvider;
+import com.kisia.staybooking.user.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +28,8 @@ public class SecurityConfig {
     // Access Token은 Authorization 헤더로만 받으므로 세션을 쓰지 않는다.
     // 쿠키를 쓰는 reissue·logout은 Refresh Token 쿠키의 SameSite=Strict로 다른 사이트 요청(CSRF)을 막는다.
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtTokenProvider jwt) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtTokenProvider jwt,
+                                                   UserRepository users) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
@@ -51,7 +53,7 @@ public class SecurityConfig {
                     HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED", "로그인이 필요합니다."))
                 .accessDeniedHandler((request, response, e) -> writeError(response,
                     HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN", "접근 권한이 없습니다.")))
-            .addFilterBefore(new JwtAuthenticationFilter(jwt), UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(new JwtAuthenticationFilter(jwt, users), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

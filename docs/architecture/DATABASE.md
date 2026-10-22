@@ -40,11 +40,13 @@ erDiagram
 | `email`, `phone` | VARCHAR(255) NN UQ / VARCHAR(20) | 이메일 / 연락처 |
 | `role` | VARCHAR(20) NN | `ROLE_USER`, `ROLE_APPROVER`, `ROLE_ADMIN` |
 | `status` | VARCHAR(20) NN DEFAULT `ACTIVE` | `ACTIVE`, `SUSPENDED`, `WITHDRAWN` |
+| `token_version` | BIGINT NN DEFAULT 0 | 계정 상태가 바뀔 때 증가; 이전 Access Token 무효화 |
 | `mileage_balance` | BIGINT NN DEFAULT 0 | 현재 잔액, 0 이상 |
 | `profile_file_id` | BIGINT FK → `files.file_id` | 프로필 이미지; 파일 구현 단계에서 연결 |
 | `created_at`, `updated_at` | DATETIME(6) NN | 생성·수정 시각 |
 
 공개 회원가입으로 만들 수 있는 역할은 `ROLE_USER`뿐입니다. 승인자와 관리자는 관리자 작업 또는 초기 데이터로 부여합니다.
+정지·탈퇴 시 Refresh Token은 폐기하며, 재활성화 후에도 이전 Access Token을 사용할 수 없습니다.
 
 ### `accommodations`
 
