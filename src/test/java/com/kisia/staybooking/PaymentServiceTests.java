@@ -51,4 +51,29 @@ class PaymentServiceTests {
         assertThrows(IllegalStateException.class,
             () -> payments.complete(user.getUserId(), prepared.getOrderId(), "payment-key-002", 120_000));
     }
+
+    @Test
+    void demoPaymentStillRequiresOwnerAndTransitionsBookingOnlyOnce() {
+        UserEntity owner = new UserEntity("demo-owner", "hash", "Owner", "demo-owner@example.test");
+        UserEntity other = new UserEntity("demo-other", "hash", "Other", "demo-other@example.test");
+        AccommodationEntity accommodation = new AccommodationEntity(
+            "Stay", "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0));
+        RoomEntity room = new RoomEntity(accommodation, "Standard", 120_000, 2, 1);
+        entityManager.persist(owner);
+        entityManager.persist(other);
+        entityManager.persist(accommodation);
+        entityManager.persist(room);
+        BookingEntity booking = new BookingEntity(owner, room, LocalDate.now().plusDays(3),
+            LocalDate.now().plusDays(4), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
+        entityManager.persist(booking);
+        entityManager.flush();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> payments.completeDemo(other.getUserId(), booking.getBookingId()));
+        PaymentEntity completed = payments.completeDemo(owner.getUserId(), booking.getBookingId());
+        assertEquals(PaymentStatus.PAID, completed.getStatus());
+        assertEquals(BookingStatus.PENDING, completed.getBooking().getStatus());
+        assertThrows(IllegalStateException.class,
+            () -> payments.completeDemo(owner.getUserId(), booking.getBookingId()));
+    }
 }

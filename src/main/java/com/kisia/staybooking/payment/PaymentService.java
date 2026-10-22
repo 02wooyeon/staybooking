@@ -47,6 +47,13 @@ public class PaymentService {
         return payment;
     }
 
+    @Transactional
+    public PaymentEntity completeDemo(Long userId, Long bookingId) {
+        PaymentEntity prepared = prepare(userId, bookingId, "DEMO");
+        return complete(userId, prepared.getOrderId(), "DEMO-" + UUID.randomUUID(),
+            prepared.getPaidAmount());
+    }
+
     private BookingEntity ownedBooking(Long userId, Long bookingId) {
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));

@@ -1,12 +1,14 @@
 package com.kisia.staybooking.payment;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
+import com.kisia.staybooking.common.ApiException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,9 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/payments")
 public class PaymentController {
     private final PaymentService payments;
+    private final boolean demoEnabled;
 
-    public PaymentController(PaymentService payments) {
+    public PaymentController(PaymentService payments,
+                             @Value("${staybooking.payment.demo-enabled:false}") boolean demoEnabled) {
         this.payments = payments;
+        this.demoEnabled = demoEnabled;
     }
 
     @PostMapping("/prepare")
@@ -33,9 +38,33 @@ public class PaymentController {
     @PostMapping("/complete")
     public PaymentResponse complete(@AuthenticationPrincipal AuthenticatedUser me,
                                     @Valid @RequestBody PaymentCompleteRequest request) {
+        requireDemoEnabled();
         return PaymentResponse.from(payments.complete(me.userId(), request.orderId(), request.paymentKey(),
             request.amount()));
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/capabilities")
+    public PaymentCapabilities capabilities() {
+        return new PaymentCapabilities(demoEnabled);
+    }
+
+    @PostMapping("/demo-complete")
+    public PaymentResponse completeDemo(@AuthenticationPrincipal AuthenticatedUser me,
+                                        @Valid @RequestBody DemoCompleteRequest request) {
+        requireDemoEnabled();
+        return PaymentResponse.from(payments.completeDemo(me.userId(), request.bookingId()));
+    }
+
+    private void requireDemoEnabled() {
+        if (!demoEnabled) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_NOT_CONFIGURED",
+                "결제 서비스가 아직 연결되지 않았습니다.");
+        }
+    }
+
+    public record PaymentCapabilities(boolean demoEnabled) { }
+
+    public record DemoCompleteRequest(@NotNull @Positive Long bookingId) { }
 
     public record PaymentPrepareRequest(@NotNull @Positive Long bookingId,
                                         @NotBlank @Size(max = 30) String paymentMethod) { }
