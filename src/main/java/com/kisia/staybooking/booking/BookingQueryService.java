@@ -1,7 +1,11 @@
 package com.kisia.staybooking.booking;
 
+import java.util.Set;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import com.kisia.staybooking.cancellation.CancellationRequestRepository;
+import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.common.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,15 +14,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BookingQueryService {
     private final BookingRepository bookings;
+    private final CancellationRequestRepository cancellations;
 
-    public BookingQueryService(BookingRepository bookings) {
+    public BookingQueryService(BookingRepository bookings, CancellationRequestRepository cancellations) {
         this.bookings = bookings;
+        this.cancellations = cancellations;
     }
 
     @Transactional(readOnly = true)
     public List<BookingResponse> mine(Long userId) {
-        return bookings.findByUserUserIdOrderByCreatedAtDesc(userId).stream()
-            .map(BookingResponse::from)
+        var mine = bookings.findByUserUserIdOrderByCreatedAtDesc(userId);
+        if (mine.isEmpty()) return List.of();
+        var ids = mine.stream().map(BookingEntity::getBookingId).toList();
+        Set<Long> requested = cancellations.findBookingIdsWithStatus(ids, CancellationRequestStatus.REQUESTED)
+            .stream().collect(Collectors.toSet());
+        return mine.stream()
+            .map(booking -> BookingResponse.from(booking, requested.contains(booking.getBookingId())))
             .toList();
     }
 
@@ -28,6 +39,7 @@ public class BookingQueryService {
         BookingEntity booking = bookings.findById(bookingId)
             .filter(found -> found.getUser().getUserId().equals(userId))
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND", "예약을 찾을 수 없습니다."));
-        return BookingResponse.from(booking);
+        return BookingResponse.from(booking, cancellations.existsByBookingBookingIdAndStatus(
+            bookingId, CancellationRequestStatus.REQUESTED));
     }
 }

@@ -7,6 +7,7 @@ import java.time.ZoneId;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.BookingQueryService;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationReasonType;
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
@@ -26,12 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
-@Import({CancellationRequestService.class, CancellationDecisionService.class, BookingCancellationService.class})
+@Import({CancellationRequestService.class, CancellationDecisionService.class,
+    BookingCancellationService.class, BookingQueryService.class})
 class CancellationRequestServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private CancellationRequestService requests;
     @Autowired private CancellationDecisionService decisions;
     @Autowired private BookingCancellationService directCancellations;
+    @Autowired private BookingQueryService bookingQueries;
 
     @Test
     void recordsOneOwnerRequestWithoutCancellingBooking() {
@@ -62,6 +65,8 @@ class CancellationRequestServiceTests {
             CancellationReasonType.USER_FAULT, "Change of plans");
         assertEquals(CancellationRequestStatus.REQUESTED, request.getStatus());
         assertEquals(BookingStatus.PENDING, request.getBooking().getStatus());
+        assertEquals(true, bookingQueries.mine(owner.getUserId()).getFirst().cancellationRequested());
+        assertEquals(true, bookingQueries.mineDetail(owner.getUserId(), booking.getBookingId()).cancellationRequested());
         assertThrows(IllegalStateException.class, () -> requests.request(owner.getUserId(),
             booking.getBookingId(), CancellationReasonType.USER_FAULT, "Again"));
 
@@ -73,6 +78,7 @@ class CancellationRequestServiceTests {
         assertEquals(CancellationRequestStatus.REJECTED, rejected.getStatus());
         assertEquals(stranger.getUserId(), rejected.getDecidedBy().getUserId());
         assertEquals(BookingStatus.PENDING, rejected.getBooking().getStatus());
+        assertEquals(false, bookingQueries.mine(owner.getUserId()).getFirst().cancellationRequested());
     }
 
     @Test
