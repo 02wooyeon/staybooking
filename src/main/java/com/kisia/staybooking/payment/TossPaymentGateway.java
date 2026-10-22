@@ -14,6 +14,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class TossPaymentGateway {
@@ -63,7 +64,12 @@ public class TossPaymentGateway {
 
     private record ConfirmRequest(String paymentKey, String orderId, long amount) { }
 
-    public record Confirmation(String paymentKey, String orderId, long totalAmount, String status) { }
+    public record Confirmation(String paymentKey, String orderId, long totalAmount, String status,
+                               Long balanceAmount) {
+        public Confirmation(String paymentKey, String orderId, long totalAmount, String status) {
+            this(paymentKey, orderId, totalAmount, status, null);
+        }
+    }
 
     /** 승인 응답을 받지 못했을 때 토스에 저장된 주문 상태를 확인한다. */
     public Confirmation findByOrderId(String orderId) {
@@ -78,6 +84,13 @@ public class TossPaymentGateway {
                 .retrieve().body(Confirmation.class);
             if (result == null) throw new IllegalStateException("Empty payment lookup");
             return result;
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                throw new ApiException(HttpStatus.NOT_FOUND, "PROVIDER_PAYMENT_NOT_FOUND",
+                    "토스페이먼츠에 승인된 주문 정보가 없습니다.");
+            }
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_LOOKUP_FAILED",
+                "결제 승인 상태를 조회하지 못했습니다. 결제 내역을 확인해 주세요.");
         } catch (RestClientException | IllegalStateException e) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_LOOKUP_FAILED",
                 "결제 승인 상태를 조회하지 못했습니다. 결제 내역을 확인해 주세요.");

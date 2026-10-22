@@ -7,23 +7,32 @@ import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.constraints.Positive;
 
 @RestController
 @RequestMapping("/api/v1/admin/payments")
 public class AdminPaymentController {
     private final PaymentRepository payments;
     private final PaymentHistoryService history;
-    public AdminPaymentController(PaymentRepository payments, PaymentHistoryService history) {
+    private final PaymentReconciliationService reconciliation;
+    public AdminPaymentController(PaymentRepository payments, PaymentHistoryService history,
+                                  PaymentReconciliationService reconciliation) {
         this.payments = payments;
         this.history = history;
+        this.reconciliation = reconciliation;
     }
     @GetMapping
     public List<PaymentSummary> list() { return payments.findAllByOrderByCreatedAtDesc().stream().map(PaymentSummary::from).toList(); }
     @GetMapping("/search")
     public PageResponse<PaymentHistoryService.PaymentHistory> search(@Valid @ModelAttribute PaymentSearchRequest request) {
         return history.adminSearch(request);
+    }
+    @GetMapping("/{paymentId}/reconciliation")
+    public PaymentReconciliationService.Report reconciliation(@PathVariable @Positive Long paymentId) {
+        return reconciliation.check(paymentId);
     }
     public record PaymentSummary(Long paymentId, Long bookingId, String orderId, String paymentMethod,
                                  long paidAmount, String status, LocalDateTime paidAt) {

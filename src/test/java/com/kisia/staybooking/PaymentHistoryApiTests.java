@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {"staybooking.toss.client-key=", "staybooking.toss.secret-key="})
 @AutoConfigureMockMvc
 class PaymentHistoryApiTests {
     @Autowired private MockMvc mvc;
@@ -95,6 +95,15 @@ class PaymentHistoryApiTests {
         mvc.perform(get(search + "&page=-1")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());
+
+        String reconciliation = "/api/v1/admin/payments/" + payment.getPaymentId() + "/reconciliation";
+        mvc.perform(get(reconciliation)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(reconciliation)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("PAYMENT_NOT_CONFIGURED"));
 
         String refundSearch = "/api/v1/admin/refunds/search?bookingId=" + booking.getBookingId()
             + "&status=REQUESTED&size=1";
