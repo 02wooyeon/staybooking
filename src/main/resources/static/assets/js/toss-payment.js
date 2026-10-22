@@ -1,0 +1,103 @@
+/* 토스페이먼츠 주문서형 결제: 서버의 주문번호와 금액을 그대로 사용한다. */
+(function () {
+  'use strict';
+  var page = document.body.dataset.paymentPage;
+  var params = new URLSearchParams(window.location.search);
+
+  if (page === 'fail') {
+    var code = params.get('code');
+    document.getElementById('payment-message').textContent = code === 'PAY_PROCESS_CANCELED'
+      ? '결제가 취소되었습니다.' : '결제 요청이 실패했습니다. 내 예약에서 다시 시도해 주세요.';
+    window.history.replaceState(null, '', window.location.pathname);
+    return;
+  }
+
+  if (page === 'success') {
+    var paymentKey = params.get('paymentKey');
+    var orderId = params.get('orderId');
+    var amount = Number(params.get('amount'));
+    var message = document.getElementById('payment-message');
+    var retry = document.getElementById('payment-retry');
+    window.history.replaceState(null, '', window.location.pathname);
+    if (!paymentKey || !orderId || !Number.isSafeInteger(amount) || amount < 1) {
+      message.textContent = '결제 정보가 올바르지 않습니다. 내 예약에서 상태를 확인해 주세요.';
+      return;
+    }
+    async function confirm() {
+      retry.hidden = true;
+      message.textContent = '결제 승인 결과를 확인하고 있습니다.';
+      try {
+        await BookingApi.confirmTossPayment(orderId, paymentKey, amount);
+        message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
+      } catch (e) {
+        message.textContent = '결제 승인 상태를 확인하지 못했습니다. 내 예약을 확인하거나 다시 시도해 주세요.';
+        retry.hidden = false;
+      }
+    }
+    retry.addEventListener('click', confirm);
+    confirm();
+    return;
+  }
+
+  if (page !== 'checkout') return;
+  var bookingId = Number(params.get('bookingId'));
+  var button = document.getElementById('payment-button');
+  var alertBox = document.getElementById('payment-alert');
+  if (!Number.isSafeInteger(bookingId) || bookingId < 1) {
+    Ui.showAlert(alertBox, '예약 번호가 올바르지 않습니다.', 'error');
+    return;
+  }
+
+  async function init() {
+    try {
+      var results = await Promise.all([
+        BookingApi.getPaymentCapabilities(),
+        BookingApi.getMyBooking(bookingId)
+      ]);
+      var capabilities = results[0];
+      var booking = results[1];
+      if (!capabilities.tossEnabled || !capabilities.tossClientKey) {
+        throw new Error('토스페이먼츠 결제 설정이 아직 준비되지 않았습니다.');
+      }
+      if (booking.status !== 'PAYMENT_PENDING' || Date.now() >= Date.parse(booking.paymentExpiresAt + 'Z')) {
+        throw new Error('이 예약은 현재 결제할 수 없습니다.');
+      }
+      if (typeof TossPayments !== 'function') {
+        throw new Error('결제 화면을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+      var payment = await BookingApi.preparePayment(bookingId, 'TOSS');
+      document.getElementById('payment-stay').textContent = booking.accommodationName + ' · ' + booking.roomName;
+      document.getElementById('payment-dates').textContent = booking.checkIn + ' ~ ' + booking.checkOut;
+      document.getElementById('payment-amount').textContent = Number(payment.amount).toLocaleString('ko-KR') + '원';
+      var widgets = TossPayments(capabilities.tossClientKey).widgets({ customerKey: payment.orderId });
+      await widgets.setAmount({ currency: 'KRW', value: payment.amount });
+      await Promise.all([
+        widgets.renderPaymentMethods({ selector: '#payment-method' }),
+        widgets.renderAgreement({ selector: '#payment-agreement' })
+      ]);
+      button.disabled = false;
+      button.addEventListener('click', async function () {
+        button.disabled = true;
+        try {
+          await widgets.requestPayment({
+            orderId: payment.orderId,
+            orderName: (booking.accommodationName + ' ' + booking.roomName).slice(0, 100),
+            successUrl: window.location.origin + '/payment/success.html',
+            failUrl: window.location.origin + '/payment/fail.html'
+          });
+        } catch (e) {
+          button.disabled = false;
+          Ui.showAlert(alertBox, '결제 요청을 시작하지 못했습니다. 다시 시도해 주세요.', 'error');
+        }
+      });
+    } catch (e) {
+      if (e.status === 401) {
+        window.location.replace('/auth/login.html?next=' + encodeURIComponent(
+          window.location.pathname + window.location.search));
+        return;
+      }
+      Ui.showAlert(alertBox, e.message, 'error');
+    }
+  }
+  init();
+})();

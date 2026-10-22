@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.kisia.staybooking.RefundPolicyTests" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-17T09:40:15.841Z" hostname="DESKTOP-N276M3B" time="0.003">
-  <properties/>
-  <testcase name="calculatesUserFaultRefundByDaysBeforeCheckIn()" classname="com.kisia.staybooking.RefundPolicyTests" time="0.001"/>
-  <testcase name="accommodationFaultReturnsFullPayment()" classname="com.kisia.staybooking.RefundPolicyTests" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

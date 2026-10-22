@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>후기 작성 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/">스테이북</a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+
+  <main class="info-page">
+    <p class="breadcrumb">
+      <a id="review-back-link" href="/accommodation/list.html">숙소</a>
+      <span aria-hidden="true">›</span>
+      <span id="review-breadcrumb-title">후기 작성</span>
+    </p>
+    <h1 id="review-page-title">후기 작성</h1>
+    <p id="review-page-sub" class="page-sub">숙박은 어떠셨나요? 다른 이용자에게 도움이 되는 후기를 남겨 주세요.</p>
+
+    <form id="review-form" class="info-card" novalidate>
+      <div id="review-alert" class="alert" role="alert" hidden></div>
+
+      <div class="field">
+        <label for="review-rating">별점 <span class="req" aria-hidden="true">*</span></label>
+        <select id="review-rating" name="rating" class="form-select" required>
+          <option value="">별점을 선택해 주세요</option>
+          <option value="5">★★★★★ 5점</option>
+          <option value="4">★★★★☆ 4점</option>
+          <option value="3">★★★☆☆ 3점</option>
+          <option value="2">★★☆☆☆ 2점</option>
+          <option value="1">★☆☆☆☆ 1점</option>
+        </select>
+        <p class="field-error" hidden></p>
+      </div>
+
+      <div class="field">
+        <label for="review-content">후기 <span class="optional">(선택)</span></label>
+        <textarea id="review-content" name="content" class="form-textarea" maxlength="1000" rows="8"
+                  placeholder="객실, 청결, 위치, 서비스 등 숙박 경험을 자유롭게 적어 주세요."
+                  aria-describedby="review-count-text"></textarea>
+        <p id="review-count-text" class="char-count">0 / 1000</p>
+        <p class="field-error" hidden></p>
+      </div>
+
+      <div class="field">
+        <span class="field-label" id="review-image-label">사진 첨부 <span class="optional">(선택)</span></span>
+        <input id="review-image" name="image" class="sr-only" type="file"
+               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-labelledby="review-image-label">
+        <label class="file-box" for="review-image">
+          <span id="review-image-text">사진을 선택해 주세요 (jpg·png·webp, 5MB 이하, 1개)</span>
+        </label>
+        <div id="review-image-preview" class="file-preview" hidden>
+          <img id="review-image-preview-img" alt="첨부 사진 미리보기">
+          <button id="review-image-remove" type="button" class="btn-link">사진 삭제</button>
+        </div>
+        <p class="field-error" hidden></p>
+      </div>
+
+      <div class="form-actions">
+        <a id="review-cancel-link" class="btn-outline" href="/accommodation/list.html">취소</a>
+        <button id="review-submit" class="btn-primary" type="submit">등록</button>
+      </div>
+    </form>
+  </main>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/common.js"></script>
+  <script src="/assets/js/review.js"></script>
+</body>
+</html>

@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>예약하기 | 스테이북</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/css/style.css">
+</head>
+
+
+<body>
+
+<header class="site-header">
+
+  <a
+    class="logo"
+    href="/">
+    스테이북
+  </a>
+
+  <nav
+    id="header-nav"
+    class="header-nav">
+  </nav>
+
+</header>
+
+
+<main class="booking-page">
+
+  <div class="booking-back">
+
+    <a
+      id="booking-back-link"
+      href="/accommodation/list.html">
+      ← 숙소로 돌아가기
+    </a>
+
+  </div>
+
+
+  <div class="booking-title">
+
+    <h1>예약 정보 확인</h1>
+
+    <p>
+      예약 정보를 확인한 뒤 예약을 진행해 주세요.
+    </p>
+
+  </div>
+
+
+  <div
+    id="booking-alert"
+    class="alert alert-error"
+    hidden>
+  </div>
+
+
+  <div class="booking-layout">
+
+
+    <!-- =========================
+         왼쪽
+         예약 입력
+         ========================= -->
+
+    <section class="booking-main">
+
+
+      <!-- 선택한 숙소/객실 -->
+
+      <section class="booking-card">
+
+        <h2>
+          선택한 객실
+        </h2>
+
+        <div class="booking-room-summary">
+
+          <div
+            id="booking-room-image"
+            class="booking-room-image">
+          </div>
+
+          <div class="booking-room-summary-info">
+
+            <p
+              id="booking-accommodation-name"
+              class="booking-accommodation-name">
+            </p>
+
+            <h3
+              id="booking-room-name">
+            </h3>
+
+            <p
+              id="booking-address"
+              class="booking-address">
+            </p>
+
+            <p
+              id="booking-capacity"
+              class="booking-capacity">
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- 예약 일정 -->
+
+      <section class="booking-card">
+
+        <h2>
+          숙박 일정
+        </h2>
+
+
+        <form id="booking-form" novalidate>
+
+
+          <div class="booking-form-grid">
+
+            <div class="booking-field">
+
+              <label for="booking-check-in">
+                체크인
+              </label>
+
+              <input
+                id="booking-check-in"
+                name="checkIn"
+                type="date"
+                required>
+
+            </div>
+
+
+            <div class="booking-field">
+
+              <label for="booking-check-out">
+                체크아웃
+              </label>
+
+              <input
+                id="booking-check-out"
+                name="checkOut"
+                type="date"
+                required>
+
+            </div>
+
+
+            <div class="booking-field">
+
+              <label for="booking-guests">
+                인원
+              </label>
+
+              <input
+                id="booking-guests"
+                name="guests"
+                type="number"
+                min="1"
+                value="1"
+                required>
+
+            </div>
+
+          </div>
+
+
+          <div class="booking-notice">
+
+            <strong>
+              예약 전 확인
+            </strong>
+
+            <ul>
+              <li>
+                체크아웃 날짜는 체크인 날짜보다 이후여야 합니다.
+              </li>
+
+              <li>
+                객실 최대 수용 인원을 초과할 수 없습니다.
+              </li>
+
+              <li>
+                실제 예약 가능 여부와 최종 금액은 서버에서 다시 확인합니다.
+              </li>
+            </ul>
+
+          </div>
+
+        </form>
+
+      </section>
+
+
+      <!-- 이용자 정보 -->
+
+      <section class="booking-card">
+
+        <h2>
+          이용자 정보
+        </h2>
+
+        <p class="booking-card-sub">
+          계정에 등록된 정보가 기본으로 입력됩니다. 실제 이용자가 다르면 수정해 주세요.
+        </p>
+
+        <div class="booking-form-grid booking-form-grid-two">
+
+          <div class="booking-field">
+
+            <label for="booking-guest-name">
+              성명
+            </label>
+
+            <input
+              id="booking-guest-name"
+              name="guestName"
+              type="text"
+              maxlength="20"
+              autocomplete="name"
+              placeholder="홍길동"
+              form="booking-form"
+              required>
+
+          </div>
+
+
+          <div class="booking-field">
+
+            <label for="booking-guest-phone">
+              연락처
+            </label>
+
+            <input
+              id="booking-guest-phone"
+              name="guestPhone"
+              type="tel"
+              inputmode="numeric"
+              maxlength="13"
+              autocomplete="tel"
+              placeholder="010-1234-5678"
+              form="booking-form"
+              required>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- 마일리지 -->
+
+      <section class="booking-card">
+
+        <h2>
+          마일리지
+        </h2>
+
+        <p class="booking-card-sub">
+          보유 마일리지
+          <strong id="booking-mileage-balance">0 P</strong>
+          · 1P = 1원, 1P 단위로 사용할 수 있습니다.
+        </p>
+
+        <div class="booking-field">
+
+          <label for="booking-mileage">
+            사용할 마일리지
+          </label>
+
+          <div class="booking-mileage-input">
+
+            <input
+              id="booking-mileage"
+              name="usedMileage"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              step="1"
+              value="0"
+              form="booking-form">
+
+            <button
+              id="booking-mileage-all"
+              class="booking-inline-button"
+              type="button"
+              form="booking-form">
+              전액 사용
+            </button>
+
+          </div>
+
+          <p
+            id="booking-mileage-help"
+            class="booking-field-help">
+            숙박 일정을 선택하면 사용할 수 있는 최대 마일리지가 계산됩니다.
+          </p>
+
+        </div>
+
+      </section>
+
+
+      <!-- 결제수단 -->
+
+      <section class="booking-card">
+
+        <h2>
+          결제수단
+        </h2>
+
+        <div
+          class="payment-methods"
+          role="radiogroup"
+          aria-label="결제수단">
+
+          <button
+            class="payment-method"
+            type="button"
+            role="radio"
+            aria-checked="true"
+            data-method="CARD"
+            form="booking-form">
+            카드 번호 직접 입력
+          </button>
+
+          <button
+            class="payment-method"
+            type="button"
+            role="radio"
+            aria-checked="false"
+            data-method="EASY_PAY"
+            form="booking-form">
+            간편 결제
+          </button>
+
+        </div>
+
+
+        <!-- 카드 번호 직접 입력 -->
+
+        <div
+          id="payment-card-panel"
+          class="payment-panel">
+
+          <div class="booking-field">
+
+            <label for="booking-card-number">
+              카드 번호
+            </label>
+
+            <input
+              id="booking-card-number"
+              type="text"
+              inputmode="numeric"
+              maxlength="19"
+              autocomplete="cc-number"
+              placeholder="0000-0000-0000-0000"
+              form="booking-form">
+
+          </div>
+
+
+          <div class="booking-form-grid booking-form-grid-two">
+
+            <div class="booking-field">
+
+              <label for="booking-card-expiry">
+                유효기간 (MM/YY)
+              </label>
+
+              <input
+                id="booking-card-expiry"
+                type="text"
+                inputmode="numeric"
+                maxlength="5"
+                autocomplete="cc-exp"
+                placeholder="MM/YY"
+                form="booking-form">
+
+            </div>
+
+
+            <div class="booking-field">
+
+              <label for="booking-card-cvc">
+                CVC
+              </label>
+
+              <input
+                id="booking-card-cvc"
+                type="password"
+                inputmode="numeric"
+                maxlength="4"
+                autocomplete="cc-csc"
+                placeholder="카드 뒷면 3자리"
+                form="booking-form">
+
+            </div>
+
+          </div>
+
+          <p class="booking-field-help">
+            카드 정보는 결제대행사(PG)로만 전달되며 스테이북 서버에 저장되지 않습니다.
+          </p>
+
+        </div>
+
+
+        <!-- 간편 결제 -->
+
+        <div
+          id="payment-easy-panel"
+          class="payment-panel"
+          hidden>
+
+          <div
+            class="easy-pay-options"
+            role="radiogroup"
+            aria-label="간편 결제 수단">
+
+            <button
+              class="easy-pay-option"
+              type="button"
+              role="radio"
+              aria-checked="false"
+              data-provider="KAKAOPAY"
+              form="booking-form">
+              카카오페이
+            </button>
+
+            <button
+              class="easy-pay-option"
+              type="button"
+              role="radio"
+              aria-checked="false"
+              data-provider="NAVERPAY"
+              form="booking-form">
+              네이버페이
+            </button>
+
+            <button
+              class="easy-pay-option"
+              type="button"
+              role="radio"
+              aria-checked="false"
+              data-provider="TOSSPAY"
+              form="booking-form">
+              토스페이
+            </button>
+
+          </div>
+
+          <p class="booking-field-help">
+            예약 요청 후 선택한 간편 결제 화면으로 이동합니다.
+          </p>
+
+        </div>
+
+
+        <p
+          id="payment-mileage-only"
+          class="booking-field-help payment-mileage-only"
+          hidden>
+          마일리지로 전액 결제되어 추가 결제수단이 필요하지 않습니다.
+        </p>
+
+      </section>
+
+
+    </section>
+
+
+    <!-- =========================
+         오른쪽
+         금액 요약
+         ========================= -->
+
+    <aside class="booking-price-card">
+
+      <h2>
+        결제 금액
+      </h2>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          1박 가격
+        </span>
+
+        <strong id="booking-night-price">
+          -
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          숙박일수
+        </span>
+
+        <strong id="booking-night-count">
+          -
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          숙박 금액
+        </span>
+
+        <strong id="booking-total-price">
+          -
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          마일리지 사용
+        </span>
+
+        <strong id="booking-mileage-discount">
+          0원
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-divider">
+      </div>
+
+
+      <div class="booking-price-row booking-total-row">
+
+        <span>
+          최종 결제 금액
+        </span>
+
+        <strong id="booking-final-price">
+          -
+        </strong>
+
+      </div>
+
+
+      <p class="booking-price-note">
+        현재 화면 금액은 예상 금액입니다.
+        실제 결제 금액은 서버에서 다시 계산합니다.
+      </p>
+
+
+      <p
+        id="booking-submit-error"
+        class="booking-submit-error"
+        role="alert"
+        hidden>
+      </p>
+
+
+      <button
+        id="booking-submit-button"
+        class="booking-submit-button"
+        type="submit"
+        form="booking-form">
+
+        예약 요청
+
+      </button>
+
+    </aside>
+
+
+  </div>
+
+</main>
+
+
+<script src="/assets/js/api.js"></script>
+
+<script src="/assets/js/common.js"></script>
+
+<script src="/assets/js/booking-quote.js"></script>
+
+</body>
+
+</html>
