@@ -3,6 +3,9 @@ package com.kisia.staybooking.statistics;
 import java.util.List;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.accommodation.AccommodationStatus;
@@ -88,5 +91,38 @@ public class AdminStatisticsService {
             RefundStatus.REQUESTED, fromUtc, toUtc);
         return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
             Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDailyPaymentSummary> paymentDaily(LocalDate from, LocalDate to) {
+        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
+        }
+        if (ChronoUnit.DAYS.between(from, to) >= 31) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "DATE_RANGE_TOO_LARGE",
+                "일별 통계는 최대 31일까지 조회할 수 있습니다.", List.of("from", "to"));
+        }
+
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        Map<LocalDate, Long> paidByDay = sumByDay(payments.findPaidAmountsInRange(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc));
+        Map<LocalDate, Long> refundedByDay = sumByDay(refunds.findProcessedAmountsInRange(
+            RefundStatus.APPROVED, fromUtc, toUtc));
+        Map<LocalDate, Long> requestedByDay = sumByDay(refunds.findCreatedAmountsInRange(
+            RefundStatus.REQUESTED, fromUtc, toUtc));
+
+        return from.datesUntil(to.plusDays(1)).map(date -> {
+            long paid = paidByDay.getOrDefault(date, 0L);
+            long refunded = refundedByDay.getOrDefault(date, 0L);
+            return new AdminDailyPaymentSummary(date, paid, refunded,
+                Math.subtractExact(paid, refunded), requestedByDay.getOrDefault(date, 0L));
+        }).toList();
+    }
+
+    private static Map<LocalDate, Long> sumByDay(List<TimedAmount> amounts) {
+        return amounts.stream().collect(Collectors.toMap(
+            amount -> amount.occurredAt().toLocalDate(), TimedAmount::amount, Math::addExact));
     }
 }

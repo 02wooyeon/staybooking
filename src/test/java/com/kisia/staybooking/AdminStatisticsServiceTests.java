@@ -14,6 +14,7 @@ import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.statistics.AdminOverview;
 import com.kisia.staybooking.statistics.AdminPaymentSummary;
+import com.kisia.staybooking.statistics.AdminDailyPaymentSummary;
 import com.kisia.staybooking.statistics.AdminStatisticsService;
 import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.user.UserEntity;
@@ -139,5 +140,13 @@ class AdminStatisticsServiceTests {
         assertEquals(0, empty.approvedRefundAmount());
         assertEquals(0, empty.netPaidAmount());
         assertEquals(0, empty.requestedRefundAmount());
+
+        var daily = statistics.paymentDaily(todayUtc.minusDays(2), todayUtc);
+        assertEquals(3, daily.size());
+        assertEquals(new AdminDailyPaymentSummary(todayUtc.minusDays(2), 30_000, 20_000, 10_000, 0),
+            daily.get(0));
+        assertEquals(new AdminDailyPaymentSummary(todayUtc.minusDays(1), 0, 0, 0, 0), daily.get(1));
+        assertEquals(new AdminDailyPaymentSummary(todayUtc, 230_000, 50_000, 180_000, 10_000),
+            daily.get(2));
     }
 }
