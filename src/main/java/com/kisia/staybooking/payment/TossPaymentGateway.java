@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,4 +63,31 @@ public class TossPaymentGateway {
     private record ConfirmRequest(String paymentKey, String orderId, long amount) { }
 
     public record Confirmation(String paymentKey, String orderId, long totalAmount, String status) { }
+
+    public Cancellation cancel(String paymentKey, String reason, long amount, Long refundId) {
+        if (!isConfigured()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_NOT_CONFIGURED",
+                "토스페이먼츠 테스트 키가 설정되지 않았습니다.");
+        }
+        String basic = Base64.getEncoder().encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
+        try {
+            Cancellation result = client.post().uri("/v1/payments/{paymentKey}/cancel", paymentKey)
+                .header(HttpHeaders.AUTHORIZATION, "Basic " + basic)
+                .header("Idempotency-Key", "staybooking-refund-" + refundId)
+                .body(new CancelRequest(reason, amount))
+                .retrieve().body(Cancellation.class);
+            if (result == null) throw new IllegalStateException("Empty payment cancellation");
+            return result;
+        } catch (RestClientException | IllegalStateException e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED",
+                "결제 취소 결과를 확인하지 못했습니다. 토스 결제 내역을 확인해 주세요.");
+        }
+    }
+
+    private record CancelRequest(String cancelReason, long cancelAmount) { }
+
+    public record Cancellation(String paymentKey, String orderId, long totalAmount,
+                               long balanceAmount, String status, List<Cancel> cancels) { }
+
+    public record Cancel(long cancelAmount) { }
 }

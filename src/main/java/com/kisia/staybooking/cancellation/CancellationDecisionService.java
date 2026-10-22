@@ -8,6 +8,7 @@ import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationSource;
+import com.kisia.staybooking.refund.RefundRequestService;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -22,12 +23,14 @@ public class CancellationDecisionService {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final CancellationRequestRepository requests;
+    private final RefundRequestService refunds;
 
     public CancellationDecisionService(UserRepository users, BookingRepository bookings,
-                                       CancellationRequestRepository requests) {
+                                       CancellationRequestRepository requests, RefundRequestService refunds) {
         this.users = users;
         this.bookings = bookings;
         this.requests = requests;
+        this.refunds = refunds;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -64,6 +67,7 @@ public class CancellationDecisionService {
         request.approve(actor, nowUtc, reason);
         booking.cancel(actor, CancellationSource.USER_REQUEST, request.getReasonType(),
             request.getReasonDetail(), nowUtc);
+        refunds.record(booking);
         return request;
     }
 

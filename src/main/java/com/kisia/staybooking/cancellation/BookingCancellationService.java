@@ -9,6 +9,7 @@ import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationReasonType;
 import com.kisia.staybooking.booking.CancellationSource;
+import com.kisia.staybooking.refund.RefundRequestService;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -24,10 +25,13 @@ public class BookingCancellationService {
 
     private final UserRepository users;
     private final BookingRepository bookings;
+    private final RefundRequestService refunds;
 
-    public BookingCancellationService(UserRepository users, BookingRepository bookings) {
+    public BookingCancellationService(UserRepository users, BookingRepository bookings,
+                                      RefundRequestService refunds) {
         this.users = users;
         this.bookings = bookings;
+        this.refunds = refunds;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -52,6 +56,7 @@ public class BookingCancellationService {
         CancellationSource source = actor.getRole() == UserRole.ROLE_ADMIN
             ? CancellationSource.ADMIN_DIRECT : CancellationSource.APPROVER_DIRECT;
         booking.cancel(actor, source, reasonType, reason, LocalDateTime.now(ZoneOffset.UTC));
+        refunds.record(booking);
         return booking;
     }
 }
