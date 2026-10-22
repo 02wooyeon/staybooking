@@ -33,12 +33,24 @@ public class QnaService {
                               String content, boolean secret) {
         UserEntity user = users.findById(userId).orElseThrow(QnaService::notFound);
         if (user.getStatus() != UserStatus.ACTIVE) throw forbidden();
-        BookingEntity booking = null;
-        if (bookingId != null) {
-            booking = bookings.findById(bookingId).orElseThrow(QnaService::notFound);
-            if (!booking.getUser().getUserId().equals(userId)) throw notFound();
-        }
+        BookingEntity booking = ownedBooking(userId, bookingId);
         return response(questions.save(new QnaEntity(user, booking, category, title, content, secret)));
+    }
+
+    @Transactional
+    public QnaResponse update(Long userId, Long qnaId, Long bookingId, String category, String title,
+                              String content, boolean secret) {
+        QnaEntity question = ownedQuestion(userId, qnaId);
+        if (answers.existsByQnaQnaId(qnaId)) {
+            throw new IllegalStateException("Answered Q&A cannot be edited");
+        }
+        question.update(ownedBooking(userId, bookingId), category, title, content, secret);
+        return response(question);
+    }
+
+    @Transactional
+    public void delete(Long userId, Long qnaId) {
+        ownedQuestion(userId, qnaId).hide("작성자 삭제");
     }
 
     @Transactional(readOnly = true)
@@ -89,6 +101,19 @@ public class QnaService {
 
     private QnaResponse response(QnaEntity question) {
         return QnaResponse.from(question, answers.findByQnaQnaId(question.getQnaId()).orElse(null));
+    }
+
+    private QnaEntity ownedQuestion(Long userId, Long qnaId) {
+        QnaEntity question = questions.findByIdForUpdate(qnaId).orElseThrow(QnaService::notFound);
+        if (question.isDeleted() || !question.getUser().getUserId().equals(userId)) throw notFound();
+        return question;
+    }
+
+    private BookingEntity ownedBooking(Long userId, Long bookingId) {
+        if (bookingId == null) return null;
+        BookingEntity booking = bookings.findById(bookingId).orElseThrow(QnaService::notFound);
+        if (!booking.getUser().getUserId().equals(userId)) throw notFound();
+        return booking;
     }
 
     private UserEntity requireAdmin(Long adminId) {

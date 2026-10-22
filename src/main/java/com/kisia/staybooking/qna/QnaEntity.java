@@ -43,6 +43,15 @@ public class QnaEntity extends AuditedEntity {
     public boolean isDeleted() { return deleted; }
     public String getDeletedReason() { return deletedReason; }
 
+    public void update(BookingEntity booking, String category, String title, String content, boolean secret) {
+        if (deleted) throw new IllegalStateException("Hidden Q&A cannot be edited");
+        this.booking = booking;
+        this.category = category;
+        this.title = title;
+        this.content = content;
+        this.secret = secret;
+    }
+
     public void hide(String reason) {
         if (deleted) throw new IllegalStateException("Q&A is already hidden");
         deleted = true;

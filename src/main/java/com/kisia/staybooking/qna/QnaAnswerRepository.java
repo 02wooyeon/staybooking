@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface QnaAnswerRepository extends JpaRepository<QnaAnswerEntity, Long> {
     Optional<QnaAnswerEntity> findByQnaQnaId(Long qnaId);
+    boolean existsByQnaQnaId(Long qnaId);
 }

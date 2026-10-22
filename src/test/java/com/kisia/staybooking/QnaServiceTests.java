@@ -88,6 +88,29 @@ class QnaServiceTests {
             "booking", "예약 문의", "제 예약을 확인해 주세요.", true).bookingId());
     }
 
+    @Test
+    void ownerMayEditBeforeAnswerAndDeleteButOthersCannot() {
+        UserEntity owner = user("editor", UserRole.ROLE_USER);
+        UserEntity other = user("intruder", UserRole.ROLE_USER);
+        UserEntity admin = user("moderator", UserRole.ROLE_ADMIN);
+        Long id = qna.create(owner.getUserId(), null, "etc", "첫 제목", "처음 작성한 문의 내용입니다.",
+            true).qnaId();
+
+        assertThrows(ApiException.class, () -> qna.update(other.getUserId(), id, null, "etc",
+            "남의 수정", "다른 사람의 수정입니다.", false));
+        QnaResponse changed = qna.update(owner.getUserId(), id, null, "payment", "바뀐 제목",
+            "수정한 문의 내용입니다.", false);
+        assertEquals("바뀐 제목", changed.title());
+        assertEquals(1, qna.publicQuestions().size());
+        qna.answer(admin.getUserId(), id, "답변 완료");
+        assertThrows(IllegalStateException.class, () -> qna.update(owner.getUserId(), id, null,
+            "etc", "다시 수정", "답변 이후 변경 시도입니다.", false));
+        assertThrows(ApiException.class, () -> qna.delete(other.getUserId(), id));
+        qna.delete(owner.getUserId(), id);
+        assertTrue(qna.publicQuestions().isEmpty());
+        assertThrows(ApiException.class, () -> qna.detail(owner.getUserId(), id));
+    }
+
     private UserEntity user(String loginId, UserRole role) {
         UserEntity user = new UserEntity(loginId, "hash", loginId, null,
             loginId + "@example.test", null, role);

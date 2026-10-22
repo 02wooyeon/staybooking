@@ -26,6 +26,19 @@ public class QnaController {
             request.title().trim(), request.content().trim(), request.secret());
     }
 
+    @PutMapping("/{qnaId}")
+    public QnaResponse update(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable Long qnaId,
+                              @Valid @RequestBody CreateRequest request) {
+        return service.update(me.userId(), qnaId, request.bookingId(), request.category(),
+            request.title().trim(), request.content().trim(), request.secret());
+    }
+
+    @DeleteMapping("/{qnaId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable Long qnaId) {
+        service.delete(me.userId(), qnaId);
+    }
+
     @GetMapping("/mine")
     public List<QnaResponse> mine(@AuthenticationPrincipal AuthenticatedUser me) {
         return service.mine(me.userId());
