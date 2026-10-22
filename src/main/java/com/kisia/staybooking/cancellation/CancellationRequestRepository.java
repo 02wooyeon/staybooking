@@ -21,6 +21,9 @@ public interface CancellationRequestRepository extends JpaRepository<Cancellatio
     Optional<CancellationRequestEntity> findByBookingBookingIdAndStatus(Long bookingId,
                                                                           CancellationRequestStatus status);
 
+    List<CancellationRequestEntity> findByBookingBookingIdOrderByCreatedAtDescCancellationRequestIdDesc(
+        Long bookingId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from CancellationRequestEntity r where r.cancellationRequestId = :id")
     Optional<CancellationRequestEntity> findByIdForUpdate(@Param("id") Long id);

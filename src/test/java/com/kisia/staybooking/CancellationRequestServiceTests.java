@@ -10,6 +10,7 @@ import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingQueryService;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationDecisionService;
 import com.kisia.staybooking.cancellation.BookingCancellationService;
@@ -83,6 +84,13 @@ class CancellationRequestServiceTests {
         assertEquals(stranger.getUserId(), rejected.getDecidedBy().getUserId());
         assertEquals(BookingStatus.PENDING, rejected.getBooking().getStatus());
         assertEquals(false, bookingQueries.mine(owner.getUserId()).getFirst().cancellationRequested());
+        var history = bookingQueries.mineCancellationRequests(owner.getUserId(), booking.getBookingId());
+        assertEquals(1, history.size());
+        assertEquals(CancellationRequestStatus.REJECTED, history.getFirst().status());
+        assertEquals("Policy exception", history.getFirst().decisionReason());
+        assertEquals(true, history.getFirst().decidedAt() != null);
+        assertThrows(ApiException.class, () -> bookingQueries.mineCancellationRequests(
+            stranger.getUserId(), booking.getBookingId()));
     }
 
     @Test
@@ -139,6 +147,9 @@ class CancellationRequestServiceTests {
         assertEquals(CancellationRequestStatus.APPROVED, directRequest.getStatus());
         assertEquals(admin.getUserId(), directRequest.getDecidedBy().getUserId());
         assertEquals(directlyCancelled.getCancelledAt(), directRequest.getDecidedAt());
+        assertEquals(CancellationRequestStatus.APPROVED,
+            bookingQueries.mineCancellationRequests(owner.getUserId(), directBooking.getBookingId())
+                .getFirst().status());
         assertEquals(false, bookingQueries.mine(owner.getUserId()).stream()
             .filter(item -> item.bookingId().equals(directBooking.getBookingId()))
             .findFirst().orElseThrow().cancellationRequested());
