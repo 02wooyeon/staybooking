@@ -36,4 +36,11 @@ public class AdminStatisticsController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return statistics.paymentDaily(from, to);
     }
+
+    @GetMapping("/booking-daily")
+    public List<AdminDailyBookingSummary> bookingDaily(
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return statistics.bookingDaily(from, to);
+    }
 }

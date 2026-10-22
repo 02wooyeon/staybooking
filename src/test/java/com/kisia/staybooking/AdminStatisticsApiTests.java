@@ -96,5 +96,31 @@ class AdminStatisticsApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("DATE_RANGE_TOO_LARGE"));
+
+        mvc.perform(get("/api/v1/admin/statistics/booking-daily")
+                .param("from", todayUtc).param("to", todayUtc))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/admin/statistics/booking-daily")
+                .param("from", todayUtc).param("to", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(member)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/statistics/booking-daily")
+                .param("from", todayUtc).param("to", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].date").value(todayUtc))
+            .andExpect(jsonPath("$[0].createdBookings").isNumber())
+            .andExpect(jsonPath("$[0].approvedBookings").isNumber())
+            .andExpect(jsonPath("$[0].cancelledBookings").isNumber());
+        mvc.perform(get("/api/v1/admin/statistics/booking-daily")
+                .param("from", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_DATE_RANGE"));
+        mvc.perform(get("/api/v1/admin/statistics/booking-daily")
+                .param("from", LocalDate.now(ZoneOffset.UTC).minusDays(31).toString()).param("to", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("DATE_RANGE_TOO_LARGE"));
     }
 }

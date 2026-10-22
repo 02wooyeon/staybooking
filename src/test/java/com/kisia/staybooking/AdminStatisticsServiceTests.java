@@ -7,6 +7,8 @@ import java.time.ZoneOffset;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.qna.QnaAnswerEntity;
 import com.kisia.staybooking.qna.QnaEntity;
@@ -15,6 +17,7 @@ import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.statistics.AdminOverview;
 import com.kisia.staybooking.statistics.AdminPaymentSummary;
 import com.kisia.staybooking.statistics.AdminDailyPaymentSummary;
+import com.kisia.staybooking.statistics.AdminDailyBookingSummary;
 import com.kisia.staybooking.statistics.AdminStatisticsService;
 import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.user.UserEntity;
@@ -148,5 +151,42 @@ class AdminStatisticsServiceTests {
         assertEquals(new AdminDailyPaymentSummary(todayUtc.minusDays(1), 0, 0, 0, 0), daily.get(1));
         assertEquals(new AdminDailyPaymentSummary(todayUtc, 230_000, 50_000, 180_000, 10_000),
             daily.get(2));
+    }
+
+    @Test
+    void bookingDailyCountsApprovalEvenWhenBookingIsLaterCancelled() {
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDate todayUtc = nowUtc.toLocalDate();
+        UserEntity admin = new UserEntity("bookingdaily", "hash", "Admin", null,
+            "bookingdaily@example.test", null, UserRole.ROLE_ADMIN);
+        em.persist(admin);
+        AccommodationEntity stay = new AccommodationEntity("Stay", "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0));
+        em.persist(stay);
+        RoomEntity room = new RoomEntity(stay, "Standard", 100_000, 2, 1);
+        em.persist(room);
+
+        BookingEntity cancelled = new BookingEntity(admin, room, todayUtc.plusDays(2),
+            todayUtc.plusDays(3), 1, 100_000, 0, nowUtc.plusDays(1));
+        BookingEntity approved = new BookingEntity(admin, room, todayUtc.plusDays(4),
+            todayUtc.plusDays(5), 1, 100_000, 0, nowUtc.plusDays(1));
+        BookingEntity pending = new BookingEntity(admin, room, todayUtc.plusDays(6),
+            todayUtc.plusDays(7), 1, 100_000, 0, nowUtc.plusDays(1));
+        em.persist(cancelled);
+        em.persist(approved);
+        em.persist(pending);
+        cancelled.markPaid(nowUtc);
+        cancelled.accept(admin, nowUtc);
+        cancelled.cancel(admin, CancellationSource.ADMIN_DIRECT, CancellationReasonType.USER_FAULT,
+            "Test", nowUtc);
+        approved.markPaid(nowUtc);
+        approved.accept(admin, nowUtc);
+        em.flush();
+
+        var daily = statistics.bookingDaily(todayUtc.minusDays(1), todayUtc.plusDays(1));
+        assertEquals(3, daily.size());
+        assertEquals(new AdminDailyBookingSummary(todayUtc.minusDays(1), 0, 0, 0), daily.get(0));
+        assertEquals(new AdminDailyBookingSummary(todayUtc, 3, 2, 1), daily.get(1));
+        assertEquals(new AdminDailyBookingSummary(todayUtc.plusDays(1), 0, 0, 0), daily.get(2));
     }
 }

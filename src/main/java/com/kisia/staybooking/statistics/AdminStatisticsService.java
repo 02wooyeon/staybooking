@@ -95,14 +95,7 @@ public class AdminStatisticsService {
 
     @Transactional(readOnly = true)
     public List<AdminDailyPaymentSummary> paymentDaily(LocalDate from, LocalDate to) {
-        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
-                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
-        }
-        if (ChronoUnit.DAYS.between(from, to) >= 31) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "DATE_RANGE_TOO_LARGE",
-                "일별 통계는 최대 31일까지 조회할 수 있습니다.", List.of("from", "to"));
-        }
+        validateDailyRange(from, to);
 
         LocalDateTime fromUtc = from.atStartOfDay();
         LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
@@ -119,6 +112,35 @@ public class AdminStatisticsService {
             return new AdminDailyPaymentSummary(date, paid, refunded,
                 Math.subtractExact(paid, refunded), requestedByDay.getOrDefault(date, 0L));
         }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDailyBookingSummary> bookingDaily(LocalDate from, LocalDate to) {
+        validateDailyRange(from, to);
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        Map<LocalDate, Long> createdByDay = countByDay(bookings.findCreatedTimesInRange(fromUtc, toUtc));
+        Map<LocalDate, Long> approvedByDay = countByDay(bookings.findApprovedTimesInRange(fromUtc, toUtc));
+        Map<LocalDate, Long> cancelledByDay = countByDay(bookings.findCancelledTimesInRange(fromUtc, toUtc));
+
+        return from.datesUntil(to.plusDays(1)).map(date -> new AdminDailyBookingSummary(date,
+            createdByDay.getOrDefault(date, 0L), approvedByDay.getOrDefault(date, 0L),
+            cancelledByDay.getOrDefault(date, 0L))).toList();
+    }
+
+    private static void validateDailyRange(LocalDate from, LocalDate to) {
+        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
+        }
+        if (ChronoUnit.DAYS.between(from, to) >= 31) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "DATE_RANGE_TOO_LARGE",
+                "일별 통계는 최대 31일까지 조회할 수 있습니다.", List.of("from", "to"));
+        }
+    }
+
+    private static Map<LocalDate, Long> countByDay(List<LocalDateTime> times) {
+        return times.stream().collect(Collectors.groupingBy(LocalDateTime::toLocalDate, Collectors.counting()));
     }
 
     private static Map<LocalDate, Long> sumByDay(List<TimedAmount> amounts) {
