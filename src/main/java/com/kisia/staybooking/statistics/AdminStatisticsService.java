@@ -1,9 +1,12 @@
 package com.kisia.staybooking.statistics;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentRepository;
@@ -16,6 +19,7 @@ import com.kisia.staybooking.room.RoomStatus;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -63,6 +67,25 @@ public class AdminStatisticsService {
             PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED));
         long approvedRefundAmount = refunds.sumAmountByStatus(RefundStatus.APPROVED);
         long requestedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REQUESTED);
+        return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
+            Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminPaymentSummary paymentSummary(LocalDate from, LocalDate to) {
+        if (from == null && to == null) return paymentSummary();
+        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
+        }
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        long grossPaidAmount = payments.sumPaidAmountByStatusInAndPaidAtRange(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc);
+        long approvedRefundAmount = refunds.sumProcessedAmountByStatusAndRange(
+            RefundStatus.APPROVED, fromUtc, toUtc);
+        long requestedRefundAmount = refunds.sumCreatedAmountByStatusAndRange(
+            RefundStatus.REQUESTED, fromUtc, toUtc);
         return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
             Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
     }

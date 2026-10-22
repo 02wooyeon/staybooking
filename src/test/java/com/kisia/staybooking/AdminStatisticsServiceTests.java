@@ -3,6 +3,7 @@ package com.kisia.staybooking;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
@@ -75,6 +76,8 @@ class AdminStatisticsServiceTests {
 
     @Test
     void paymentSummaryCountsOriginalPaidAmountsAndOnlyApprovedRefunds() {
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDate todayUtc = nowUtc.toLocalDate();
         UserEntity admin = new UserEntity("paymentsummary", "hash", "Admin", null,
             "paymentsummary@example.test", null, UserRole.ROLE_ADMIN);
         em.persist(admin);
@@ -94,7 +97,8 @@ class AdminStatisticsServiceTests {
             em.persist(bookings[i]);
             payments[i] = new PaymentEntity(bookings[i], "summary-order-" + i, "CARD", amounts[i]);
             em.persist(payments[i]);
-            if (i != 3) payments[i].complete("summary-key-" + i, LocalDateTime.now());
+            if (i != 3) payments[i].complete("summary-key-" + i,
+                i == 4 ? nowUtc.minusDays(2) : nowUtc);
         }
         payments[1].refund(20_000);
         payments[2].refund(50_000);
@@ -107,9 +111,9 @@ class AdminStatisticsServiceTests {
         em.persist(partial);
         em.persist(full);
         em.persist(rejected);
-        partial.process(admin, RefundStatus.APPROVED, LocalDateTime.now());
-        full.process(admin, RefundStatus.APPROVED, LocalDateTime.now());
-        rejected.process(admin, RefundStatus.REJECTED, LocalDateTime.now());
+        partial.process(admin, RefundStatus.APPROVED, nowUtc.minusDays(2));
+        full.process(admin, RefundStatus.APPROVED, nowUtc);
+        rejected.process(admin, RefundStatus.REJECTED, nowUtc);
         em.flush();
 
         AdminPaymentSummary result = statistics.paymentSummary();
@@ -117,5 +121,23 @@ class AdminStatisticsServiceTests {
         assertEquals(70_000, result.approvedRefundAmount());
         assertEquals(190_000, result.netPaidAmount());
         assertEquals(10_000, result.requestedRefundAmount());
+
+        AdminPaymentSummary today = statistics.paymentSummary(todayUtc, todayUtc);
+        assertEquals(230_000, today.grossPaidAmount());
+        assertEquals(50_000, today.approvedRefundAmount());
+        assertEquals(180_000, today.netPaidAmount());
+        assertEquals(10_000, today.requestedRefundAmount());
+
+        AdminPaymentSummary earlier = statistics.paymentSummary(todayUtc.minusDays(2), todayUtc.minusDays(2));
+        assertEquals(30_000, earlier.grossPaidAmount());
+        assertEquals(20_000, earlier.approvedRefundAmount());
+        assertEquals(10_000, earlier.netPaidAmount());
+        assertEquals(0, earlier.requestedRefundAmount());
+
+        AdminPaymentSummary empty = statistics.paymentSummary(todayUtc.plusDays(1), todayUtc.plusDays(1));
+        assertEquals(0, empty.grossPaidAmount());
+        assertEquals(0, empty.approvedRefundAmount());
+        assertEquals(0, empty.netPaidAmount());
+        assertEquals(0, empty.requestedRefundAmount());
     }
 }

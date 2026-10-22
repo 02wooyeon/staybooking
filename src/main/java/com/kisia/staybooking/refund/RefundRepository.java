@@ -10,10 +10,19 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Collection;
+import java.time.LocalDateTime;
 public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
  long countByStatus(RefundStatus status);
  @Query("select coalesce(sum(r.amount), 0) from RefundEntity r where r.status = :status")
  long sumAmountByStatus(@Param("status") RefundStatus status);
+ @Query("select coalesce(sum(r.amount), 0) from RefundEntity r "
+     + "where r.status = :status and r.processedAt >= :fromUtc and r.processedAt < :toUtc")
+ long sumProcessedAmountByStatusAndRange(@Param("status") RefundStatus status,
+     @Param("fromUtc") LocalDateTime fromUtc, @Param("toUtc") LocalDateTime toUtc);
+ @Query("select coalesce(sum(r.amount), 0) from RefundEntity r "
+     + "where r.status = :status and r.createdAt >= :fromUtc and r.createdAt < :toUtc")
+ long sumCreatedAmountByStatusAndRange(@Param("status") RefundStatus status,
+     @Param("fromUtc") LocalDateTime fromUtc, @Param("toUtc") LocalDateTime toUtc);
  @EntityGraph(attributePaths={"booking","processedBy"})
  List<RefundEntity> findAllByOrderByCreatedAtDesc();
  @EntityGraph(attributePaths={"booking","processedBy"})

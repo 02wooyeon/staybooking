@@ -1,5 +1,8 @@
 package com.kisia.staybooking;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+
 import com.kisia.staybooking.auth.JwtTokenProvider;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
@@ -52,5 +55,22 @@ class AdminStatisticsApiTests {
             .andExpect(jsonPath("$.approvedRefundAmount").isNumber())
             .andExpect(jsonPath("$.netPaidAmount").isNumber())
             .andExpect(jsonPath("$.requestedRefundAmount").isNumber());
+
+        String todayUtc = LocalDate.now(ZoneOffset.UTC).toString();
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary")
+                .param("from", todayUtc).param("to", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.netPaidAmount").isNumber());
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary")
+                .param("from", todayUtc)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_DATE_RANGE"));
+        mvc.perform(get("/api/v1/admin/statistics/payment-summary")
+                .param("from", todayUtc).param("to", LocalDate.now(ZoneOffset.UTC).minusDays(1).toString())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_DATE_RANGE"));
     }
 }

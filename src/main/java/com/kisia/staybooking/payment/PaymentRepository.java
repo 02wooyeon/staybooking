@@ -2,6 +2,7 @@ package com.kisia.staybooking.payment;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -16,6 +17,11 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     long countByStatus(PaymentStatus status);
     @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p where p.status in :statuses")
     long sumPaidAmountByStatusIn(@Param("statuses") List<PaymentStatus> statuses);
+    @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p "
+        + "where p.status in :statuses and p.paidAt >= :fromUtc and p.paidAt < :toUtc")
+    long sumPaidAmountByStatusInAndPaidAtRange(@Param("statuses") List<PaymentStatus> statuses,
+                                                @Param("fromUtc") LocalDateTime fromUtc,
+                                                @Param("toUtc") LocalDateTime toUtc);
     @EntityGraph(attributePaths = "booking")
     List<PaymentEntity> findAllByOrderByCreatedAtDesc();
     Page<PaymentEntity> findAllByOrderByCreatedAtDescPaymentIdDesc(Pageable pageable);
