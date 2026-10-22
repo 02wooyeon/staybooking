@@ -5,6 +5,7 @@ import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.jayway.jsonpath.JsonPath;
+import com.kisia.staybooking.auth.JwtTokenProvider;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -46,6 +48,7 @@ class AuthApiTests {
     @Autowired private MockMvc mvc;
     @Autowired private UserRepository users;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private JwtTokenProvider jwt;
 
     @Test
     void signupStoresBcryptHashAndUsesEmailAsLoginId() throws Exception {
@@ -132,6 +135,51 @@ class AuthApiTests {
 
         login(email, PASSWORD).andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+    }
+
+    @Test
+    void suspensionRevokesTokensAndReactivationDoesNotReviveOldAccessToken() throws Exception {
+        MvcResult session = signupAndLogin();
+        String access = JsonPath.read(session.getResponse().getContentAsString(), "$.accessToken");
+        String refresh = session.getResponse().getCookie(REFRESH_COOKIE).getValue();
+        Long userId = jwt.parseAccessToken(access).userId();
+        String email = users.findById(userId).orElseThrow().getEmail();
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("admin" + tag, "hash", "Admin", null,
+            "admin" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        String adminAccess = jwt.createAccessToken(admin);
+
+        mvc.perform(get("/api/v1/bookings/me").header("Authorization", "Bearer " + access))
+            .andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/admin/members/" + userId + "/status")
+                .header("Authorization", "Bearer " + adminAccess)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"SUSPENDED\"}"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/bookings/me").header("Authorization", "Bearer " + access))
+            .andExpect(status().isUnauthorized());
+        reissue(refresh).andExpect(status().isUnauthorized());
+
+        mvc.perform(patch("/api/v1/admin/members/" + userId + "/status")
+                .header("Authorization", "Bearer " + adminAccess)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}"))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/bookings/me").header("Authorization", "Bearer " + access))
+            .andExpect(status().isUnauthorized());
+        reissue(refresh).andExpect(status().isUnauthorized());
+        login(email, PASSWORD).andExpect(status().isOk());
+    }
+
+    @Test
+    void accessTokenRoleMustMatchCurrentAccountRole() throws Exception {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("roleadmin" + tag, "hash", "Admin", null,
+            "roleadmin" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        String token = jwt.createAccessToken(admin);
+        mvc.perform(get("/api/v1/admin/statistics/overview").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk());
+        jdbc.update("update users set role = ? where user_id = ?", UserRole.ROLE_USER.name(), admin.getUserId());
+        mvc.perform(get("/api/v1/admin/statistics/overview").header("Authorization", "Bearer " + token))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

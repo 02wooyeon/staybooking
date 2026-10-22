@@ -85,4 +85,10 @@ public class RoomEntity extends AuditedEntity {
     public int getCapacity() { return capacity; }
     public int getTotalQuantity() { return totalQuantity; }
     public RoomStatus getStatus() { return status; }
+
+    public void update(String name, long price, int capacity, int totalQuantity, String description, RoomStatus status) {
+        if (price < 0 || capacity < 1 || totalQuantity < 1) throw new IllegalArgumentException("Invalid room values");
+        this.name = Objects.requireNonNull(name); this.price = price; this.capacity = capacity;
+        this.totalQuantity = totalQuantity; this.description = description; this.status = Objects.requireNonNull(status);
+    }
 }

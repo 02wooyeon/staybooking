@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RoomRepository extends JpaRepository<RoomEntity, Long> {
+    long countByStatus(RoomStatus status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RoomEntity r join fetch r.accommodation where r.roomId = :roomId")
     Optional<RoomEntity> findByIdForUpdate(@Param("roomId") Long roomId);

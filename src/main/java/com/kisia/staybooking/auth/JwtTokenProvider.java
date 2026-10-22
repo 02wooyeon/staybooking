@@ -25,6 +25,7 @@ public class JwtTokenProvider {
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
     private static final String ISSUER = "staybooking";
     private static final String ROLE_CLAIM = "role";
+    private static final String VERSION_CLAIM = "ver";
     private static final int MIN_SECRET_BYTES = 32;
 
     private final SecretKey key;
@@ -57,6 +58,7 @@ public class JwtTokenProvider {
             .issuer(ISSUER)
             .subject(String.valueOf(user.getUserId()))
             .claim(ROLE_CLAIM, user.getRole().name())
+            .claim(VERSION_CLAIM, user.getTokenVersion())
             .id(UUID.randomUUID().toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plus(accessTokenTtl)))
@@ -79,7 +81,11 @@ public class JwtTokenProvider {
         try {
             Long userId = Long.valueOf(claims.getSubject());
             UserRole role = UserRole.valueOf(claims.get(ROLE_CLAIM, String.class));
-            return new AuthenticatedUser(userId, role);
+            Object version = claims.get(VERSION_CLAIM);
+            if (version != null && !(version instanceof Number)) {
+                throw new JwtException("Invalid token version");
+            }
+            return new AuthenticatedUser(userId, role, version == null ? 0 : ((Number) version).longValue());
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new JwtException("Invalid token claims", e);
         }

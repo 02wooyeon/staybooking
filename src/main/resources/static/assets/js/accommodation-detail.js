@@ -19,7 +19,14 @@
 
   async function loadDetail() {
     try {
-      var response = await fetch('/api/v1/accommodations/' + encodeURIComponent(accommodationId), {
+      var stay = new URLSearchParams();
+      if (params.get('checkIn') && params.get('checkOut')) {
+        stay.set('checkIn', params.get('checkIn'));
+        stay.set('checkOut', params.get('checkOut'));
+      }
+      var url = '/api/v1/accommodations/' + encodeURIComponent(accommodationId)
+        + (stay.toString() ? '?' + stay.toString() : '');
+      var response = await fetch(url, {
         headers: { Accept: 'application/json' },
         cache: 'no-store'
       });
@@ -57,7 +64,6 @@
     document.getElementById(id).textContent = value || '';
   }
 
-<<<<<<< Updated upstream
   function renderList(id, values, emptyText) {
     var list = document.getElementById(id);
     list.textContent = '';
@@ -66,289 +72,6 @@
       item.textContent = value;
       list.append(item);
     });
-=======
-
-  function renderRooms(
-    rooms
-  ) {
-
-    roomList.textContent =
-      '';
-
-    roomCount.textContent =
-      rooms.length +
-      '개 객실';
-
-
-    rooms.forEach(
-      function (room) {
-
-        var card =
-          document.createElement(
-            'article'
-          );
-
-        card.className =
-          'hotel-room-card';
-
-
-        /*
-         * 왼쪽 객실 정보
-         */
-
-        var left =
-          document.createElement(
-            'div'
-          );
-
-        left.className =
-          'hotel-room-left';
-
-
-        var imageBox =
-          document.createElement(
-            'div'
-          );
-
-        imageBox.className =
-          'hotel-room-image';
-
-
-        if (room.image) {
-
-          var roomImage =
-            document.createElement(
-              'img'
-            );
-
-          roomImage.src =
-            room.image;
-
-          roomImage.alt =
-            room.name +
-            ' 객실 사진';
-
-          imageBox.append(
-            roomImage
-          );
-
-        } else {
-
-          imageBox.append(
-            createPlaceholder(
-              '객실 이미지'
-            )
-          );
-        }
-
-
-        var roomInfo =
-          document.createElement(
-            'div'
-          );
-
-        roomInfo.className =
-          'hotel-room-info';
-
-
-        var roomName =
-          document.createElement(
-            'h3'
-          );
-
-        roomName.textContent =
-          room.name;
-
-
-        var capacity =
-          document.createElement(
-            'p'
-          );
-
-        capacity.textContent =
-          '최대 ' +
-          room.maxGuests +
-          '명';
-
-
-        roomInfo.append(
-          roomName,
-          capacity
-        );
-
-
-        left.append(
-          imageBox,
-          roomInfo
-        );
-
-
-        /*
-         * 가운데 예약 조건
-         */
-
-        var center =
-          document.createElement(
-            'div'
-          );
-
-        center.className =
-          'hotel-room-center';
-
-
-        var conditionTitle =
-          document.createElement(
-            'strong'
-          );
-
-        conditionTitle.textContent =
-          '객실 예약 정보';
-
-
-        var available =
-          room.status !==
-            'SOLD_OUT' &&
-          room.availableCount !==
-            0;
-
-
-        var availability =
-          document.createElement(
-            'p'
-          );
-
-
-        if (available) {
-
-          availability.textContent =
-            '✓ 예약 가능 · 남은 객실 ' +
-            room.availableCount +
-            '개';
-
-          availability.className =
-            'hotel-room-available';
-
-        } else {
-
-          availability.textContent =
-            '예약 마감';
-
-          availability.className =
-            'hotel-room-soldout';
-        }
-
-
-        var people =
-          document.createElement(
-            'p'
-          );
-
-        people.textContent =
-          '성인 최대 ' +
-          room.maxGuests +
-          '명';
-
-
-        center.append(
-          conditionTitle,
-          availability,
-          people
-        );
-
-
-        /*
-         * 오른쪽 가격/버튼
-         */
-
-        var right =
-          document.createElement(
-            'div'
-          );
-
-        right.className =
-          'hotel-room-right';
-
-
-        var priceLabel =
-          document.createElement(
-            'span'
-          );
-
-        priceLabel.textContent =
-          '1박 기준';
-
-
-        var price =
-          document.createElement(
-            'strong'
-          );
-
-        price.className =
-          'hotel-room-price';
-
-        price.textContent =
-          formatPrice(
-            room.price
-          ) +
-          '원';
-
-
-        var bookingButton =
-          document.createElement(
-            'a'
-          );
-
-        bookingButton.className =
-          'hotel-booking-button';
-
-
-        if (available) {
-
-          bookingButton.textContent =
-            '예약하기';
-
-          bookingButton.href =
-            '/booking/quote.html' +
-            '?accommodationId=' +
-            encodeURIComponent(
-              accommodationId
-            ) +
-            '&roomId=' +
-            encodeURIComponent(
-              room.roomId
-            );
-
-        } else {
-
-          bookingButton.textContent =
-            '예약 마감';
-
-          bookingButton.classList.add(
-            'disabled'
-          );
-        }
-
-
-        right.append(
-          priceLabel,
-          price,
-          bookingButton
-        );
-
-
-        card.append(
-          left,
-          center,
-          right
-        );
-
-
-        roomList.append(
-          card
-        );
-      }
-    );
->>>>>>> Stashed changes
   }
 
   function renderGallery(images, name) {
@@ -423,8 +146,21 @@
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'hotel-booking-button' + (available ? '' : ' disabled');
-      button.textContent = available ? '예약 화면 준비 중' : '예약 마감';
-      button.disabled = true;
+      button.textContent = available ? '예약하기' : '예약 마감';
+      button.disabled = !available;
+      if (available) {
+        button.addEventListener('click', function () {
+          var bookingParams = new URLSearchParams();
+          bookingParams.set('accommodationId', accommodationId);
+          bookingParams.set('roomId', room.roomId);
+          if (params.get('checkIn') && params.get('checkOut')) {
+            bookingParams.set('checkIn', params.get('checkIn'));
+            bookingParams.set('checkOut', params.get('checkOut'));
+          }
+          if (params.get('guests')) bookingParams.set('guests', params.get('guests'));
+          window.location.href = '/booking/create.html?' + bookingParams.toString();
+        });
+      }
       right.append(label, price, button);
 
       card.append(left, center, right);

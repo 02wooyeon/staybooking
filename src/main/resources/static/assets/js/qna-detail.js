@@ -1,274 +1,62 @@
-/*
- * Q&A 상세 화면
- * 현재는 sessionStorage의 mock 데이터를 사용한다.
- *
- * 실제 API 연동 시:
- * GET /api/v1/qna/{qnaId}
- * 수정/삭제 권한은 서버에서 다시 검증해야 한다.
- */
-
+/* 문의 상세는 URL의 ID로 서버에서 조회한다. 목록의 브라우저 저장값은 신뢰하지 않는다. */
 (function () {
   'use strict';
 
-
-  Ui.renderHeader();
-
-
-  var params =
-    new URLSearchParams(
-      window.location.search
-    );
-
-  var qnaId =
-    params.get('id');
-
-
-  var inquiry =
-    null;
-
-
-  try {
-
-    inquiry =
-      JSON.parse(
-        sessionStorage.getItem(
-          'staybookSelectedInquiry'
-        )
-      );
-
-  } catch (e) {
-
-    inquiry = null;
-  }
-
-
-  var CATEGORY_LABELS = {
-    booking: '예약',
-    payment: '결제',
-    refund: '취소·환불',
-    account: '회원',
-    etc: '기타'
-  };
-
-
-  /* 잘못된 접근 */
-  if (
-    !inquiry ||
-    String(inquiry.qnaId) !==
-      String(qnaId)
-  ) {
-
-    document.getElementById(
-      'detail-title'
-    ).textContent =
-      '문의 정보를 찾을 수 없습니다.';
-
-    document.getElementById(
-      'qna-edit-button'
-    ).hidden = true;
-
-    document.getElementById(
-      'qna-delete-button'
-    ).hidden = true;
-
-    return;
-  }
-
-
-  /* 상세 데이터 표시 */
-
-  document.getElementById(
-    'detail-category'
-  ).textContent =
-    CATEGORY_LABELS[inquiry.category]
-    || '기타';
-
-
-  document.getElementById(
-    'detail-status'
-  ).textContent =
-    inquiry.answered
-      ? '답변 완료'
-      : '답변 대기';
-
-
-  document.getElementById(
-    'detail-secret'
-  ).textContent =
-    inquiry.secret
-      ? '비밀글'
-      : '';
-
-
-  document.getElementById(
-    'detail-title'
-  ).textContent =
-    inquiry.title;
-
-
-  document.getElementById(
-    'detail-date'
-  ).textContent =
-    inquiry.createdAt;
-
-
-  document.getElementById(
-    'detail-content'
-  ).textContent =
-    inquiry.content || '내용이 없습니다.';
-
-
-    var editButton =
-  document.getElementById(
-    'qna-edit-button'
-  );
-
-var deleteButton =
-  document.getElementById(
-    'qna-delete-button'
-  );
-
-var answerBox =
-  document.getElementById(
-    'qna-answer-box'
-  );
-
-var answerText =
-  document.getElementById(
-    'detail-answer'
-  );
-
-
-  /* ---------- 접근 권한 ---------- */
-
-/* 남이 작성한 글이면 수정/삭제 숨김 */
-if (inquiry.owned !== true) {
+  var labels = { booking: '예약', payment: '결제', refund: '취소·환불', account: '회원', etc: '기타' };
+  var id = new URLSearchParams(window.location.search).get('id');
+  var editButton = document.getElementById('qna-edit-button');
+  var deleteButton = document.getElementById('qna-delete-button');
   editButton.hidden = true;
   deleteButton.hidden = true;
-}
 
-
-/* 남이 작성한 비밀글이면 내용 숨김 */
-if (
-  inquiry.secret === true &&
-  inquiry.owned === false
-) {
-
-  document.getElementById(
-    'detail-content'
-  ).textContent =
-    '비밀글입니다. 작성자와 관리자만 내용을 확인할 수 있습니다.';
-
-}
-
-
-/* 관리자 답변 표시 */
-if (
-  inquiry.answered === true &&
-  inquiry.answer &&
-  !(
-    inquiry.secret === true &&
-    inquiry.owned === false
-  )
-) {
-
-  answerBox.hidden = false;
-
-  answerText.textContent =
-    inquiry.answer;
-}
-
-  /* ---------- 수정 ---------- */
-
-  document.getElementById(
-    'qna-edit-button'
-  ).addEventListener(
-    'click',
-    function () {
-
-      sessionStorage.setItem(
-        'staybookEditInquiry',
-        JSON.stringify(inquiry)
-      );
-
-      window.location.href =
-        '/qna/write.html?edit='
-        + inquiry.qnaId;
-    }
-  );
-
-
-  /* ---------- 삭제 ---------- */
-
-  document.getElementById(
-    'qna-delete-button'
-  ).addEventListener(
-    'click',
-    function () {
-
-      var confirmed =
-        confirm(
-          '이 문의를 삭제하시겠습니까?'
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-
-      /*
-       * 실제 API 연동 시:
-       * Q&A 삭제 API 호출
-       */
-
-
- var deletedIds = [];
-
-try {
-
-  deletedIds =
-    JSON.parse(
-      sessionStorage.getItem(
-        'staybookDeletedInquiryIds'
-      )
-    );
-
-  if (!Array.isArray(deletedIds)) {
-    deletedIds = [];
+  function showError(message) {
+    document.getElementById('detail-title').textContent = message;
+    document.getElementById('detail-content').textContent = '';
   }
 
-} catch (e) {
-
-  deletedIds = [];
-}
-
-
-if (
-  deletedIds.indexOf(
-    String(inquiry.qnaId)
-  ) === -1
-) {
-
-  deletedIds.push(
-    String(inquiry.qnaId)
-  );
-}
-
-
-sessionStorage.setItem(
-  'staybookDeletedInquiryIds',
-  JSON.stringify(deletedIds)
-);
-
-
-sessionStorage.removeItem(
-  'staybookSelectedInquiry'
-);
-
-
-window.location.href =
-  '/qna.html?inquiry=deleted';
+  async function load() {
+    var me = await Ui.renderHeader();
+    if (!id || !/^\d+$/.test(id)) {
+      showError('문의 정보를 찾을 수 없습니다.');
+      return;
     }
-  );
+    var q;
+    try {
+      q = await BookingApi.getQna(id);
+    } catch (e) {
+      showError(e.status === 404 ? '문의 정보를 찾을 수 없습니다.' : e.message);
+      return;
+    }
 
+    document.getElementById('detail-category').textContent = labels[q.category] || '기타';
+    document.getElementById('detail-status').textContent = q.answered ? '답변 완료' : '답변 대기';
+    document.getElementById('detail-secret').textContent = q.secret ? '비밀글' : '';
+    document.getElementById('detail-title').textContent = q.title;
+    document.getElementById('detail-date').textContent = (q.createdAt || '').slice(0, 10);
+    document.getElementById('detail-content').textContent = q.content;
+    if (q.answered && q.answer) {
+      document.getElementById('qna-answer-box').hidden = false;
+      document.getElementById('detail-answer').textContent = q.answer;
+    }
+
+    if (!me || me.userId !== q.userId) return;
+    editButton.hidden = q.answered;
+    deleteButton.hidden = false;
+    editButton.addEventListener('click', function () {
+      window.location.href = '/qna/write.html?edit=' + encodeURIComponent(id);
+    });
+    deleteButton.addEventListener('click', async function () {
+      if (!window.confirm('이 문의를 삭제하시겠습니까?')) return;
+      deleteButton.disabled = true;
+      try {
+        await BookingApi.deleteQna(id);
+        window.location.replace('/qna.html?inquiry=deleted');
+      } catch (e) {
+        deleteButton.disabled = false;
+        window.alert(e.message);
+      }
+    });
+  }
+
+  load();
 })();

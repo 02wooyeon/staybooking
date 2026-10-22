@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AccommodationRepository extends JpaRepository<AccommodationEntity, Long> {
+    long countByStatus(AccommodationStatus status);
     // 키워드는 파라미터 바인딩으로만 넘긴다. pattern은 LIKE 특수문자를 이스케이프한 소문자 값이다.
     @Query("""
         select a from AccommodationEntity a

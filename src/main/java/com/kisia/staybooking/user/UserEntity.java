@@ -62,6 +62,10 @@ public class UserEntity extends AuditedEntity {
     @ColumnDefault("0")
     private long mileageBalance;
 
+    @Column(name = "token_version", nullable = false)
+    @ColumnDefault("0")
+    private long tokenVersion;
+
     protected UserEntity() {
     }
 
@@ -95,4 +99,24 @@ public class UserEntity extends AuditedEntity {
     public UserRole getRole() { return role; }
     public UserStatus getStatus() { return status; }
     public long getMileageBalance() { return mileageBalance; }
+    public long getTokenVersion() { return tokenVersion; }
+    public void changeStatus(UserStatus status) {
+        UserStatus next = Objects.requireNonNull(status);
+        if (this.status != next) {
+            this.status = next;
+            tokenVersion++;
+        }
+    }
+    public void changeAssignableRole(UserRole role) {
+        if (this.role == UserRole.ROLE_ADMIN) {
+            throw new IllegalStateException("Administrator role cannot be changed here");
+        }
+        if (role != UserRole.ROLE_USER && role != UserRole.ROLE_APPROVER) {
+            throw new IllegalArgumentException("Only user and approver roles are assignable");
+        }
+        if (this.role != role) {
+            this.role = role;
+            tokenVersion++;
+        }
+    }
 }
