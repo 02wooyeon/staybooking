@@ -7,6 +7,9 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,6 +31,16 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     List<BookingEntity> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
     List<BookingEntity> findByStatusOrderByCreatedAtAsc(BookingStatus status);
+
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findAllByOrderByCreatedAtDescBookingIdDesc(Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByStatusOrderByCreatedAtDescBookingIdDesc(BookingStatus status, Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByBookingIdOrderByCreatedAtDescBookingIdDesc(Long bookingId, Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByBookingIdAndStatusOrderByCreatedAtDescBookingIdDesc(
+        Long bookingId, BookingStatus status, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from BookingEntity b where b.bookingId = :bookingId")

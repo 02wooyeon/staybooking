@@ -8,7 +8,7 @@ public record ApproverBookingResponse(
     PendingCancellationRequest cancellationRequest
 ) {
     static ApproverBookingResponse from(BookingEntity booking, CancellationRequestEntity request) {
-        return new ApproverBookingResponse(BookingResponse.from(booking),
+        return new ApproverBookingResponse(BookingResponse.from(booking, request != null),
             request == null ? null : PendingCancellationRequest.from(request));
     }
 
