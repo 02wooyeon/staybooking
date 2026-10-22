@@ -39,6 +39,8 @@ public class SecurityConfig {
                     "/api/v1/auth/reissue", "/api/v1/auth/logout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/check-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/accommodations/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/qna/mine").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/v1/qna/public", "/api/v1/qna/{qnaId}").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/approver/**").hasAnyRole("APPROVER", "ADMIN")
                 .requestMatchers("/api/**").authenticated()
