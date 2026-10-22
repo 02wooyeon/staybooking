@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     List<BookingEntity> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
+    List<BookingEntity> findByStatusOrderByCreatedAtAsc(BookingStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from BookingEntity b where b.bookingId = :bookingId")
     Optional<BookingEntity> findByIdForUpdate(@Param("bookingId") Long bookingId);
