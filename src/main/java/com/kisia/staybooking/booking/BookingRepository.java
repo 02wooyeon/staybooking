@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
+    long countByStatus(BookingStatus status);
     List<BookingEntity> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
     List<BookingEntity> findByStatusOrderByCreatedAtAsc(BookingStatus status);

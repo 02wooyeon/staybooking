@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QnaRepository extends JpaRepository<QnaEntity, Long> {
+    @Query("select count(q) from QnaEntity q where q.deleted = false and not exists "
+        + "(select a from QnaAnswerEntity a where a.qna = q)")
+    long countVisibleUnanswered();
     List<QnaEntity> findByUserUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId);
     List<QnaEntity> findBySecretFalseAndDeletedFalseOrderByCreatedAtDesc();
     List<QnaEntity> findAllByOrderByCreatedAtDesc();

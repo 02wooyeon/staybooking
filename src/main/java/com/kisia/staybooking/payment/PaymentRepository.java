@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
+    long countByStatus(PaymentStatus status);
     List<PaymentEntity> findAllByOrderByCreatedAtDesc();
     List<PaymentEntity> findByBookingBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
