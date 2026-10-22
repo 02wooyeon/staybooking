@@ -18,6 +18,8 @@
 
 관리자는 `GET /api/v1/admin/payments/search`에서 `bookingId`, `status`, `page`, `size`로 결제·환불 상태를 함께 검색할 수 있다. `page`는 0부터, `size`는 1~100이며 기본값은 각각 0과 20이다. 응답은 `content`, `page`, `size`, `totalElements`, `totalPages` 형태다. 기존 `GET /api/v1/admin/payments`의 목록 응답은 유지한다.
 
+환불 검토 목록도 `GET /api/v1/admin/refunds/search`에서 같은 방식으로 `bookingId`, `status`(`REQUESTED`, `APPROVED`, `REJECTED`), `page`, `size`를 받을 수 있다. 기존 `GET /api/v1/admin/refunds`와 `PATCH /api/v1/admin/refunds/{id}`의 응답 형식은 유지한다.
+
 테스트 결제도 서버와 브라우저가 키를 읽어야 하므로, 팀원마다 키를 직접 환경변수로 설정한다. 실제 키 값은 보고서나 이 문서에 적지 않는다. 기존 **로컬 테스트 결제** 버튼은 토스 키가 설정되지 않은 로컬 환경에서만 화면에 표시된다.
 
 예약 취소 시 환불 요청을 생성하고, 관리자가 승인하면 토스 테스트 취소 API를 호출한다. 환불 요청 번호를 멱등키로 사용해 재시도 시 중복 취소를 막는다. 예약 결제 가능 시간이 지난 뒤 토스에서는 승인됐지만 DB에는 저장되지 않은 건은 자동으로 예약을 완료하지 않는다. 이 경우 다른 예약이 이미 객실을 점유했을 수 있으므로 토스 결제 내역과 객실 재고를 확인해 수동으로 처리해야 한다.

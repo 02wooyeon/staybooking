@@ -95,5 +95,28 @@ class PaymentHistoryApiTests {
         mvc.perform(get(search + "&page=-1")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());
+
+        String refundSearch = "/api/v1/admin/refunds/search?bookingId=" + booking.getBookingId()
+            + "&status=REQUESTED&size=1";
+        mvc.perform(get(refundSearch)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].bookingId").value(booking.getBookingId()))
+            .andExpect(jsonPath("$.content[0].status").value("REQUESTED"));
+        mvc.perform(get(refundSearch + "&page=1")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(get("/api/v1/admin/refunds")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].bookingId").value(booking.getBookingId()));
+        mvc.perform(get(refundSearch)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(refundSearch.replace("&size=1", "&size=0"))
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest());
     }
 }
