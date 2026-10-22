@@ -17,6 +17,7 @@ import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
+import com.kisia.staybooking.user.UserRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,6 +47,8 @@ class PaymentHistoryApiTests {
             "pay-owner-" + tag + "@example.test"));
         UserEntity stranger = users.save(new UserEntity("pay-stranger-" + tag, "hash", "Stranger",
             "pay-stranger-" + tag + "@example.test"));
+        UserEntity admin = users.save(new UserEntity("pay-admin-" + tag, "hash", "Admin", null,
+            "pay-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
         AccommodationEntity stay = accommodations.save(new AccommodationEntity("Stay " + tag,
             "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
         RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
@@ -71,5 +74,26 @@ class PaymentHistoryApiTests {
             .andExpect(jsonPath("$").isEmpty());
         mvc.perform(get("/api/v1/payments/me"))
             .andExpect(status().isUnauthorized());
+
+        String search = "/api/v1/admin/payments/search?bookingId=" + booking.getBookingId()
+            + "&status=PAID&size=1";
+        mvc.perform(get(search).header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].bookingId").value(booking.getBookingId()))
+            .andExpect(jsonPath("$.content[0].refundStatus").value("REQUESTED"));
+        mvc.perform(get(search + "&page=1")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content").isEmpty());
+        mvc.perform(get(search).header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/payments")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].bookingId").value(booking.getBookingId()));
+        mvc.perform(get(search + "&page=-1")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest());
     }
 }

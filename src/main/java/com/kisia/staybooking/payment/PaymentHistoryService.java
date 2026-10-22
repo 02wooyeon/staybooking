@@ -9,6 +9,9 @@ import java.util.stream.Collectors;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
+import com.kisia.staybooking.common.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +28,30 @@ public class PaymentHistoryService {
     @Transactional(readOnly = true)
     public List<PaymentHistory> mine(Long userId) {
         List<PaymentEntity> mine = payments.findByBookingUserUserIdOrderByCreatedAtDesc(userId);
+        return summaries(mine);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PaymentHistory> adminSearch(PaymentSearchRequest request) {
+        int page = request.page() == null ? 0 : request.page();
+        int size = request.size() == null ? 20 : request.size();
+        PageRequest paging = PageRequest.of(page, size);
+        Page<PaymentEntity> result;
+        if (request.bookingId() != null && request.status() != null) {
+            result = payments.findByBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+                request.bookingId(), request.status(), paging);
+        } else if (request.bookingId() != null) {
+            result = payments.findByBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(request.bookingId(), paging);
+        } else if (request.status() != null) {
+            result = payments.findByStatusOrderByCreatedAtDescPaymentIdDesc(request.status(), paging);
+        } else {
+            result = payments.findAllByOrderByCreatedAtDescPaymentIdDesc(paging);
+        }
+        return new PageResponse<>(summaries(result.getContent()), page, size,
+            result.getTotalElements(), result.getTotalPages());
+    }
+
+    private List<PaymentHistory> summaries(List<PaymentEntity> mine) {
         if (mine.isEmpty()) return List.of();
         Map<Long, RefundEntity> refundsByBooking = refunds.findByBookingBookingIdIn(
             mine.stream().map(payment -> payment.getBooking().getBookingId()).distinct().toList())
