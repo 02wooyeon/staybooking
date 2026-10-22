@@ -50,6 +50,7 @@ public class TossPaymentGateway {
         try {
             Confirmation result = client.post().uri("/v1/payments/confirm")
                 .header(HttpHeaders.AUTHORIZATION, "Basic " + basic)
+                .header("Idempotency-Key", "staybooking-confirm-" + orderId)
                 .body(new ConfirmRequest(paymentKey, orderId, amount))
                 .retrieve().body(Confirmation.class);
             if (result == null) throw new IllegalStateException("Empty payment confirmation");
@@ -63,6 +64,25 @@ public class TossPaymentGateway {
     private record ConfirmRequest(String paymentKey, String orderId, long amount) { }
 
     public record Confirmation(String paymentKey, String orderId, long totalAmount, String status) { }
+
+    /** 승인 응답을 받지 못했을 때 토스에 저장된 주문 상태를 확인한다. */
+    public Confirmation findByOrderId(String orderId) {
+        if (!isConfigured()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_NOT_CONFIGURED",
+                "토스페이먼츠 결제 키가 설정되지 않았습니다.");
+        }
+        String basic = Base64.getEncoder().encodeToString((secretKey + ":").getBytes(StandardCharsets.UTF_8));
+        try {
+            Confirmation result = client.get().uri("/v1/payments/orders/{orderId}", orderId)
+                .header(HttpHeaders.AUTHORIZATION, "Basic " + basic)
+                .retrieve().body(Confirmation.class);
+            if (result == null) throw new IllegalStateException("Empty payment lookup");
+            return result;
+        } catch (RestClientException | IllegalStateException e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_LOOKUP_FAILED",
+                "결제 승인 상태를 조회하지 못했습니다. 결제 내역을 확인해 주세요.");
+        }
+    }
 
     public Cancellation cancel(String paymentKey, String reason, long amount, Long refundId) {
         if (!isConfigured()) {
