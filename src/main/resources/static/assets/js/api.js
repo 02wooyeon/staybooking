@@ -137,6 +137,9 @@
     ApiError: ApiError,
     safeNext: safeNext,
 
+    /** 로그인이 필요한 API 호출 (Access Token 첨부, 401이면 한 번 재발급 후 재시도) */
+    authed: authed,
+
     checkEmail: function (email) {
       return request('GET', '/api/v1/auth/check-email?email=' + encodeURIComponent(email));
     },
