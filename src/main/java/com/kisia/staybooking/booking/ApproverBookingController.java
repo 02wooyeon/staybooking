@@ -1,5 +1,7 @@
 package com.kisia.staybooking.booking;
 
+import java.util.List;
+
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.cancellation.BookingCancellationService;
 import com.kisia.staybooking.cancellation.CancellationDecisionService;
@@ -11,9 +13,11 @@ import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** ROLE_APPROVER와 ROLE_ADMIN이 함께 쓰는 예약 처리 API. */
@@ -21,15 +25,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/approver/bookings")
 public class ApproverBookingController {
     private final BookingApprovalService approvals;
+    private final ApproverBookingQueryService queries;
     private final BookingCancellationService directCancellations;
     private final CancellationDecisionService cancellationDecisions;
 
-    public ApproverBookingController(BookingApprovalService approvals,
+    public ApproverBookingController(BookingApprovalService approvals, ApproverBookingQueryService queries,
                                      BookingCancellationService directCancellations,
                                      CancellationDecisionService cancellationDecisions) {
         this.approvals = approvals;
+        this.queries = queries;
         this.directCancellations = directCancellations;
         this.cancellationDecisions = cancellationDecisions;
+    }
+
+    @GetMapping
+    public List<ApproverBookingResponse> list(
+        @AuthenticationPrincipal AuthenticatedUser me,
+        @RequestParam(defaultValue = "PENDING") BookingStatus status
+    ) {
+        return queries.list(me.userId(), status);
     }
 
     @PatchMapping("/{bookingId}")

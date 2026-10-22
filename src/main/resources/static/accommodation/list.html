@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+
+  <title>숙소 찾기 | 스테이북</title>
+
+  <!-- 팀원이 만든 공통 CSS 사용 -->
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body>
+  <!-- 공통 헤더 -->
+  <header class="site-header">
+    <a class="logo" href="/">스테이북</a>
+
+    <nav id="header-nav"
+         class="header-nav"
+         aria-label="계정">
+    </nav>
+  </header>
+
+  <main class="accommodation-page">
+
+    <section class="accommodation-header">
+      <h1>숙소 찾기</h1>
+      <p>원하는 지역과 일정을 입력해 숙소를 찾아보세요.</p>
+    </section>
+
+    <!-- 숙소 검색 -->
+    <section class="search-box">
+      <form id="accommodation-search-form">
+
+        <div class="search-field">
+          <label for="keyword">지역 / 숙소명</label>
+          <input
+            id="keyword"
+            name="keyword"
+            type="text"
+            maxlength="100"
+            placeholder="예: 서울, 강남">
+        </div>
+
+        <div class="search-field">
+          <label for="check-in">체크인</label>
+          <input
+            id="check-in"
+            name="checkIn"
+            type="date">
+        </div>
+
+        <div class="search-field">
+          <label for="check-out">체크아웃</label>
+          <input
+            id="check-out"
+            name="checkOut"
+            type="date">
+        </div>
+
+        <div class="search-field">
+          <label for="guests">인원</label>
+          <input
+            id="guests"
+            name="guests"
+            type="number"
+            min="1"
+            max="20"
+            value="1">
+        </div>
+
+        <button
+          id="search-button"
+          class="btn-primary"
+          type="submit">
+          검색
+        </button>
+
+      </form>
+    </section>
+
+    <!-- 조회 상태/오류 -->
+    <div
+      id="accommodation-alert"
+      class="alert"
+      role="alert"
+      hidden>
+    </div>
+
+    <section class="accommodation-result">
+
+      <div class="result-header">
+        <h2>숙소 목록</h2>
+        <span id="result-count"></span>
+      </div>
+
+      <!-- JS에서 숙소 카드 생성 -->
+      <div
+        id="accommodation-list"
+        class="accommodation-list">
+      </div>
+
+      <!-- 로딩 -->
+      <p id="loading-message" hidden>
+        숙소 정보를 불러오는 중입니다...
+      </p>
+
+      <!-- 조회 결과 없음 -->
+      <p id="empty-message" hidden>
+        조건에 맞는 숙소가 없습니다.
+      </p>
+
+    </section>
+
+  </main>
+
+  <!-- 팀원이 만든 공통 JS -->
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/common.js"></script>
+
+  <!-- 내가 만든 숙소 JS -->
+  <script src="/assets/js/accommodation.js"></script>
+</body>
+</html>

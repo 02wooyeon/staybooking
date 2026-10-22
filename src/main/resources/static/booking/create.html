@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>예약하기 | 스테이북</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/css/style.css">
+</head>
+
+
+<body>
+
+<header class="site-header">
+
+  <a
+    class="logo"
+    href="/">
+    스테이북
+  </a>
+
+  <nav
+    id="header-nav"
+    class="header-nav">
+  </nav>
+
+</header>
+
+
+<main class="booking-page">
+
+  <div class="booking-back">
+
+    <a
+      id="booking-back-link"
+      href="/accommodation/list.html">
+      ← 숙소로 돌아가기
+    </a>
+
+  </div>
+
+
+  <div class="booking-title">
+
+    <h1>예약 정보 확인</h1>
+
+    <p>
+      예약 정보를 확인한 뒤 예약을 진행해 주세요.
+    </p>
+
+  </div>
+
+
+  <div
+    id="booking-alert"
+    class="alert alert-error"
+    hidden>
+  </div>
+
+
+  <div class="booking-layout">
+
+
+    <!-- =========================
+         왼쪽
+         예약 입력
+         ========================= -->
+
+    <section class="booking-main">
+
+
+      <!-- 선택한 숙소/객실 -->
+
+      <section class="booking-card">
+
+        <h2>
+          선택한 객실
+        </h2>
+
+        <div class="booking-room-summary">
+
+          <div
+            id="booking-room-image"
+            class="booking-room-image">
+          </div>
+
+          <div class="booking-room-summary-info">
+
+            <p
+              id="booking-accommodation-name"
+              class="booking-accommodation-name">
+            </p>
+
+            <h3
+              id="booking-room-name">
+            </h3>
+
+            <p
+              id="booking-address"
+              class="booking-address">
+            </p>
+
+            <p
+              id="booking-capacity"
+              class="booking-capacity">
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- 예약 일정 -->
+
+      <section class="booking-card">
+
+        <h2>
+          숙박 일정
+        </h2>
+
+
+        <form id="booking-form">
+
+
+          <div class="booking-form-grid">
+
+            <div class="booking-field">
+
+              <label for="booking-check-in">
+                체크인
+              </label>
+
+              <input
+                id="booking-check-in"
+                name="checkIn"
+                type="date"
+                required>
+
+            </div>
+
+
+            <div class="booking-field">
+
+              <label for="booking-check-out">
+                체크아웃
+              </label>
+
+              <input
+                id="booking-check-out"
+                name="checkOut"
+                type="date"
+                required>
+
+            </div>
+
+
+            <div class="booking-field">
+
+              <label for="booking-guests">
+                인원
+              </label>
+
+              <input
+                id="booking-guests"
+                name="guests"
+                type="number"
+                min="1"
+                value="1"
+                required>
+
+            </div>
+
+          </div>
+
+
+          <div class="booking-notice">
+
+            <strong>
+              예약 전 확인
+            </strong>
+
+            <ul>
+              <li>
+                체크아웃 날짜는 체크인 날짜보다 이후여야 합니다.
+              </li>
+
+              <li>
+                객실 최대 수용 인원을 초과할 수 없습니다.
+              </li>
+
+              <li>
+                실제 예약 가능 여부와 최종 금액은 서버에서 다시 확인합니다.
+              </li>
+            </ul>
+
+          </div>
+
+        </form>
+
+      </section>
+
+
+    </section>
+
+
+    <!-- =========================
+         오른쪽
+         금액 요약
+         ========================= -->
+
+    <aside class="booking-price-card">
+
+      <h2>
+        결제 금액
+      </h2>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          1박 가격
+        </span>
+
+        <strong id="booking-night-price">
+          -
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-row">
+
+        <span>
+          숙박일수
+        </span>
+
+        <strong id="booking-night-count">
+          -
+        </strong>
+
+      </div>
+
+
+      <div class="booking-price-divider">
+      </div>
+
+
+      <div class="booking-price-row booking-total-row">
+
+        <span>
+          예상 총 금액
+        </span>
+
+        <strong id="booking-total-price">
+          -
+        </strong>
+
+      </div>
+
+
+      <p class="booking-price-note">
+        현재 화면 금액은 예상 금액입니다.
+        실제 결제 금액은 서버에서 다시 계산합니다.
+      </p>
+
+
+      <button
+        id="booking-submit-button"
+        class="booking-submit-button"
+        type="submit"
+        form="booking-form">
+
+        예약 요청
+
+      </button>
+
+    </aside>
+
+
+  </div>
+
+</main>
+
+
+<script src="/assets/js/api.js"></script>
+
+<script src="/assets/js/common.js"></script>
+
+<script src="/assets/js/booking.js"></script>
+
+</body>
+
+</html>
