@@ -223,6 +223,9 @@ a:hover { text-decoration: underline; }
 .hero { max-width: 720px; margin: 120px auto; padding: 0 24px; text-align: center; }
 .hero h1 { font-size: 32px; margin: 0 0 8px; }
 .hero p { color: var(--text-sub); margin: 0; }
+.hero:has(+ .home-search) { margin-bottom: 32px; }
+.home-search { max-width: 960px; margin: 0 auto 80px; }
+.home-search-all { margin: 12px 0 0; text-align: right; font-size: 14px; }
 
 /* ---------- 로그인·회원가입 카드 ---------- */
 
@@ -349,7 +352,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
   background: #fff;
 }
 
-#accommodation-search-form {
+#accommodation-search-form,
+#home-search-form {
   display: grid;
 
   grid-template-columns:
@@ -480,7 +484,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
 
 @media (max-width: 850px) {
 
-  #accommodation-search-form {
+  #accommodation-search-form,
+  #home-search-form {
     grid-template-columns:
       1fr 1fr;
   }
@@ -499,7 +504,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
     padding-top: 30px;
   }
 
-  #accommodation-search-form {
+  #accommodation-search-form,
+  #home-search-form {
     grid-template-columns:
       1fr;
   }

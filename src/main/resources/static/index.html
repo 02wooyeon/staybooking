@@ -15,8 +15,32 @@
 
   <main class="hero">
     <h1 id="greeting">어디로 떠나볼까요?</h1>
-    <p>숙소 검색과 예약 화면은 준비 중입니다.</p>
+    <p>지역이나 숙소 이름, 날짜와 인원을 입력해 숙소를 찾아보세요.</p>
   </main>
+
+  <!-- 검색 조건은 숙소 목록 화면(accommodation.js)이 주소에서 읽어 다시 검사한 뒤 검색한다 -->
+  <section class="search-box home-search" aria-label="숙소 검색">
+    <form id="home-search-form" action="/accommodation/list.html" method="get">
+      <div class="search-field">
+        <label for="home-keyword">지역 / 숙소명</label>
+        <input id="home-keyword" name="keyword" type="text" maxlength="100" placeholder="예: 서울, 강남">
+      </div>
+      <div class="search-field">
+        <label for="home-check-in">체크인</label>
+        <input id="home-check-in" name="checkIn" type="date">
+      </div>
+      <div class="search-field">
+        <label for="home-check-out">체크아웃</label>
+        <input id="home-check-out" name="checkOut" type="date">
+      </div>
+      <div class="search-field">
+        <label for="home-guests">인원</label>
+        <input id="home-guests" name="guests" type="number" min="1" max="20" value="1">
+      </div>
+      <button class="btn-primary" type="submit">검색</button>
+    </form>
+    <p class="home-search-all"><a href="/accommodation/list.html">전체 숙소 보기</a></p>
+  </section>
 
   <script src="/assets/js/api.js"></script>
   <script src="/assets/js/common.js"></script>
