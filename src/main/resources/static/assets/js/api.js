@@ -201,6 +201,11 @@
         + encodeURIComponent(page) + '&size=' + encodeURIComponent(size));
     },
 
+    getAdminReconciliationPage: function (page) {
+      return authed('GET', '/api/v1/admin/payments/reconciliation/search?page='
+        + encodeURIComponent(page) + '&size=10');
+    },
+
     completeDemoPayment: function (bookingId) {
       return authed('POST', '/api/v1/payments/demo-complete', { bookingId: bookingId });
     },

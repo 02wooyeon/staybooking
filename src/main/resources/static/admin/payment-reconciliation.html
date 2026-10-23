@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>관리자 결제 점검 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <style>
+    .reconciliation-page { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 80px; }
+    .reconciliation-page h1 { margin: 0 0 8px; }
+    .reconciliation-lead { margin: 0 0 20px; color: var(--text-sub); }
+    .reconciliation-note { padding: 14px 18px; margin-bottom: 20px; border-radius: 10px; background: var(--warn-bg); color: var(--warn); }
+    .reconciliation-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+    .reconciliation-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .reconciliation-table th, .reconciliation-table td { padding: 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .reconciliation-table th { white-space: nowrap; color: var(--text-sub); font-size: 13px; }
+    .reconciliation-table tr:last-child td { border-bottom: 0; }
+    .reconciliation-order { overflow-wrap: anywhere; min-width: 190px; }
+    .reconciliation-result { font-weight: 700; }
+    .reconciliation-result.review { color: var(--error); }
+    .reconciliation-result.failed { color: var(--warn); }
+    .reconciliation-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; }
+    .reconciliation-controls button { width: auto; min-width: 100px; margin: 0; padding: 0 18px; }
+    .reconciliation-empty { padding: 40px 16px; text-align: center; color: var(--text-sub); }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/">스테이북</a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+  <main class="reconciliation-page">
+    <h1>결제 대조 점검</h1>
+    <p class="reconciliation-lead">최근 토스 결제와 서버 기록을 한 페이지에 최대 10건씩 비교합니다.</p>
+    <p class="reconciliation-note">검토 필요·조회 실패 건은 토스 관리자 화면과 서버 기록을 확인해 주세요. 이 화면은 결제 상태를 변경하지 않습니다.</p>
+    <div id="reconciliation-alert" class="alert alert-error" role="alert" hidden></div>
+    <div class="reconciliation-table-wrap">
+      <table class="reconciliation-table">
+        <thead><tr><th>예약번호</th><th>결제 주문번호</th><th>서버 상태</th><th>토스 상태</th><th>금액</th><th>점검 결과</th></tr></thead>
+        <tbody id="reconciliation-list"></tbody>
+      </table>
+      <p id="reconciliation-empty" class="reconciliation-empty" hidden>점검할 토스 결제가 없습니다.</p>
+    </div>
+    <div class="reconciliation-controls">
+      <button id="reconciliation-prev" class="btn-outline" type="button" disabled>이전</button>
+      <span id="reconciliation-page-label" aria-live="polite">1페이지</span>
+      <button id="reconciliation-next" class="btn-outline" type="button" disabled>다음</button>
+      <button id="reconciliation-retry" class="btn-outline" type="button">다시 조회</button>
+    </div>
+  </main>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/common.js"></script>
+  <script src="/assets/js/admin-payment-reconciliation.js"></script>
+</body>
+</html>
