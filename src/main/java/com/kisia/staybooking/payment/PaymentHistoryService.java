@@ -32,6 +32,28 @@ public class PaymentHistoryService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<PaymentHistory> mineSearch(Long userId, PaymentSearchRequest request) {
+        int page = request.page() == null ? 0 : request.page();
+        int size = request.size() == null ? 20 : request.size();
+        PageRequest paging = PageRequest.of(page, size);
+        Page<PaymentEntity> result;
+        if (request.bookingId() != null && request.status() != null) {
+            result = payments.findByBookingUserUserIdAndBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+                userId, request.bookingId(), request.status(), paging);
+        } else if (request.bookingId() != null) {
+            result = payments.findByBookingUserUserIdAndBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(
+                userId, request.bookingId(), paging);
+        } else if (request.status() != null) {
+            result = payments.findByBookingUserUserIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+                userId, request.status(), paging);
+        } else {
+            result = payments.findByBookingUserUserIdOrderByCreatedAtDescPaymentIdDesc(userId, paging);
+        }
+        return new PageResponse<>(summaries(result.getContent()), page, size,
+            result.getTotalElements(), result.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<PaymentHistory> adminSearch(PaymentSearchRequest request) {
         int page = request.page() == null ? 0 : request.page();
         int size = request.size() == null ? 20 : request.size();

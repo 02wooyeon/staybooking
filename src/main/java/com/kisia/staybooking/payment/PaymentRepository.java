@@ -37,6 +37,14 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     Page<PaymentEntity> findByBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
         Long bookingId, PaymentStatus status, Pageable pageable);
     List<PaymentEntity> findByBookingUserUserIdOrderByCreatedAtDesc(Long userId);
+    Page<PaymentEntity> findByBookingUserUserIdOrderByCreatedAtDescPaymentIdDesc(Long userId,
+                                                                                  Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, PaymentStatus status, Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, Long bookingId, Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, Long bookingId, PaymentStatus status, Pageable pageable);
     List<PaymentEntity> findByBookingBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
     Optional<PaymentEntity> findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(Long bookingId,

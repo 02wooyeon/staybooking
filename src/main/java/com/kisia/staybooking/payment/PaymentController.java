@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,6 +63,13 @@ public class PaymentController {
     @GetMapping("/me")
     public List<PaymentHistoryService.PaymentHistory> mine(@AuthenticationPrincipal AuthenticatedUser me) {
         return history.mine(me.userId());
+    }
+
+    @GetMapping("/me/search")
+    public PageResponse<PaymentHistoryService.PaymentHistory> mineSearch(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @Valid @ModelAttribute PaymentSearchRequest request) {
+        return history.mineSearch(me.userId(), request);
     }
 
     @PostMapping("/toss/confirm")
