@@ -23,10 +23,14 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import org.springframework.http.HttpStatus;
 
 @DataJpaTest
 @Import(PaymentService.class)
@@ -119,5 +123,38 @@ class PaymentServiceTests {
             "payment-key", 120_000);
         assertEquals(PaymentStatus.PAID, paid.getStatus());
         assertEquals(BookingStatus.PENDING, booking.getStatus());
+        assertSame(paid, confirmations.confirm(owner.getUserId(), prepared.getOrderId(),
+            "payment-key", 120_000));
+        verify(gateway, times(2)).confirm("payment-key", prepared.getOrderId(), 120_000);
+    }
+
+    @Test
+    void recoversAConfirmedTossOrderWhenTheApprovalResponseWasLost() {
+        UserEntity owner = new UserEntity("retry-owner", "hash", "Owner", "retry-owner@example.test");
+        AccommodationEntity accommodation = new AccommodationEntity(
+            "Stay", "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0));
+        RoomEntity room = new RoomEntity(accommodation, "Standard", 120_000, 2, 1);
+        entityManager.persist(owner);
+        entityManager.persist(accommodation);
+        entityManager.persist(room);
+        BookingEntity booking = new BookingEntity(owner, room, LocalDate.now().plusDays(3),
+            LocalDate.now().plusDays(4), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
+        entityManager.persist(booking);
+        entityManager.flush();
+        PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
+        TossPaymentGateway gateway = mock(TossPaymentGateway.class);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
+            paymentRepository, payments, gateway);
+        when(gateway.confirm("payment-key", prepared.getOrderId(), 120_000))
+            .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CONFIRM_FAILED", "응답 없음"));
+        when(gateway.findByOrderId(prepared.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(
+                "payment-key", prepared.getOrderId(), 120_000, "DONE"));
+
+        PaymentEntity paid = confirmations.confirm(owner.getUserId(), prepared.getOrderId(),
+            "payment-key", 120_000);
+        assertEquals(PaymentStatus.PAID, paid.getStatus());
+        assertEquals(BookingStatus.PENDING, booking.getStatus());
+        verify(gateway).findByOrderId(prepared.getOrderId());
     }
 }

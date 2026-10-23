@@ -7,15 +7,40 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     long countByStatus(BookingStatus status);
+    @Query("select b.createdAt from BookingEntity b "
+        + "where b.createdAt >= :fromUtc and b.createdAt < :toUtc")
+    List<LocalDateTime> findCreatedTimesInRange(@Param("fromUtc") LocalDateTime fromUtc,
+                                                 @Param("toUtc") LocalDateTime toUtc);
+    @Query("select b.approvedAt from BookingEntity b "
+        + "where b.approvedAt >= :fromUtc and b.approvedAt < :toUtc")
+    List<LocalDateTime> findApprovedTimesInRange(@Param("fromUtc") LocalDateTime fromUtc,
+                                                  @Param("toUtc") LocalDateTime toUtc);
+    @Query("select b.cancelledAt from BookingEntity b "
+        + "where b.cancelledAt >= :fromUtc and b.cancelledAt < :toUtc")
+    List<LocalDateTime> findCancelledTimesInRange(@Param("fromUtc") LocalDateTime fromUtc,
+                                                   @Param("toUtc") LocalDateTime toUtc);
     List<BookingEntity> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
     List<BookingEntity> findByStatusOrderByCreatedAtAsc(BookingStatus status);
+
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findAllByOrderByCreatedAtDescBookingIdDesc(Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByStatusOrderByCreatedAtDescBookingIdDesc(BookingStatus status, Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByBookingIdOrderByCreatedAtDescBookingIdDesc(Long bookingId, Pageable pageable);
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    Page<BookingEntity> findByBookingIdAndStatusOrderByCreatedAtDescBookingIdDesc(
+        Long bookingId, BookingStatus status, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from BookingEntity b where b.bookingId = :bookingId")

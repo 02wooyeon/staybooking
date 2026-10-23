@@ -10,12 +10,16 @@ import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingQueryService;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationDecisionService;
 import com.kisia.staybooking.cancellation.BookingCancellationService;
 import com.kisia.staybooking.cancellation.CancellationRequestService;
 import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.room.RoomEntity;
+import com.kisia.staybooking.refund.RefundRequestService;
+import com.kisia.staybooking.refund.RefundRepository;
+import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.user.UserEntity;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -28,13 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
 @Import({CancellationRequestService.class, CancellationDecisionService.class,
-    BookingCancellationService.class, BookingQueryService.class})
+    BookingCancellationService.class, BookingQueryService.class, RefundRequestService.class})
 class CancellationRequestServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private CancellationRequestService requests;
     @Autowired private CancellationDecisionService decisions;
     @Autowired private BookingCancellationService directCancellations;
     @Autowired private BookingQueryService bookingQueries;
+    @Autowired private RefundRepository refunds;
 
     @Test
     void recordsOneOwnerRequestWithoutCancellingBooking() {
@@ -79,6 +84,13 @@ class CancellationRequestServiceTests {
         assertEquals(stranger.getUserId(), rejected.getDecidedBy().getUserId());
         assertEquals(BookingStatus.PENDING, rejected.getBooking().getStatus());
         assertEquals(false, bookingQueries.mine(owner.getUserId()).getFirst().cancellationRequested());
+        var history = bookingQueries.mineCancellationRequests(owner.getUserId(), booking.getBookingId());
+        assertEquals(1, history.size());
+        assertEquals(CancellationRequestStatus.REJECTED, history.getFirst().status());
+        assertEquals("Policy exception", history.getFirst().decisionReason());
+        assertEquals(true, history.getFirst().decidedAt() != null);
+        assertThrows(ApiException.class, () -> bookingQueries.mineCancellationRequests(
+            stranger.getUserId(), booking.getBookingId()));
     }
 
     @Test
@@ -101,6 +113,12 @@ class CancellationRequestServiceTests {
             1, 100_000, 0, LocalDateTime.now().plusMinutes(15));
         entityManager.persist(requestedBooking);
         entityManager.persist(directBooking);
+        PaymentEntity requestedPayment = new PaymentEntity(requestedBooking, "ORDER-requested", "DEMO", 100_000);
+        requestedPayment.complete("DEMO-requested", LocalDateTime.now());
+        PaymentEntity directPayment = new PaymentEntity(directBooking, "ORDER-direct", "DEMO", 100_000);
+        directPayment.complete("DEMO-direct", LocalDateTime.now());
+        entityManager.persist(requestedPayment);
+        entityManager.persist(directPayment);
         entityManager.flush();
         entityManager.createNativeQuery("update users set role = 'ROLE_APPROVER' where user_id = :approverId")
             .setParameter("approverId", approver.getUserId()).executeUpdate();
@@ -119,10 +137,22 @@ class CancellationRequestServiceTests {
         assertEquals(BookingStatus.CANCELLED, approved.getBooking().getStatus());
         assertEquals("USER_REQUEST", approved.getBooking().getCancelSource().name());
 
+        CancellationRequestEntity directRequest = requests.request(owner.getUserId(),
+            directBooking.getBookingId(), CancellationReasonType.USER_FAULT, "Please cancel");
         BookingEntity directlyCancelled = directCancellations.cancel(admin.getUserId(), directBooking.getBookingId(),
             CancellationReasonType.ACCOMMODATION_FAULT, "Operational issue");
         assertEquals(BookingStatus.CANCELLED, directlyCancelled.getStatus());
         assertEquals("ADMIN_DIRECT", directlyCancelled.getCancelSource().name());
         assertEquals(admin.getUserId(), directlyCancelled.getCancelledBy().getUserId());
+        assertEquals(CancellationRequestStatus.APPROVED, directRequest.getStatus());
+        assertEquals(admin.getUserId(), directRequest.getDecidedBy().getUserId());
+        assertEquals(directlyCancelled.getCancelledAt(), directRequest.getDecidedAt());
+        assertEquals(CancellationRequestStatus.APPROVED,
+            bookingQueries.mineCancellationRequests(owner.getUserId(), directBooking.getBookingId())
+                .getFirst().status());
+        assertEquals(false, bookingQueries.mine(owner.getUserId()).stream()
+            .filter(item -> item.bookingId().equals(directBooking.getBookingId()))
+            .findFirst().orElseThrow().cancellationRequested());
+        assertEquals(2, refunds.count());
     }
 }

@@ -36,10 +36,21 @@ public class BookingQueryService {
     /** 예약 번호를 추측해도 다른 회원 예약을 확인할 수 없도록 소유자를 함께 확인한다. */
     @Transactional(readOnly = true)
     public BookingResponse mineDetail(Long userId, Long bookingId) {
-        BookingEntity booking = bookings.findById(bookingId)
-            .filter(found -> found.getUser().getUserId().equals(userId))
-            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND", "예약을 찾을 수 없습니다."));
+        BookingEntity booking = ownedBooking(userId, bookingId);
         return BookingResponse.from(booking, cancellations.existsByBookingBookingIdAndStatus(
             bookingId, CancellationRequestStatus.REQUESTED));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CancellationRequestHistory> mineCancellationRequests(Long userId, Long bookingId) {
+        ownedBooking(userId, bookingId);
+        return cancellations.findByBookingBookingIdOrderByCreatedAtDescCancellationRequestIdDesc(bookingId)
+            .stream().map(CancellationRequestHistory::from).toList();
+    }
+
+    private BookingEntity ownedBooking(Long userId, Long bookingId) {
+        return bookings.findById(bookingId)
+            .filter(found -> found.getUser().getUserId().equals(userId))
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND", "예약을 찾을 수 없습니다."));
     }
 }

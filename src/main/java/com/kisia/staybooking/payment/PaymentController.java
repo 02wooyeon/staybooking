@@ -1,5 +1,7 @@
 package com.kisia.staybooking.payment;
 
+import java.util.List;
+
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.common.ApiException;
 import jakarta.validation.Valid;
@@ -23,14 +25,16 @@ public class PaymentController {
     private final PaymentService payments;
     private final TossPaymentConfirmationService tossConfirmations;
     private final TossPaymentGateway tossGateway;
+    private final PaymentHistoryService history;
     private final boolean demoEnabled;
 
     public PaymentController(PaymentService payments, TossPaymentConfirmationService tossConfirmations,
-                             TossPaymentGateway tossGateway,
+                             TossPaymentGateway tossGateway, PaymentHistoryService history,
                              @Value("${staybooking.payment.demo-enabled:false}") boolean demoEnabled) {
         this.payments = payments;
         this.tossConfirmations = tossConfirmations;
         this.tossGateway = tossGateway;
+        this.history = history;
         this.demoEnabled = demoEnabled && !tossGateway.isConfigured();
     }
 
@@ -52,6 +56,11 @@ public class PaymentController {
     @GetMapping("/capabilities")
     public PaymentCapabilities capabilities() {
         return new PaymentCapabilities(demoEnabled, tossGateway.isConfigured(), tossGateway.clientKey());
+    }
+
+    @GetMapping("/me")
+    public List<PaymentHistoryService.PaymentHistory> mine(@AuthenticationPrincipal AuthenticatedUser me) {
+        return history.mine(me.userId());
     }
 
     @PostMapping("/toss/confirm")

@@ -18,4 +18,5 @@ public interface RoomRepository extends JpaRepository<RoomEntity, Long> {
 
     List<RoomEntity> findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(
         Collection<Long> accommodationIds, RoomStatus status);
+    List<RoomEntity> findByAccommodationAccommodationIdOrderByRoomIdAsc(Long accommodationId);
 }
