@@ -13,33 +13,44 @@
   }
 
   if (page === 'success') {
+    var pendingOrderKey = 'staybookingPendingTossOrder';
     var paymentKey = params.get('paymentKey');
     var orderId = params.get('orderId');
+    if (!orderId) {
+      try { orderId = sessionStorage.getItem(pendingOrderKey); } catch (e) { /* 저장소 없이 진행 */ }
+    }
     var amount = Number(params.get('amount'));
     var message = document.getElementById('payment-message');
     var retry = document.getElementById('payment-retry');
     window.history.replaceState(null, '', window.location.pathname);
-    if (!paymentKey || !orderId || !Number.isSafeInteger(amount) || amount < 1) {
+    if (!orderId || (paymentKey && (!Number.isSafeInteger(amount) || amount < 1))) {
       message.textContent = '결제 정보가 올바르지 않습니다. 내 예약에서 상태를 확인해 주세요.';
       return;
+    }
+    try { sessionStorage.setItem(pendingOrderKey, orderId); } catch (e) { /* 저장소 없이 진행 */ }
+    function completed() {
+      try { sessionStorage.removeItem(pendingOrderKey); } catch (e) { /* 저장소 없이 진행 */ }
+      message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
     }
     async function confirm() {
       retry.hidden = true;
       message.textContent = '결제 승인 결과를 확인하고 있습니다.';
       try {
-        await BookingApi.confirmTossPayment(orderId, paymentKey, amount);
-        message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
-      } catch (e) {
-        try {
-          var recovered = await BookingApi.recoverTossPayment(orderId);
-          if (recovered.status === 'PAID') {
-            message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
-            return;
-          }
-        } catch (recoveryError) { /* 아래에서 재시도 방법을 안내한다. */ }
-        message.textContent = '결제 승인 상태를 확인하지 못했습니다. 내 예약을 확인하거나 다시 시도해 주세요.';
-        retry.hidden = false;
-      }
+        if (paymentKey) {
+          await BookingApi.confirmTossPayment(orderId, paymentKey, amount);
+          completed();
+          return;
+        }
+      } catch (e) { /* 승인 결과가 유실됐을 수 있으므로 아래에서 주문을 재조회한다. */ }
+      try {
+        var recovered = await BookingApi.recoverTossPayment(orderId);
+        if (recovered.status === 'PAID') {
+          completed();
+          return;
+        }
+      } catch (recoveryError) { /* 아래에서 재시도 방법을 안내한다. */ }
+      message.textContent = '결제 승인 상태를 확인하지 못했습니다. 내 예약을 확인하거나 다시 시도해 주세요.';
+      retry.hidden = false;
     }
     retry.addEventListener('click', confirm);
     confirm();
