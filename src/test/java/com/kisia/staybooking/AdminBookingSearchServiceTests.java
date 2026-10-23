@@ -79,6 +79,18 @@ class AdminBookingSearchServiceTests {
         assertTrue(pendingPage.content().getFirst().booking().cancellationRequested());
         assertEquals("USER_FAULT", pendingPage.content().getFirst().cancellationRequest().reasonType());
 
+        var cancellationQueue = search.search(admin.getUserId(),
+            new AdminBookingSearchRequest(null, null, 0, 1, true));
+        assertEquals(1, cancellationQueue.totalElements());
+        assertEquals(1, cancellationQueue.totalPages());
+        assertEquals(pending.getBookingId(), cancellationQueue.content().getFirst().booking().bookingId());
+        assertEquals(0, search.search(admin.getUserId(),
+            new AdminBookingSearchRequest(approved.getBookingId(), null, 0, 10, true)).totalElements());
+        assertEquals(2, search.search(admin.getUserId(),
+            new AdminBookingSearchRequest(null, null, 0, 10, false)).totalElements());
+        assertEquals(0, search.search(admin.getUserId(),
+            new AdminBookingSearchRequest(null, BookingStatus.CANCELLED, 0, 10, true)).totalElements());
+
         assertEquals(1, search.search(admin.getUserId(),
             new AdminBookingSearchRequest(approved.getBookingId(), BookingStatus.COMPLETED, 0, 10))
             .totalElements());

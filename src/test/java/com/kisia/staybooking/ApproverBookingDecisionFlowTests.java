@@ -91,8 +91,10 @@ class ApproverBookingDecisionFlowTests {
 
         Long firstRequestId = requestCancellation(requestPath, guestToken);
         mvc.perform(get(searchPath)
-                .param("bookingId", booking.getBookingId().toString()).header("Authorization", operatorToken))
+                .param("bookingId", booking.getBookingId().toString())
+                .param("cancellationRequested", "true").header("Authorization", operatorToken))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
             .andExpect(jsonPath("$.content[0].cancellationRequest.cancellationRequestId")
                 .value(firstRequestId));
         mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
@@ -103,8 +105,16 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertEquals(CancellationRequestStatus.REJECTED,
             requests.findById(firstRequestId).orElseThrow().getStatus());
+        mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
+                .param("cancellationRequested", "true").header("Authorization", operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
 
         Long secondRequestId = requestCancellation(requestPath, guestToken);
+        mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
+                .param("cancellationRequested", "true").header("Authorization", operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
@@ -114,6 +124,10 @@ class ApproverBookingDecisionFlowTests {
         assertEquals(BookingStatus.CANCELLED, bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
         assertEquals(CancellationRequestStatus.APPROVED,
             requests.findById(secondRequestId).orElseThrow().getStatus());
+        mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
+                .param("cancellationRequested", "true").header("Authorization", operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
         assertTrue(refunds.existsByBookingBookingId(booking.getBookingId()));
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .header("Authorization", operatorToken))

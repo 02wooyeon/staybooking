@@ -70,6 +70,16 @@ class ApproverBookingSearchApiTests {
                 .header("Authorization", token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].booking.bookingId").value(paid.getBookingId()));
+        mvc.perform(get("http://admin.localhost" + path)
+                .param("bookingId", unpaid.getBookingId().toString())
+                .param("cancellationRequested", "false").header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("http://admin.localhost" + path)
+                .param("bookingId", unpaid.getBookingId().toString())
+                .param("cancellationRequested", "true").header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
         mvc.perform(get("http://admin.localhost" + path).param("size", "101")
                 .header("Authorization", token))
             .andExpect(status().isBadRequest());

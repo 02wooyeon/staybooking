@@ -57,7 +57,10 @@ public class AdminBookingSearchService {
         int size = request.size() == null ? 20 : request.size();
         PageRequest paging = PageRequest.of(page, size);
         Page<BookingEntity> result;
-        if (request.bookingId() != null && request.status() != null) {
+        if (request.cancellationRequested() != null) {
+            result = bookings.findByPendingCancellation(request.bookingId(), request.status(),
+                request.cancellationRequested(), CancellationRequestStatus.REQUESTED, paging);
+        } else if (request.bookingId() != null && request.status() != null) {
             result = bookings.findByBookingIdAndStatusOrderByCreatedAtDescBookingIdDesc(
                 request.bookingId(), request.status(), paging);
         } else if (request.bookingId() != null) {
