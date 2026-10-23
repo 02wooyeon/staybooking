@@ -53,6 +53,8 @@ class ApproverBookingDecisionFlowTests {
         String tag = Long.toString(System.nanoTime());
         UserEntity approver = users.save(new UserEntity("decision-approver-" + tag, "hash", "Approver", null,
             "decision-approver-" + tag + "@example.test", null, UserRole.ROLE_APPROVER));
+        UserEntity admin = users.save(new UserEntity("decision-admin-" + tag, "hash", "Admin", null,
+            "decision-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
         UserEntity guest = users.save(new UserEntity("decision-guest-" + tag, "hash", "Guest",
             "decision-guest-" + tag + "@example.test"));
         AccommodationEntity stay = accommodations.save(new AccommodationEntity("Decision stay " + tag,
@@ -115,6 +117,12 @@ class ApproverBookingDecisionFlowTests {
                 .param("cancellationRequested", "true").header("Authorization", operatorToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("http://admin.localhost" + operatorPath).header("Authorization", operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.cancellationRequest.cancellationRequestId").value(secondRequestId))
+            .andExpect(jsonPath("$.cancellationRequests[0].status").value("REQUESTED"))
+            .andExpect(jsonPath("$.cancellationRequests[1].status").value("REJECTED"))
+            .andExpect(jsonPath("$.cancellationRequests[1].decidedByUserId").value(approver.getUserId()));
         mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
@@ -136,6 +144,23 @@ class ApproverBookingDecisionFlowTests {
                 .value(approver.getUserId()))
             .andExpect(jsonPath("$.content[0].decisionHistory.cancelSource").value("USER_REQUEST"))
             .andExpect(jsonPath("$.content[0].decisionHistory.cancelReasonType").value("USER_FAULT"));
+        String adminDetail = "http://admin.localhost/api/v1/admin/bookings/" + booking.getBookingId();
+        mvc.perform(get(adminDetail).header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.booking.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.summary.cancellationRequest").doesNotExist())
+            .andExpect(jsonPath("$.summary.decisionHistory.cancelledByUserId").value(approver.getUserId()))
+            .andExpect(jsonPath("$.cancellationRequests[0].status").value("APPROVED"))
+            .andExpect(jsonPath("$.cancellationRequests[0].decidedByUserId").value(approver.getUserId()))
+            .andExpect(jsonPath("$.cancellationRequests[1].status").value("REJECTED"));
+        mvc.perform(get(adminDetail).header("Authorization", guestToken))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("http://localhost/api/v1/admin/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("http://admin.localhost/api/v1/admin/bookings/999999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isNotFound());
         mvc.perform(get("http://localhost/api/v1/bookings/" + booking.getBookingId())
                 .header("Authorization", guestToken))
             .andExpect(status().isOk())

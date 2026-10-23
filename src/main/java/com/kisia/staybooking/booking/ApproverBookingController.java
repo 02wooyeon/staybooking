@@ -58,6 +58,12 @@ public class ApproverBookingController {
         return search.searchForOperator(me.userId(), request);
     }
 
+    @GetMapping("/{bookingId}")
+    public OperatorBookingDetailResponse detail(@AuthenticationPrincipal AuthenticatedUser me,
+                                                @PathVariable @Positive Long bookingId) {
+        return queries.detail(me.userId(), bookingId);
+    }
+
     @PatchMapping("/{bookingId}")
     public BookingResponse process(@AuthenticationPrincipal AuthenticatedUser me,
                                    @PathVariable @Positive Long bookingId,
