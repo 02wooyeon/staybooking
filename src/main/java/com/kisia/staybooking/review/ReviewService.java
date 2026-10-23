@@ -91,6 +91,14 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
+    public ReviewResponse detail(Long reviewId, Long actorId) {
+        ReviewEntity review = reviews.findById(reviewId)
+            .filter(r -> !r.isDeleted())
+            .orElseThrow(ReviewService::notFound);
+        return ReviewResponse.from(review, actorId);
+    }
+
+    @Transactional(readOnly = true)
     public List<ReviewResponse> mine(Long userId) {
         return reviews.findByUserUserIdAndDeletedFalseOrderByCreatedAtDesc(userId).stream()
             .map(r -> ReviewResponse.from(r, userId)).toList();

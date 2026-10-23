@@ -97,8 +97,22 @@
     }
     if (!ok) return;
 
-    Ui.showAlert(profileAlert, '회원 정보 수정 API는 아직 준비 중입니다.');
+    saveProfile(nickname, phone);
   });
+
+  // PATCH /api/v1/members/me. 이름·이메일은 바꿀 수 없고, 서버가 입력값을 다시 검사한다.
+  async function saveProfile(nickname, phone) {
+    Ui.setLoading(profileSubmit, true, '저장 중...');
+    try {
+      var updated = await BookingApi.updateMe({ nickname: nickname, phone: phone });
+      renderProfile(updated);
+      Ui.showAlert(profileAlert, '회원 정보가 저장되었습니다.', 'success');
+    } catch (e) {
+      Ui.showAlert(profileAlert, e.message, 'error');
+    } finally {
+      Ui.setLoading(profileSubmit, false);
+    }
+  }
 
   /* ---------- 마일리지 ---------- */
 
@@ -229,7 +243,7 @@
     });
   });
 
-  /* ---------- 회원 탈퇴 mock ---------- */
+  /* ---------- 회원 탈퇴 ---------- */
 
 var withdrawOpenButton =
   document.getElementById(
@@ -319,16 +333,23 @@ withdrawSubmitButton.addEventListener(
       return;
     }
 
-
-    /*
-     * 실제 API 연동 시
-     * 회원 탈퇴 API 호출로 교체
-     */
-
-    alert(
-      '회원 탈퇴 mock 테스트가 완료되었습니다.'
-    );
+    withdraw(withdrawPassword.value);
   }
 );
+
+// DELETE /api/v1/members/me. 진행 중인 예약이 있거나 비밀번호가 틀리면 서버가 거절한다.
+async function withdraw(password) {
+  Ui.setLoading(withdrawSubmitButton, true, '탈퇴 처리 중...');
+  try {
+    await BookingApi.withdraw(password);
+    alert('회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.');
+    window.location.replace('/');
+  } catch (e) {
+    alert(e.message);
+    withdrawPassword.value = '';
+    withdrawPassword.focus();
+    Ui.setLoading(withdrawSubmitButton, false);
+  }
+}
 
 })();

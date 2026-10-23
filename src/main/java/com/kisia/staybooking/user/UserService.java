@@ -113,8 +113,10 @@ public class UserService {
     }
 
     private static MeResponse response(UserEntity user) {
+        LocalDate joined = user.getCreatedAt() == null ? null
+            : user.getCreatedAt().atOffset(ZoneOffset.UTC).atZoneSameInstant(KOREA).toLocalDate();
         return new MeResponse(user.getUserId(), user.getEmail(), user.getName(), user.getNickname(),
-            user.getPhone(), user.getRole(), user.getMileageBalance());
+            user.getPhone(), user.getRole(), user.getMileageBalance(), joined);
     }
 
     private static String blankToNull(String value) {
