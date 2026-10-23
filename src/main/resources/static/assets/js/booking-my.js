@@ -109,7 +109,7 @@
       if (booking.status === 'PAYMENT_PENDING' && tossPaymentEnabled && !paymentExpired(booking)) {
         cancel.textContent = '결제하기';
         cancel.addEventListener('click', function () {
-          window.location.href = '/payment/checkout.html?bookingId=' + encodeURIComponent(booking.bookingId);
+          window.location.href = '/booking/payment/pay.html?bookingId=' + encodeURIComponent(booking.bookingId);
         });
       } else if (booking.status === 'PAYMENT_PENDING' && demoPaymentEnabled && !paymentExpired(booking)) {
         cancel.textContent = '테스트 결제 (실제 청구 없음)';
