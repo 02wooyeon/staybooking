@@ -1,0 +1,215 @@
+/*
+ * 관리자 화면 전용 스타일 (관리자 도메인에서만 제공)
+ * 기본 스타일은 빌드할 때 static 에서 복사되는 /assets/css/style.css 를 함께 쓴다.
+ */
+
+.admin-logo-tag {
+  display: inline-block; margin-left: 4px; padding: 2px 8px; border-radius: 999px;
+  background: var(--text); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 3px;
+}
+
+.admin-login-note { margin: 20px 0 0; color: var(--text-sub); font-size: 13px; text-align: center; }
+
+.admin-loading { max-width: 1180px; margin: 40px auto; padding: 0 24px; color: var(--text-sub); }
+.admin-denied { max-width: 560px; margin: 0 auto; padding: 40px 16px 72px; }
+
+.admin-layout {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start;
+  max-width: 1180px; margin: 0 auto; padding: 32px 24px 72px;
+}
+.admin-layout[hidden] { display: none; }
+
+.admin-side {
+  position: sticky; top: 24px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 12px;
+}
+.admin-side-title { margin: 4px 8px 6px; font-size: 18px; font-weight: 800; }
+.admin-side-user {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 8px 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+
+.admin-nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-nav a, .admin-nav-disabled {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 8px; font-weight: 600;
+}
+.admin-nav a { color: var(--text-sub); }
+.admin-nav a:hover { background: var(--bg); color: var(--text); text-decoration: none; }
+.admin-nav a[aria-current="page"] { background: var(--error-bg); color: var(--brand); }
+.admin-nav-disabled { color: var(--text-sub); opacity: 0.6; cursor: default; }
+.admin-nav-disabled small { font-size: 11px; font-weight: 600; }
+
+.admin-main > h1 { font-size: 26px; margin: 0 0 4px; }
+.admin-main .page-sub { color: var(--text-sub); margin: 0 0 24px; }
+
+.admin-shortcuts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.admin-shortcuts li {
+  display: flex; flex-direction: column; gap: 4px; padding: 16px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.admin-shortcut-name { font-weight: 700; }
+.admin-shortcut-desc { color: var(--text-sub); font-size: 13px; }
+.admin-shortcuts small { align-self: flex-start; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--text-sub); font-size: 11px; font-weight: 600; }
+
+/* 상태 배지 */
+.admin-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.admin-badge.ok { background: var(--ok-bg); color: var(--ok); }
+.admin-badge.warn { background: var(--warn-bg); color: var(--warn); }
+.admin-badge.error { background: var(--error-bg); color: var(--error); }
+.admin-badge.muted { background: var(--bg); color: var(--text-sub); }
+
+/* 표 (넓은 표는 가로 스크롤) */
+.admin-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-table th, .admin-table td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.admin-table th { background: var(--bg); color: var(--text-sub); font-weight: 700; white-space: nowrap; }
+.admin-table tbody tr:last-child td { border-bottom: 0; }
+.admin-table-empty { text-align: center !important; color: var(--text-sub); padding: 28px 12px !important; }
+
+/* 페이지 이동 */
+.admin-pagination-info { margin: 12px 0 0; color: var(--text-sub); font-size: 13px; }
+.admin-pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 12px; }
+.admin-pagination button {
+  min-width: 36px; height: 36px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px;
+  background: #fff; font: inherit; font-size: 14px; cursor: pointer;
+}
+.admin-pagination button:hover:not(:disabled) { background: var(--bg); }
+.admin-pagination button:disabled { cursor: default; color: var(--text-sub); }
+.admin-pagination button[aria-current="page"] { background: var(--text); border-color: var(--text); color: #fff; }
+
+/* 확인 창 */
+.admin-dialog { width: min(440px, calc(100% - 32px)); padding: 24px; border: 0; border-radius: 14px; box-shadow: 0 16px 48px rgba(31, 35, 40, 0.2); }
+.admin-dialog::backdrop { background: rgba(31, 35, 40, 0.45); }
+.admin-dialog h2 { margin: 0 0 8px; font-size: 20px; }
+.admin-dialog-message { margin: 0 0 16px; color: var(--text-sub); }
+.admin-dialog-reason { min-height: 90px; }
+.admin-dialog-actions { display: flex; gap: 8px; margin-top: 18px; }
+.admin-dialog-actions .btn-outline, .admin-dialog-actions .btn-primary { flex: 1; margin: 0; height: 46px; }
+.btn-danger { background: var(--error); }
+.btn-danger:hover:not(:disabled) { background: #a40e26; }
+
+@media (max-width: 860px) {
+  .admin-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 20px 16px 56px; }
+  .admin-side { position: static; padding: 10px; }
+  .admin-side-title { display: none; }
+  .admin-side-user { margin: 4px 4px 10px; padding-bottom: 10px; }
+  .admin-nav { flex-direction: row; overflow-x: auto; }
+  .admin-nav a, .admin-nav-disabled { white-space: nowrap; padding: 8px 10px; font-size: 14px; }
+}
+
+/* ---------- 관리 메뉴 화면 공통 ---------- */
+
+.admin-shortcuts a { display: flex; flex-direction: column; gap: 4px; color: var(--text); }
+.admin-shortcuts li:has(a) { padding: 0; }
+.admin-shortcuts li:has(a) a { padding: 16px; border-radius: var(--radius); }
+.admin-shortcuts a:hover { background: var(--bg); text-decoration: none; }
+
+.admin-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.admin-toolbar h1, .admin-toolbar h2 { margin-bottom: 4px; }
+.admin-toolbar .btn-small { flex: none; margin-top: 4px; }
+.admin-main > .admin-toolbar h1, section > .admin-toolbar h1 { font-size: 26px; margin-top: 0; }
+
+/* 검색 조건 */
+.admin-filters {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+  margin-bottom: 16px; padding: 16px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.admin-filters label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.admin-filters input, .admin-filters .form-select { width: 170px; height: 40px; }
+.admin-filters input[type="search"] { width: 220px; }
+.admin-filter-buttons { display: flex; gap: 6px; }
+.admin-filter-buttons .btn-primary, .admin-filter-buttons .btn-outline { width: auto; height: 40px; margin: 0; padding: 0 16px; font-size: 14px; }
+
+/* 표 안의 내용 */
+.admin-stack { display: flex; flex-direction: column; gap: 2px; }
+.admin-cell-sub { color: var(--text-sub); font-size: 12px; }
+.admin-badges { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.admin-actions { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.admin-action {
+  display: inline-flex; align-items: center; height: 30px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff;
+  color: var(--text); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.admin-action:hover:not(:disabled) { background: var(--bg); text-decoration: none; }
+.admin-action:disabled { opacity: 0.5; cursor: default; }
+.admin-action.primary { border-color: var(--brand); background: var(--brand); color: #fff; }
+.admin-action.primary:hover:not(:disabled) { background: var(--brand-dark); }
+.admin-action.danger { border-color: #f1b6b9; color: var(--error); }
+.admin-action.danger:hover:not(:disabled) { background: var(--error-bg); }
+.admin-table-wrap + div { margin-bottom: 8px; }
+
+/* 상세 · 입력 폼 */
+.admin-detail { margin-top: 20px; }
+.admin-pre { margin: 14px 0; white-space: pre-wrap; word-break: break-word; line-height: 1.7; }
+.admin-hidden-note { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--error-bg); color: var(--error); font-size: 14px; }
+.admin-subform { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.admin-subform h3 { margin: 0 0 12px; font-size: 17px; }
+.admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.admin-span-2 { grid-column: span 2; }
+.admin-form-grid select, .admin-form-grid input[type="number"], .admin-form-grid input[type="time"] {
+  width: 100%; height: 46px; padding: 0 12px; border: 1px solid var(--border);
+  border-radius: var(--radius); font: inherit; background: #fff;
+}
+.admin-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.admin-form-actions .btn-primary, .admin-form-actions .btn-outline { width: auto; min-width: 120px; height: 46px; margin: 0; padding: 0 20px; }
+.admin-danger-outline { color: var(--error); border-color: #f1b6b9; }
+.admin-danger-outline:hover:not(:disabled) { background: var(--error-bg) !important; }
+.admin-dialog-choice { margin-bottom: 12px; }
+
+/* 탭 */
+.admin-tabs { display: flex; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--border); }
+.admin-tabs a { padding: 10px 16px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-sub); font-weight: 700; }
+.admin-tabs a:hover { color: var(--text); text-decoration: none; }
+.admin-tabs a[aria-current="page"] { color: var(--brand); border-bottom-color: var(--brand); }
+
+/* 정의 목록 (금액 대조 결과) */
+.admin-dl { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 8px 16px; margin: 12px 0 0; font-size: 14px; }
+.admin-dl dt { color: var(--text-sub); }
+.admin-dl dd { margin: 0; font-weight: 600; word-break: break-all; }
+
+@media (max-width: 860px) {
+  .admin-filters input, .admin-filters .form-select, .admin-filters input[type="search"] { width: 100%; }
+  .admin-filters label { flex: 1 1 140px; }
+  .admin-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-span-2 { grid-column: auto; }
+  .admin-dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .admin-dl dd { margin-bottom: 8px; }
+}
+
+/* 검색 칸 (search·number 입력칸은 기본 스타일이 없어서 맞춘다) */
+.admin-filters input, .admin-form-grid input[type="number"] {
+  padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font: inherit; font-size: 14px; color: var(--text); background: #fff;
+}
+.admin-filters input:focus, .admin-form-grid input[type="number"]:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: transparent; }
+
+/* 표 칸은 기본적으로 줄바꿈하지 않고, 넓으면 표 안에서 가로 스크롤 */
+.admin-table td { white-space: nowrap; }
+.admin-table td.admin-wrap { white-space: normal; min-width: 180px; word-break: keep-all; overflow-wrap: anywhere; }
+
+.admin-main h1 { font-size: 26px; margin: 0 0 4px; }
+.admin-main .breadcrumb + h1 { margin-top: 4px; }
+.admin-table td.admin-break { min-width: 140px; word-break: break-all; }
+
+/* ---------- 숙소 이미지 ---------- */
+
+.admin-notice { margin: 12px 0; padding: 12px 14px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); font-size: 14px; }
+.admin-notice[hidden] { display: none; }
+#images-after-create { margin: 0 0 20px; }
+
+.admin-image-grid { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.admin-image-grid:empty { display: none; }
+.admin-image-item { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.admin-image-item img, .admin-image-broken {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; background: var(--bg);
+}
+.admin-image-broken { display: grid; place-items: center; color: var(--text-sub); font-size: 12px; }
+.admin-image-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.admin-image-bar .admin-action { margin-left: auto; height: 26px; padding: 0 8px; font-size: 12px; }
+.admin-image-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-image-msg { margin: 0; }
+.admin-image-pending { margin-bottom: 4px; }
+#images-card .file-box { margin-top: 4px; }
+#image-error { white-space: pre-line; }
