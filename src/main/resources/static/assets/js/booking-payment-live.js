@@ -212,17 +212,17 @@
       ? '결제창을 닫았습니다.' : '결제 요청이 완료되지 않았습니다.';
     $('pay-fail-sub').textContent = '청구 여부가 확실하지 않다면 내 예약에서 결제 상태를 확인해 주세요.';
     $('pay-summary').hidden = true;
-    if (!validId(bookingId)) return;
-    try {
-      if (validOrder(orderId)) {
+    if (validOrder(orderId)) {
+      try {
         var recovered = await BookingApi.recoverTossPayment(orderId);
         if (recovered.status === 'PAID') {
           window.location.replace('/booking/payment/complete.html?bookingId='
             + encodeURIComponent(recovered.bookingId));
           return;
         }
-      }
-    } catch (error) { /* PG에서 승인된 기록이 없거나 조회할 수 없는 상태다. */ }
+      } catch (error) { /* PG에서 승인된 기록이 없거나 조회할 수 없는 상태다. */ }
+    }
+    if (!validId(bookingId)) return;
     try {
       var booking = await BookingApi.getMyBooking(bookingId);
       if (booking.status === 'PAYMENT_PENDING' && Date.now() < expiry(booking.paymentExpiresAt).getTime()) {
