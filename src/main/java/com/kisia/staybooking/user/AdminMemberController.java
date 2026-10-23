@@ -6,11 +6,14 @@ import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.auth.RefreshTokenRepository;
+import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +34,17 @@ public class AdminMemberController {
     @GetMapping
     public List<MemberSummary> list() {
         return users.findAll().stream().map(MemberSummary::from).toList();
+    }
+
+    @GetMapping("/search")
+    public PageResponse<MemberSummary> search(@Valid @ModelAttribute MemberSearchRequest request) {
+        int page = request.page() == null ? 0 : request.page();
+        int size = request.size() == null ? 20 : request.size();
+        String q = request.q() == null || request.q().isBlank() ? null : request.q().trim();
+        var result = users.searchForAdmin(request.userId(), request.role(), request.status(), q,
+            PageRequest.of(page, size));
+        return new PageResponse<>(result.getContent().stream().map(MemberSummary::from).toList(),
+            page, size, result.getTotalElements(), result.getTotalPages());
     }
 
     @Transactional

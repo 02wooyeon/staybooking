@@ -52,6 +52,12 @@ public class BookingController {
         return queries.mineDetail(me.userId(), bookingId);
     }
 
+    @GetMapping("/{bookingId}/cancellation-requests")
+    public List<CancellationRequestHistory> cancellationRequests(
+        @AuthenticationPrincipal AuthenticatedUser me, @PathVariable @Positive Long bookingId) {
+        return queries.mineCancellationRequests(me.userId(), bookingId);
+    }
+
     @PostMapping("/{bookingId}/cancellation-requests")
     @ResponseStatus(HttpStatus.CREATED)
     public CancellationRequestResponse requestCancellation(@AuthenticationPrincipal AuthenticatedUser me,

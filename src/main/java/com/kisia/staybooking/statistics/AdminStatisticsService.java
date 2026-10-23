@@ -1,7 +1,15 @@
 package com.kisia.staybooking.statistics;
 
+import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentRepository;
@@ -14,6 +22,7 @@ import com.kisia.staybooking.room.RoomStatus;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -53,5 +62,89 @@ public class AdminStatisticsService {
             refunds.countByStatus(RefundStatus.REQUESTED),
             questions.countVisibleUnanswered()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminPaymentSummary paymentSummary() {
+        long grossPaidAmount = payments.sumPaidAmountByStatusIn(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED));
+        long approvedRefundAmount = refunds.sumAmountByStatus(RefundStatus.APPROVED);
+        long requestedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REQUESTED);
+        return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
+            Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminPaymentSummary paymentSummary(LocalDate from, LocalDate to) {
+        if (from == null && to == null) return paymentSummary();
+        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
+        }
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        long grossPaidAmount = payments.sumPaidAmountByStatusInAndPaidAtRange(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc);
+        long approvedRefundAmount = refunds.sumProcessedAmountByStatusAndRange(
+            RefundStatus.APPROVED, fromUtc, toUtc);
+        long requestedRefundAmount = refunds.sumCreatedAmountByStatusAndRange(
+            RefundStatus.REQUESTED, fromUtc, toUtc);
+        return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
+            Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDailyPaymentSummary> paymentDaily(LocalDate from, LocalDate to) {
+        validateDailyRange(from, to);
+
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        Map<LocalDate, Long> paidByDay = sumByDay(payments.findPaidAmountsInRange(List.of(
+            PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc));
+        Map<LocalDate, Long> refundedByDay = sumByDay(refunds.findProcessedAmountsInRange(
+            RefundStatus.APPROVED, fromUtc, toUtc));
+        Map<LocalDate, Long> requestedByDay = sumByDay(refunds.findCreatedAmountsInRange(
+            RefundStatus.REQUESTED, fromUtc, toUtc));
+
+        return from.datesUntil(to.plusDays(1)).map(date -> {
+            long paid = paidByDay.getOrDefault(date, 0L);
+            long refunded = refundedByDay.getOrDefault(date, 0L);
+            return new AdminDailyPaymentSummary(date, paid, refunded,
+                Math.subtractExact(paid, refunded), requestedByDay.getOrDefault(date, 0L));
+        }).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDailyBookingSummary> bookingDaily(LocalDate from, LocalDate to) {
+        validateDailyRange(from, to);
+        LocalDateTime fromUtc = from.atStartOfDay();
+        LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
+        Map<LocalDate, Long> createdByDay = countByDay(bookings.findCreatedTimesInRange(fromUtc, toUtc));
+        Map<LocalDate, Long> approvedByDay = countByDay(bookings.findApprovedTimesInRange(fromUtc, toUtc));
+        Map<LocalDate, Long> cancelledByDay = countByDay(bookings.findCancelledTimesInRange(fromUtc, toUtc));
+
+        return from.datesUntil(to.plusDays(1)).map(date -> new AdminDailyBookingSummary(date,
+            createdByDay.getOrDefault(date, 0L), approvedByDay.getOrDefault(date, 0L),
+            cancelledByDay.getOrDefault(date, 0L))).toList();
+    }
+
+    private static void validateDailyRange(LocalDate from, LocalDate to) {
+        if (from == null || to == null || from.isAfter(to) || to.equals(LocalDate.MAX)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "조회 시작일과 종료일을 올바르게 입력해 주세요.", List.of("from", "to"));
+        }
+        if (ChronoUnit.DAYS.between(from, to) >= 31) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "DATE_RANGE_TOO_LARGE",
+                "일별 통계는 최대 31일까지 조회할 수 있습니다.", List.of("from", "to"));
+        }
+    }
+
+    private static Map<LocalDate, Long> countByDay(List<LocalDateTime> times) {
+        return times.stream().collect(Collectors.groupingBy(LocalDateTime::toLocalDate, Collectors.counting()));
+    }
+
+    private static Map<LocalDate, Long> sumByDay(List<TimedAmount> amounts) {
+        return amounts.stream().collect(Collectors.toMap(
+            amount -> amount.occurredAt().toLocalDate(), TimedAmount::amount, Math::addExact));
     }
 }

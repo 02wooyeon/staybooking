@@ -90,4 +90,13 @@ public class PaymentEntity extends AuditedEntity {
         paidAt = Objects.requireNonNull(nowUtc);
         status = PaymentStatus.PAID;
     }
+
+    public void refund(long amount) {
+        if (status != PaymentStatus.PAID || amount < 0 || amount > paidAmount) {
+            throw new IllegalStateException("Payment cannot be refunded");
+        }
+        if (amount > 0) {
+            status = amount == paidAmount ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
+        }
+    }
 }

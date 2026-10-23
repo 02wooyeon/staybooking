@@ -11,6 +11,12 @@ import com.kisia.staybooking.accommodation.AdminAccommodationController;
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.cancellation.BookingCancellationService;
+import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.payment.PaymentRepository;
+import com.kisia.staybooking.payment.PaymentService;
+import com.kisia.staybooking.payment.PaymentStatus;
 import com.kisia.staybooking.refund.AdminRefundController;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
@@ -39,6 +45,27 @@ class AdminMutationPersistenceTests {
     @Autowired private RoomRepository rooms;
     @Autowired private BookingRepository bookings;
     @Autowired private RefundRepository refunds;
+    @Autowired private PaymentService paymentService;
+    @Autowired private PaymentRepository payments;
+    @Autowired private BookingCancellationService cancellations;
+
+    @Test
+    void createdAccommodationAndRoomKeepRequestedDescriptionAndStatus() {
+        String tag = Long.toString(System.nanoTime());
+        AccommodationEntity stay = accommodationsAdmin.create(
+            new AdminAccommodationController.AccommodationRequest("New stay " + tag, "Busan",
+                LocalTime.of(15, 0), LocalTime.of(11, 0), "Opening soon", AccommodationStatus.INACTIVE));
+        RoomEntity room = accommodationsAdmin.createRoom(stay.getAccommodationId(),
+            new AdminAccommodationController.RoomRequest("Suite", 180_000, 3, 2,
+                "Under preparation", RoomStatus.INACTIVE));
+
+        AccommodationEntity savedStay = accommodations.findById(stay.getAccommodationId()).orElseThrow();
+        RoomEntity savedRoom = rooms.findById(room.getRoomId()).orElseThrow();
+        assertEquals("Opening soon", savedStay.getDescription());
+        assertEquals(AccommodationStatus.INACTIVE, savedStay.getStatus());
+        assertEquals("Under preparation", savedRoom.getDescription());
+        assertEquals(RoomStatus.INACTIVE, savedRoom.getStatus());
+    }
 
     @Test
     void memberAndInventoryUpdatesSurviveReload() {
@@ -80,10 +107,13 @@ class AdminMutationPersistenceTests {
         BookingEntity booking = bookings.save(new BookingEntity(guest, room,
             LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
             LocalDateTime.now().plusHours(1)));
-        RefundEntity refund = refunds.save(new RefundEntity(booking, 100_000, "Test refund"));
+        paymentService.completeDemo(guest.getUserId(), booking.getBookingId());
+        cancellations.cancel(admin.getUserId(), booking.getBookingId(),
+            CancellationReasonType.ACCOMMODATION_FAULT, "Test refund");
+        RefundEntity refund = refunds.findAllByOrderByCreatedAtDesc().getFirst();
         AuthenticatedUser actor = new AuthenticatedUser(admin.getUserId(), UserRole.ROLE_ADMIN);
 
-        assertThrows(IllegalArgumentException.class, () -> refundsAdmin.process(actor,
+        assertThrows(ApiException.class, () -> refundsAdmin.process(actor,
             refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REQUESTED)));
         assertEquals(RefundStatus.REQUESTED, refunds.findById(refund.getRefundId()).orElseThrow().getStatus());
         refundsAdmin.process(actor, refund.getRefundId(),
@@ -92,7 +122,9 @@ class AdminMutationPersistenceTests {
         assertEquals(RefundStatus.APPROVED, saved.getStatus());
         assertEquals(admin.getUserId(), saved.getProcessedBy().getUserId());
         assertNotNull(saved.getProcessedAt());
-        assertThrows(IllegalStateException.class, () -> refundsAdmin.process(actor,
+        assertEquals(PaymentStatus.REFUNDED, payments.findByBookingBookingIdAndStatus(
+            booking.getBookingId(), PaymentStatus.REFUNDED).getFirst().getStatus());
+        assertThrows(ApiException.class, () -> refundsAdmin.process(actor,
             refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REJECTED)));
     }
 }

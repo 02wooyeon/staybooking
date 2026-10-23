@@ -10,10 +10,7 @@ import com.kisia.staybooking.booking.BookingStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 현재는 PG 웹훅 대신 개발용 결제 완료 요청을 사용한다.
- * 실제 PG 도입 시 complete의 paymentKey·amount 검증 자리를 PG 승인 응답 검증으로 교체한다.
- */
+/** 예약 결제 준비와 검증된 결제 결과의 저장을 담당한다. */
 @Service
 public class PaymentService {
     private final BookingRepository bookings;
