@@ -153,6 +153,23 @@ class PaymentHistoryApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());
 
+        String orderSearch = "/api/v1/admin/payments/search?orderId=" + payment.getOrderId();
+        mvc.perform(get(orderSearch).header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].paymentId").value(payment.getPaymentId()))
+            .andExpect(jsonPath("$.content[0].paymentKey").doesNotExist());
+        mvc.perform(get(orderSearch + "&status=READY")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get(orderSearch + "&bookingId=99999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get(orderSearch).header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+
         String reconciliation = "/api/v1/admin/payments/" + payment.getPaymentId() + "/reconciliation";
         mvc.perform(get(reconciliation)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))

@@ -27,7 +27,7 @@ public class AdminPaymentController {
     @GetMapping
     public List<PaymentSummary> list() { return payments.findAllByOrderByCreatedAtDesc().stream().map(PaymentSummary::from).toList(); }
     @GetMapping("/search")
-    public PageResponse<PaymentHistoryService.PaymentHistory> search(@Valid @ModelAttribute PaymentSearchRequest request) {
+    public PageResponse<PaymentHistoryService.PaymentHistory> search(@Valid @ModelAttribute AdminPaymentSearchRequest request) {
         return history.adminSearch(request);
     }
     @GetMapping("/{paymentId}/reconciliation")

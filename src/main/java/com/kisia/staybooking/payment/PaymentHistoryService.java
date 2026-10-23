@@ -54,12 +54,16 @@ public class PaymentHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PaymentHistory> adminSearch(PaymentSearchRequest request) {
+    public PageResponse<PaymentHistory> adminSearch(AdminPaymentSearchRequest request) {
         int page = request.page() == null ? 0 : request.page();
         int size = request.size() == null ? 20 : request.size();
         PageRequest paging = PageRequest.of(page, size);
         Page<PaymentEntity> result;
-        if (request.bookingId() != null && request.status() != null) {
+        String orderId = request.orderId() == null || request.orderId().isBlank()
+            ? null : request.orderId().trim();
+        if (orderId != null) {
+            result = payments.searchByOrderIdForAdmin(orderId, request.bookingId(), request.status(), paging);
+        } else if (request.bookingId() != null && request.status() != null) {
             result = payments.findByBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
                 request.bookingId(), request.status(), paging);
         } else if (request.bookingId() != null) {
