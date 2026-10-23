@@ -170,6 +170,20 @@ class PaymentHistoryApiTests {
         mvc.perform(get(orderSearch).header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isForbidden());
 
+        String paymentDetail = "/api/v1/admin/payments/" + payment.getPaymentId();
+        mvc.perform(get(paymentDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderId").value(payment.getOrderId()))
+            .andExpect(jsonPath("$.refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.paymentKey").doesNotExist());
+        mvc.perform(get(paymentDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/payments/99999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isNotFound());
+
         String reconciliation = "/api/v1/admin/payments/" + payment.getPaymentId() + "/reconciliation";
         mvc.perform(get(reconciliation)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))

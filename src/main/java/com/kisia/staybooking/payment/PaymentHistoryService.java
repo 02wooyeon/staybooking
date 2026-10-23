@@ -9,9 +9,11 @@ import java.util.stream.Collectors;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,6 +77,14 @@ public class PaymentHistoryService {
         }
         return new PageResponse<>(summaries(result.getContent()), page, size,
             result.getTotalElements(), result.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentHistory adminDetail(Long paymentId) {
+        PaymentEntity payment = payments.findById(paymentId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                "결제를 찾을 수 없습니다."));
+        return summaries(List.of(payment)).getFirst();
     }
 
     private List<PaymentHistory> summaries(List<PaymentEntity> mine) {

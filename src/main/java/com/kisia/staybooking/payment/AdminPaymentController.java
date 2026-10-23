@@ -30,6 +30,10 @@ public class AdminPaymentController {
     public PageResponse<PaymentHistoryService.PaymentHistory> search(@Valid @ModelAttribute AdminPaymentSearchRequest request) {
         return history.adminSearch(request);
     }
+    @GetMapping("/{paymentId}")
+    public PaymentHistoryService.PaymentHistory detail(@PathVariable @Positive Long paymentId) {
+        return history.adminDetail(paymentId);
+    }
     @GetMapping("/{paymentId}/reconciliation")
     public PaymentReconciliationService.Report reconciliation(@PathVariable @Positive Long paymentId) {
         return reconciliation.check(paymentId);
