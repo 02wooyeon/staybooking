@@ -29,3 +29,18 @@ booking/payment/ 디렉터리 내에 complete, fail, pay, success 구현
 
 후기 작성 페이지를 accommodation/review.html로 새 페이지를 생성
 페이지 작성, 수정 시 해당 페이지로 이동
+
+# 10-23
+## resource/admin-static/ 경로에 관리자 전용 도메인 추가
+- 대시보드(index.html)
+- 예약 관리(booking.html)
+- 회원 관리(member.html)
+- 숙소,객실 관리(accommodation.html)
+- qna 관리(qna.html)
+- 결제, 환불 (payments.html)
+관리자 전용 페이지 생성
+
+# 해야할일
+- 숙소 객실 관리에서 숙소 등록 시 이미지를 같이 올릴 수 있도록 수정
+- 리뷰 관리 페이지 생성 필요
+- 승인자가 예약 승인, 처리 기능이 있는지 확인 필요
