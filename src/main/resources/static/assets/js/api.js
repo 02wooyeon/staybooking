@@ -45,7 +45,9 @@
   async function request(method, url, options) {
     options = options || {};
     var headers = { Accept: 'application/json' };
-    if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+    // 파일 업로드(FormData)는 브라우저가 multipart 경계값을 포함한 Content-Type 을 직접 붙인다
+    var isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     if (options.token) headers.Authorization = 'Bearer ' + options.token;
 
     var res;
@@ -53,7 +55,7 @@
       res = await fetch(url, {
         method: method,
         headers: headers,
-        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        body: options.body === undefined ? undefined : (isForm ? options.body : JSON.stringify(options.body)),
         credentials: 'same-origin',
         cache: 'no-store'
       });
