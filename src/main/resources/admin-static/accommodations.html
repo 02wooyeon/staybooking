@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <!-- 관리자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>숙소·객실 관리 | 스테이북 관리자</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/index.html">스테이북 <span class="admin-logo-tag">관리자</span></a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+
+  <p id="admin-loading" class="admin-loading" role="status">권한을 확인하는 중입니다...</p>
+
+  <main id="admin-denied" class="admin-denied" hidden>
+    <section class="pay-card">
+      <div class="pay-icon fail" aria-hidden="true">✕</div>
+      <h1>접근 권한이 없습니다</h1>
+      <p id="admin-denied-message" class="pay-sub"></p>
+      <div class="pay-actions">
+        <button id="admin-relogin" class="btn-primary" type="button">다른 계정으로 로그인</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="admin-content" class="admin-layout" hidden>
+    <aside class="admin-side">
+      <p class="admin-side-title">관리자</p>
+      <p class="admin-side-user">
+        <strong id="admin-user-name"></strong>
+        <span id="admin-user-role" class="admin-badge muted"></span>
+      </p>
+      <nav aria-label="관리자 메뉴">
+        <ul id="admin-nav" class="admin-nav"></ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <div id="page-alert" class="alert" role="alert" hidden></div>
+
+      <!-- 목록 -->
+      <section id="list-view" hidden>
+        <div class="admin-toolbar">
+          <div>
+            <h1>숙소·객실 관리</h1>
+            <p class="page-sub">숙소를 검색하고 숙소·객실 정보를 등록하거나 수정합니다.</p>
+          </div>
+          <a class="btn-small" href="/accommodations.html?mode=new">숙소 등록</a>
+        </div>
+
+        <form id="filter-form" class="admin-filters" role="search" aria-label="숙소 검색">
+          <label>숙소명·주소
+            <input name="keyword" type="search" maxlength="150" placeholder="검색어">
+          </label>
+          <div class="admin-filter-buttons">
+            <button class="btn-primary" type="submit">검색</button>
+            <button class="btn-outline" type="reset">초기화</button>
+          </div>
+        </form>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <caption class="sr-only">숙소 목록</caption>
+            <thead>
+              <tr>
+                <th scope="col">숙소 ID</th>
+                <th scope="col">숙소명</th>
+                <th scope="col">주소</th>
+                <th scope="col">상태</th>
+                <th scope="col">관리</th>
+              </tr>
+            </thead>
+            <tbody id="list-body"></tbody>
+          </table>
+        </div>
+        <div id="pagination"></div>
+      </section>
+
+      <!-- 등록·수정 -->
+      <section id="edit-view" hidden>
+        <p class="breadcrumb"><a href="/accommodations.html">숙소 목록</a> <span aria-hidden="true">›</span> <span id="edit-crumb">숙소</span></p>
+        <h1 id="edit-title">숙소 정보</h1>
+        <p class="page-sub" id="edit-sub"></p>
+
+        <form id="acc-form" class="info-card" novalidate>
+          <h2>숙소 정보</h2>
+          <div class="admin-form-grid">
+            <div class="field admin-span-2">
+              <label for="acc-name">숙소명 <span class="req" aria-hidden="true">*</span></label>
+              <input id="acc-name" name="name" type="text" maxlength="150" required>
+            </div>
+            <div class="field admin-span-2">
+              <label for="acc-address">주소 <span class="req" aria-hidden="true">*</span></label>
+              <input id="acc-address" name="address" type="text" maxlength="255" required>
+            </div>
+            <div class="field">
+              <label for="acc-check-in">체크인 시각 <span class="req" aria-hidden="true">*</span></label>
+              <input id="acc-check-in" name="checkInTime" type="time" required>
+            </div>
+            <div class="field">
+              <label for="acc-check-out">체크아웃 시각 <span class="req" aria-hidden="true">*</span></label>
+              <input id="acc-check-out" name="checkOutTime" type="time" required>
+            </div>
+            <div class="field">
+              <label for="acc-status">판매 상태</label>
+              <select id="acc-status" name="status" class="form-select">
+                <option value="ACTIVE">판매 중</option>
+                <option value="INACTIVE">판매 중지</option>
+              </select>
+            </div>
+            <div class="field admin-span-2">
+              <label for="acc-description">숙소 소개 <span class="optional">(선택)</span></label>
+              <textarea id="acc-description" name="description" class="form-textarea" rows="5" maxlength="2000"></textarea>
+            </div>
+          </div>
+          <p id="acc-form-error" class="field-error" hidden></p>
+          <div class="admin-form-actions">
+            <button id="acc-submit" class="btn-primary" type="submit">저장</button>
+          </div>
+        </form>
+
+        <section id="images-card" class="info-card" aria-labelledby="images-title" hidden>
+          <div class="admin-toolbar">
+            <div>
+              <h2 id="images-title">숙소 이미지</h2>
+              <p class="card-sub">jpg·png·webp, 한 장당 5MB 이하, 최대 <span id="image-max"></span>장. 첫 번째 이미지가 대표 이미지로 쓰입니다.</p>
+            </div>
+          </div>
+
+          <p id="images-not-ready" class="admin-notice" hidden>
+            이미지 업로드 API가 아직 준비되지 않았습니다. 사진을 골라 미리 확인할 수는 있지만 저장되지는 않습니다.
+          </p>
+
+          <ul id="image-list" class="admin-image-grid" aria-label="등록된 이미지"></ul>
+          <p id="image-empty" class="admin-cell-sub" hidden>등록된 이미지가 없습니다.</p>
+
+          <div class="admin-subform">
+            <h3>이미지 추가</h3>
+            <input id="image-input" class="sr-only" type="file" multiple
+                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+            <label class="file-box" for="image-input">
+              <span>사진을 선택해 주세요 (여러 장 선택 가능, 한 번에 한 장씩 올라갑니다)</span>
+            </label>
+            <ul id="pending-list" class="admin-image-grid admin-image-pending" aria-label="올릴 이미지"></ul>
+            <p id="image-error" class="field-error" role="alert" hidden></p>
+            <div class="admin-form-actions">
+              <button id="image-clear" class="btn-outline" type="button" hidden>선택 취소</button>
+              <button id="image-upload" class="btn-primary" type="button" disabled>이미지 업로드</button>
+            </div>
+          </div>
+        </section>
+
+        <p id="images-after-create" class="admin-notice" hidden>
+          숙소 이미지는 숙소를 등록한 뒤 상세 화면에서 추가할 수 있습니다.
+        </p>
+
+        <section id="rooms-card" class="info-card" hidden>
+          <div class="admin-toolbar">
+            <div>
+              <h2>객실</h2>
+              <p class="card-sub">객실 유형별 가격·정원·판매 수량을 관리합니다.</p>
+            </div>
+            <button id="room-add" class="btn-small" type="button">객실 추가</button>
+          </div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <caption class="sr-only">객실 목록</caption>
+              <thead>
+                <tr>
+                  <th scope="col">객실 ID</th>
+                  <th scope="col">객실명</th>
+                  <th scope="col">1박 가격</th>
+                  <th scope="col">정원</th>
+                  <th scope="col">판매 수량</th>
+                  <th scope="col">상태</th>
+                  <th scope="col">관리</th>
+                </tr>
+              </thead>
+              <tbody id="room-body"></tbody>
+            </table>
+          </div>
+
+          <form id="room-form" class="admin-subform" novalidate hidden>
+            <h3 id="room-form-title">객실 추가</h3>
+            <div class="admin-form-grid">
+              <div class="field admin-span-2">
+                <label for="room-name">객실명 <span class="req" aria-hidden="true">*</span></label>
+                <input id="room-name" name="name" type="text" maxlength="100" required>
+              </div>
+              <div class="field">
+                <label for="room-price">1박 가격(원) <span class="req" aria-hidden="true">*</span></label>
+                <input id="room-price" name="price" type="number" min="0" step="1" inputmode="numeric" required>
+              </div>
+              <div class="field">
+                <label for="room-capacity">정원(명) <span class="req" aria-hidden="true">*</span></label>
+                <input id="room-capacity" name="capacity" type="number" min="1" step="1" inputmode="numeric" required>
+              </div>
+              <div class="field">
+                <label for="room-quantity">판매 수량(실) <span class="req" aria-hidden="true">*</span></label>
+                <input id="room-quantity" name="totalQuantity" type="number" min="1" step="1" inputmode="numeric" required>
+              </div>
+              <div class="field">
+                <label for="room-status">판매 상태</label>
+                <select id="room-status" name="status" class="form-select">
+                  <option value="ACTIVE">판매 중</option>
+                  <option value="INACTIVE">판매 중지</option>
+                </select>
+              </div>
+              <div class="field admin-span-2">
+                <label for="room-description">객실 설명 <span class="optional">(선택)</span></label>
+                <textarea id="room-description" name="description" class="form-textarea" rows="3" maxlength="2000"></textarea>
+              </div>
+            </div>
+            <p id="room-form-error" class="field-error" hidden></p>
+            <div class="admin-form-actions">
+              <button id="room-cancel" class="btn-outline" type="button">취소</button>
+              <button id="room-submit" class="btn-primary" type="submit">객실 저장</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/admin.js"></script>
+  <script src="/assets/js/admin-accommodations.js"></script>
+</body>
+</html>

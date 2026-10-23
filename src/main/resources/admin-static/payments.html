@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <!-- 관리자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>결제·환불 | 스테이북 관리자</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/index.html">스테이북 <span class="admin-logo-tag">관리자</span></a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+
+  <p id="admin-loading" class="admin-loading" role="status">권한을 확인하는 중입니다...</p>
+
+  <main id="admin-denied" class="admin-denied" hidden>
+    <section class="pay-card">
+      <div class="pay-icon fail" aria-hidden="true">✕</div>
+      <h1>접근 권한이 없습니다</h1>
+      <p id="admin-denied-message" class="pay-sub"></p>
+      <div class="pay-actions">
+        <button id="admin-relogin" class="btn-primary" type="button">다른 계정으로 로그인</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="admin-content" class="admin-layout" hidden>
+    <aside class="admin-side">
+      <p class="admin-side-title">관리자</p>
+      <p class="admin-side-user">
+        <strong id="admin-user-name"></strong>
+        <span id="admin-user-role" class="admin-badge muted"></span>
+      </p>
+      <nav aria-label="관리자 메뉴">
+        <ul id="admin-nav" class="admin-nav"></ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <h1>결제·환불</h1>
+      <p class="page-sub">결제 내역과 결제대행사 금액 대조 결과를 확인하고, 환불 요청을 승인하거나 반려합니다.</p>
+
+      <nav class="admin-tabs" aria-label="결제·환불">
+        <a id="tab-payments" href="/payments.html?tab=payments">결제 내역</a>
+        <a id="tab-refunds" href="/payments.html?tab=refunds">환불</a>
+      </nav>
+
+      <div id="page-alert" class="alert" role="alert" hidden></div>
+
+      <!-- 결제 내역 -->
+      <section id="payments-view" hidden>
+        <form id="payment-filter" class="admin-filters" role="search" aria-label="결제 검색">
+          <input type="hidden" name="tab" value="payments">
+          <label>결제 상태
+            <select name="status" class="form-select">
+              <option value="">전체</option>
+              <option value="READY">결제 준비</option>
+              <option value="PAID">결제 완료</option>
+              <option value="PARTIALLY_REFUNDED">부분 환불</option>
+              <option value="REFUNDED">환불 완료</option>
+              <option value="FAILED">결제 실패</option>
+            </select>
+          </label>
+          <label>예약 ID
+            <input name="bookingId" type="number" min="1" step="1" inputmode="numeric" placeholder="예약 ID">
+          </label>
+          <div class="admin-filter-buttons">
+            <button class="btn-primary" type="submit">검색</button>
+            <button class="btn-outline" type="reset">초기화</button>
+          </div>
+        </form>
+
+        <section id="reconcile-result" class="info-card admin-detail" aria-labelledby="reconcile-title" hidden>
+          <div class="admin-toolbar">
+            <h2 id="reconcile-title">금액 대조 결과</h2>
+            <button id="reconcile-close" class="btn-link" type="button">닫기</button>
+          </div>
+          <dl id="reconcile-list" class="admin-dl"></dl>
+        </section>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <caption class="sr-only">결제 목록</caption>
+            <thead>
+              <tr>
+                <th scope="col">결제 ID</th>
+                <th scope="col">예약 ID</th>
+                <th scope="col">주문번호</th>
+                <th scope="col">결제 수단</th>
+                <th scope="col">금액</th>
+                <th scope="col">상태</th>
+                <th scope="col">결제 일시</th>
+                <th scope="col">환불</th>
+                <th scope="col">관리</th>
+              </tr>
+            </thead>
+            <tbody id="payment-body"></tbody>
+          </table>
+        </div>
+        <div id="payment-pagination"></div>
+      </section>
+
+      <!-- 환불 -->
+      <section id="refunds-view" hidden>
+        <form id="refund-filter" class="admin-filters" role="search" aria-label="환불 검색">
+          <input type="hidden" name="tab" value="refunds">
+          <label>환불 상태
+            <select name="status" class="form-select">
+              <option value="">전체</option>
+              <option value="REQUESTED">환불 요청</option>
+              <option value="APPROVED">환불 승인</option>
+              <option value="REJECTED">환불 반려</option>
+            </select>
+          </label>
+          <label>예약 ID
+            <input name="bookingId" type="number" min="1" step="1" inputmode="numeric" placeholder="예약 ID">
+          </label>
+          <div class="admin-filter-buttons">
+            <button class="btn-primary" type="submit">검색</button>
+            <button class="btn-outline" type="reset">초기화</button>
+          </div>
+        </form>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <caption class="sr-only">환불 목록</caption>
+            <thead>
+              <tr>
+                <th scope="col">환불 ID</th>
+                <th scope="col">예약 ID</th>
+                <th scope="col">금액</th>
+                <th scope="col">상태</th>
+                <th scope="col">사유</th>
+                <th scope="col">처리</th>
+              </tr>
+            </thead>
+            <tbody id="refund-body"></tbody>
+          </table>
+        </div>
+        <div id="refund-pagination"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/admin.js"></script>
+  <script src="/assets/js/admin-payments.js"></script>
+</body>
+</html>

@@ -22,11 +22,11 @@
    */
   var NAV_ITEMS = [
     { key: 'dashboard', href: '/index.html', label: '대시보드', roles: ['ROLE_ADMIN'], ready: true },
-    { key: 'bookings', href: '/bookings.html', label: '예약 관리', roles: ['ROLE_ADMIN'], ready: false },
-    { key: 'members', href: '/members.html', label: '회원 관리', roles: ['ROLE_ADMIN'], ready: false },
-    { key: 'accommodations', href: '/accommodations.html', label: '숙소·객실 관리', roles: ['ROLE_ADMIN'], ready: false },
-    { key: 'qna', href: '/qna.html', label: 'Q&A 관리', roles: ['ROLE_ADMIN'], ready: false },
-    { key: 'payments', href: '/payments.html', label: '결제·환불', roles: ['ROLE_ADMIN'], ready: false }
+    { key: 'bookings', href: '/bookings.html', label: '예약 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'members', href: '/members.html', label: '회원 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'accommodations', href: '/accommodations.html', label: '숙소·객실 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'qna', href: '/qna.html', label: 'Q&A 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'payments', href: '/payments.html', label: '결제·환불', roles: ['ROLE_ADMIN'], ready: true }
   ];
 
   // 관리자 도메인을 쓸 수 있는 역할
@@ -39,6 +39,30 @@
   };
 
   var DEFAULT_PAGE_SIZE = 20;
+
+  /*
+   * 상태값 표시 이름과 배지 색 (서버 enum 이름 그대로 받는다)
+   * tone: ok(초록) / warn(노랑) / error(빨강) / muted(회색)
+   */
+  var LABELS = {
+    bookingStatus: { PAYMENT_PENDING: '결제 대기', PENDING: '승인 대기', COMPLETED: '예약 완료', CANCELLED: '취소됨' },
+    paymentStatus: { READY: '결제 준비', PAID: '결제 완료', PARTIALLY_REFUNDED: '부분 환불', REFUNDED: '환불 완료', FAILED: '결제 실패' },
+    refundStatus: { REQUESTED: '환불 요청', APPROVED: '환불 승인', REJECTED: '환불 반려' },
+    userStatus: { ACTIVE: '정상', SUSPENDED: '정지', WITHDRAWN: '탈퇴' },
+    role: { ROLE_USER: '일반 회원', ROLE_APPROVER: '승인자', ROLE_ADMIN: '관리자' },
+    openStatus: { ACTIVE: '판매 중', INACTIVE: '판매 중지' },
+    cancelReason: { USER_FAULT: '고객 사유', ACCOMMODATION_FAULT: '숙소 사유', FORCE_MAJEURE: '불가항력' },
+    reconcile: { MATCHED: '일치', REVIEW_REQUIRED: '확인 필요', NOT_APPLICABLE: '대조 대상 아님' }
+  };
+  var TONES = {
+    bookingStatus: { PAYMENT_PENDING: 'muted', PENDING: 'warn', COMPLETED: 'ok', CANCELLED: 'error' },
+    paymentStatus: { READY: 'muted', PAID: 'ok', PARTIALLY_REFUNDED: 'warn', REFUNDED: 'muted', FAILED: 'error' },
+    refundStatus: { REQUESTED: 'warn', APPROVED: 'ok', REJECTED: 'muted' },
+    userStatus: { ACTIVE: 'ok', SUSPENDED: 'error', WITHDRAWN: 'muted' },
+    role: { ROLE_USER: 'muted', ROLE_APPROVER: 'warn', ROLE_ADMIN: 'error' },
+    openStatus: { ACTIVE: 'ok', INACTIVE: 'muted' },
+    reconcile: { MATCHED: 'ok', REVIEW_REQUIRED: 'error', NOT_APPLICABLE: 'muted' }
+  };
 
   function $(id) { return document.getElementById(id); }
 
@@ -198,7 +222,8 @@
 
   /**
    * 표 본문을 그린다.
-   * columns: [{ label, render(row) → 문자열 | Node }]
+   * columns: [{ label, render(row) → 문자열 | Node, className }]
+   * 칸은 기본적으로 줄바꿈하지 않는다. 긴 글(제목·사유)은 className: 'admin-wrap' 으로 줄바꿈을 허용한다.
    * 문자열은 textContent 로 넣으므로 사용자 입력이 HTML 로 해석되지 않는다.
    */
   function renderTable(tbody, rows, columns, emptyMessage) {
@@ -218,6 +243,7 @@
       columns.forEach(function (column) {
         var td = document.createElement('td');
         td.dataset.label = column.label; // 모바일에서 카드형으로 보일 때 쓰는 제목
+        if (column.className) td.className = column.className;
         var value = column.render(row);
         if (value instanceof Node) td.append(value);
         else td.textContent = value === null || value === undefined || value === '' ? '-' : String(value);
@@ -270,8 +296,9 @@
 
   /**
    * 직접 취소·회원 정지·권한 변경처럼 되돌리기 어려운 작업 전에 띄우는 확인 창.
-   * options: { title, message, confirmLabel, danger, reasonLabel, reasonRequired, reasonMaxLength }
-   * @returns {Promise<{ confirmed: boolean, reason: string }>}
+   * options: { title, message, confirmLabel, danger, reasonLabel, reasonRequired, reasonMaxLength,
+   *            choiceLabel, choices: [{ value, label }] }
+   * @returns {Promise<{ confirmed: boolean, reason: string, choice: string }>}
    */
   function confirmAction(options) {
     return new Promise(function (resolve) {
@@ -290,6 +317,25 @@
       message.className = 'admin-dialog-message';
       message.textContent = options.message;
       form.append(title, message);
+
+      // 선택 칸 (예: 취소 사유 유형). options.choices: [{ value, label }]
+      var choice = null;
+      if (options.choices) {
+        var choiceLabel = document.createElement('label');
+        choiceLabel.className = 'field-label';
+        choiceLabel.htmlFor = 'admin-dialog-choice';
+        choiceLabel.textContent = options.choiceLabel || '선택';
+        choice = document.createElement('select');
+        choice.id = 'admin-dialog-choice';
+        choice.className = 'form-select admin-dialog-choice';
+        options.choices.forEach(function (item) {
+          var option = document.createElement('option');
+          option.value = item.value;
+          option.textContent = item.label;
+          choice.append(option);
+        });
+        form.append(choiceLabel, choice);
+      }
 
       var reason = null;
       var error = document.createElement('p');
@@ -329,10 +375,10 @@
         resolve(result);
       }
 
-      cancel.addEventListener('click', function () { close({ confirmed: false, reason: '' }); });
+      cancel.addEventListener('click', function () { close({ confirmed: false, reason: '', choice: '' }); });
       dialog.addEventListener('cancel', function (event) { // Esc
         event.preventDefault();
-        close({ confirmed: false, reason: '' });
+        close({ confirmed: false, reason: '', choice: '' });
       });
       form.addEventListener('submit', function (event) {
         event.preventDefault();
@@ -344,7 +390,7 @@
           reason.focus();
           return;
         }
-        close({ confirmed: true, reason: text });
+        close({ confirmed: true, reason: text, choice: choice ? choice.value : '' });
       });
 
       dialog.showModal();
@@ -358,10 +404,18 @@
     return Number(value || 0).toLocaleString('ko-KR') + '원';
   }
 
-  // "2026-10-23T05:12:30" → "2026-10-23 05:12"
+  /*
+   * 서버는 시각을 UTC 로 저장해 시간대 표시 없이 보낸다 ("2026-10-23T05:12:30").
+   * UTC 로 해석해 브라우저 현지 시각(한국이면 +9시간)으로 바꿔 "2026-10-23 14:12" 로 보여 준다.
+   */
   function formatDateTime(value) {
     if (!value) return '-';
-    return String(value).replace('T', ' ').slice(0, 16);
+    var text = String(value);
+    var date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? text : text + 'Z');
+    if (isNaN(date.getTime())) return text.replace('T', ' ').slice(0, 16);
+    function pad(n) { return String(n).padStart(2, '0'); }
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
+      + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
   }
 
   // 상태값을 색 있는 배지로 (labels: { STATUS: '표시 이름' }, tones: { STATUS: 'ok|warn|error|muted' })
@@ -370,6 +424,95 @@
     badge.className = 'admin-badge ' + ((tones && tones[status]) || 'muted');
     badge.textContent = (labels && labels[status]) || status || '-';
     return badge;
+  }
+
+  // LABELS 의 종류(kind)로 상태 배지를 만든다. 예) badge('bookingStatus', 'PENDING')
+  function badge(kind, value) {
+    return statusBadge(value, LABELS[kind], TONES[kind]);
+  }
+
+  function label(kind, value) {
+    return (LABELS[kind] && LABELS[kind][value]) || value || '-';
+  }
+
+  // 페이지 상단 알림 (문구는 textContent 로만)
+  function showMessage(box, message, type) {
+    box.textContent = message;
+    box.className = 'alert alert-' + (type || 'error');
+    box.hidden = false;
+    box.scrollIntoView({ block: 'nearest' });
+  }
+
+  function hideMessage(box) {
+    box.hidden = true;
+    box.textContent = '';
+  }
+
+  // 오류 객체에서 보여 줄 문구 (서버가 준 일반 문구 또는 기본 문구)
+  function errorMessage(e) {
+    return (e && e.message) || '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+  }
+
+  /**
+   * 검색 폼과 주소(?status=..&page=..)를 연결한다.
+   * - 처음에는 주소 값으로 폼을 채우고 onSearch(query) 를 부른다.
+   * - 폼을 제출하면 page=0 으로 주소를 바꾸고 다시 부른다.
+   * 반환값 go(page) 로 페이지를 옮기고, reload() 로 같은 조건을 다시 불러온다 (둘 다 Promise).
+   */
+  function bindFilters(form, defaults, onSearch) {
+    var query = readQuery(defaults);
+    Object.keys(defaults).forEach(function (key) {
+      if (key !== 'page' && form.elements[key]) form.elements[key].value = query[key];
+    });
+
+    function run() {
+      writeQuery(query);
+      return Promise.resolve(onSearch(query));
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      Object.keys(defaults).forEach(function (key) {
+        if (key !== 'page' && form.elements[key]) query[key] = form.elements[key].value.trim();
+      });
+      query.page = 0;
+      run();
+    });
+    form.addEventListener('reset', function () {
+      setTimeout(function () {
+        Object.keys(defaults).forEach(function (key) { query[key] = defaults[key]; });
+        run();
+      });
+    });
+
+    run();
+    return {
+      query: query,
+      go: function (page) { query.page = page; return run(); },
+      reload: run // 다시 불러오기가 끝나면 끝나는 Promise
+    };
+  }
+
+  // 표 안의 작은 버튼
+  function actionButton(text, onClick, variant) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'admin-action' + (variant ? ' ' + variant : '');
+    button.textContent = text;
+    button.addEventListener('click', function () { onClick(button); });
+    return button;
+  }
+
+  // 여러 Node 를 한 칸에 담는다 (버튼 묶음, 배지 여러 개 등)
+  function group(nodes, className) {
+    var span = document.createElement('span');
+    span.className = className || 'admin-actions';
+    nodes.filter(Boolean).forEach(function (node) { span.append(node); });
+    return span;
+  }
+
+  function isPositiveId(value) {
+    return /^[1-9]\d{0,18}$/.test(String(value || ''));
   }
 
   window.AdminUi = {
@@ -387,6 +530,16 @@
     confirmAction: confirmAction,
     formatPrice: formatPrice,
     formatDateTime: formatDateTime,
-    statusBadge: statusBadge
+    statusBadge: statusBadge,
+    LABELS: LABELS,
+    badge: badge,
+    label: label,
+    showMessage: showMessage,
+    hideMessage: hideMessage,
+    errorMessage: errorMessage,
+    bindFilters: bindFilters,
+    actionButton: actionButton,
+    group: group,
+    isPositiveId: isPositiveId
   };
 })();
