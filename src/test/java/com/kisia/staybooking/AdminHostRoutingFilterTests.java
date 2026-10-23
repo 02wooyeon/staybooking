@@ -1,5 +1,9 @@
 package com.kisia.staybooking;
 
+import com.kisia.staybooking.auth.JwtTokenProvider;
+import com.kisia.staybooking.user.UserEntity;
+import com.kisia.staybooking.user.UserRepository;
+import com.kisia.staybooking.user.UserRole;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +40,8 @@ class AdminHostRoutingFilterTests {
     @AutoConfigureMockMvc
     class Separated {
         @Autowired private MockMvc mvc;
+        @Autowired private JwtTokenProvider jwt;
+        @Autowired private UserRepository users;
 
         @Test
         void userDomainHidesOperatorApis() throws Exception {
@@ -82,6 +88,26 @@ class AdminHostRoutingFilterTests {
                 .andExpect(status().isUnauthorized());
             mvc.perform(get(ADMIN_SITE + "/api/v1/admin/payments/reconciliation/search"))
                 .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void validAdminTokenWorksOnlyOnAdminDomain() throws Exception {
+            String tag = Long.toString(System.nanoTime());
+            UserEntity admin = users.save(new UserEntity("host-admin-" + tag, "hash", "Admin", null,
+                "host-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+            UserEntity member = users.save(new UserEntity("host-member-" + tag, "hash", "Member",
+                "host-member-" + tag + "@example.test"));
+            String authorization = "Bearer " + jwt.createAccessToken(admin);
+
+            mvc.perform(get(USER_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", authorization))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", authorization))
+                .andExpect(status().isOk());
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", "Bearer " + jwt.createAccessToken(member)))
+                .andExpect(status().isForbidden());
         }
 
         @Test
