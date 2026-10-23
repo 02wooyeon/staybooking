@@ -57,7 +57,19 @@
         <p class="field-error" hidden></p>
       </div>
 
-      <p class="card-sub">이미지 첨부는 준비 중입니다. 현재는 텍스트 문의만 등록할 수 있습니다.</p>
+      <div class="field">
+        <span class="field-label" id="inquiry-image-label">사진 첨부 <span class="optional">(선택)</span></span>
+        <input id="inquiry-image" name="image" class="sr-only" type="file"
+               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-labelledby="inquiry-image-label">
+        <label class="file-box" for="inquiry-image">
+          <span id="inquiry-image-text">사진을 선택해 주세요 (jpg·png·webp, 5MB 이하, 1개)</span>
+        </label>
+        <div id="inquiry-image-preview" class="file-preview" hidden>
+          <img id="inquiry-image-preview-img" alt="첨부 사진 미리보기">
+          <button id="inquiry-image-remove" type="button" class="btn-link">사진 삭제</button>
+        </div>
+        <p class="field-error" hidden></p>
+      </div>
 
       <label class="check secret-check">
         <input id="inquiry-secret" name="secret" type="checkbox" checked>

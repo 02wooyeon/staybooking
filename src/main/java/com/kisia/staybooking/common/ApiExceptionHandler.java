@@ -7,10 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -49,9 +53,22 @@ public class ApiExceptionHandler {
 
     // 본문 JSON 형식 오류, 경로 변수 타입 오류(/accommodations/abc), 경로 변수 검증 실패
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-        HandlerMethodValidationException.class})
+        HandlerMethodValidationException.class, MissingServletRequestParameterException.class,
+        MissingServletRequestPartException.class})
     public ResponseEntity<ErrorResponse> handleUnreadable(Exception e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse(INVALID_INPUT, INVALID_INPUT_MESSAGE));
+    }
+
+    // 업로드 크기 제한(spring.servlet.multipart.*)을 넘거나 multipart 형식이 깨진 요청
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+            .body(new ErrorResponse("FILE_TOO_LARGE", "파일은 5MB 이하만 올릴 수 있습니다.", List.of("file")));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipart(MultipartException e) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(INVALID_INPUT, INVALID_INPUT_MESSAGE));
     }
 }

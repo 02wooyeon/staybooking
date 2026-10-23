@@ -45,7 +45,7 @@
   async function request(method, url, options) {
     options = options || {};
     var headers = { Accept: 'application/json' };
-    // 파일 업로드(FormData)는 브라우저가 multipart 경계값을 포함한 Content-Type 을 직접 붙인다
+    // 파일 업로드(FormData)는 브라우저가 multipart 경계값을 넣도록 Content-Type을 비워 둔다.
     var isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
     if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     if (options.token) headers.Authorization = 'Bearer ' + options.token;
@@ -150,6 +150,11 @@
       return request('POST', '/api/v1/auth/signup', { body: form });
     },
 
+    /** 이름·휴대폰으로 가입 이메일 찾기 (일부를 가린 값만 받는다) */
+    findEmail: function (form) {
+      return request('POST', '/api/v1/auth/find-email', { body: form });
+    },
+
     login: async function (email, password) {
       var body = await request('POST', '/api/v1/auth/login', { body: { email: email, password: password } });
       saveToken(body);
@@ -241,6 +246,57 @@
 
     deleteQna: function (qnaId) {
       return authed('DELETE', '/api/v1/qna/' + encodeURIComponent(qnaId));
+    },
+
+    /** 예약 예상 요금. 금액은 서버가 객실 가격으로만 계산한다. */
+    quoteBooking: function (form) {
+      return authed('POST', '/api/v1/bookings/quote', form);
+    },
+
+    /** 숙소 후기 목록. 로그인 상태면 토큰을 붙여 내 후기에 owned=true를 받는다. */
+    getReviews: async function (accommodationId, page) {
+      var token = await ensureToken();
+      return request('GET', '/api/v1/accommodations/' + encodeURIComponent(accommodationId)
+        + '/reviews?page=' + encodeURIComponent(page || 0) + '&size=50', { token: token });
+    },
+
+    getReview: function (reviewId) {
+      return authed('GET', '/api/v1/reviews/' + encodeURIComponent(reviewId));
+    },
+
+    createReview: function (form) {
+      return authed('POST', '/api/v1/reviews', form);
+    },
+
+    updateReview: function (reviewId, form) {
+      return authed('PUT', '/api/v1/reviews/' + encodeURIComponent(reviewId), form);
+    },
+
+    deleteReview: function (reviewId) {
+      return authed('DELETE', '/api/v1/reviews/' + encodeURIComponent(reviewId));
+    },
+
+    /** 이미지 업로드. 응답의 fileId를 후기 등에 연결한다. */
+    uploadImage: function (file) {
+      var form = new FormData();
+      form.append('file', file);
+      return authed('POST', '/api/v1/uploads/Images', form);
+    },
+
+    /** 닉네임·연락처 수정 (비밀번호 변경 시 currentPassword, newPassword를 함께 보낸다) */
+    updateMe: function (form) {
+      return authed('PATCH', '/api/v1/members/me', form);
+    },
+
+    /** 내가 쓴 후기·문의 */
+    getMyActivities: function () {
+      return authed('GET', '/api/v1/members/me/activities');
+    },
+
+    /** 회원 탈퇴. 성공하면 서버가 모든 토큰을 폐기하므로 화면의 토큰도 지운다. */
+    withdraw: async function (password) {
+      await authed('DELETE', '/api/v1/members/me', { password: password, agree: true });
+      clearToken();
     }
   };
 })();
