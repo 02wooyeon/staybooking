@@ -2,6 +2,7 @@ package com.kisia.staybooking.auth;
 
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -46,9 +47,18 @@ public class AuthController {
         return auth.signup(request);
     }
 
+    // 접속 IP는 Tomcat이 본 주소를 쓴다. X-Forwarded-For는 클라이언트가 마음대로 넣을 수 있어 믿지 않는다.
+    // (앞에 Nginx를 두면 server.forward-headers-strategy 설정으로 Nginx가 넣은 값만 쓰도록 바꾼다)
     @PostMapping("/login")
-    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return withRefreshCookie(auth.login(request));
+    public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request,
+                                               HttpServletRequest http) {
+        return withRefreshCookie(auth.login(request, http.getRemoteAddr()));
+    }
+
+    // AUTH_006 아이디(이메일) 찾기. 결과는 일부를 가린 이메일만 준다.
+    @PostMapping("/find-email")
+    public FindEmailResponse findEmail(@Valid @RequestBody FindEmailRequest request, HttpServletRequest http) {
+        return auth.findEmails(request.name(), request.phone(), http.getRemoteAddr());
     }
 
     // 실패하면 쓸모없어진 쿠키도 함께 지운다.

@@ -41,6 +41,14 @@ public class BookingController {
             request.checkOut(), request.guests()));
     }
 
+    // PAYMENT_006 예약 예상 요금. 요청에 금액 필드는 없다. (BookingCreateRequest와 같은 입력)
+    @PostMapping("/quote")
+    public BookingQuoteResponse quote(@AuthenticationPrincipal AuthenticatedUser me,
+                                      @Valid @RequestBody BookingCreateRequest request) {
+        return bookings.quote(me.userId(), request.roomId(), request.checkIn(), request.checkOut(),
+            request.guests());
+    }
+
     @GetMapping("/me")
     public List<BookingResponse> mine(@AuthenticationPrincipal AuthenticatedUser me) {
         return queries.mine(me.userId());
