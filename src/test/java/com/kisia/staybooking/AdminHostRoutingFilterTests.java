@@ -1,0 +1,141 @@
+package com.kisia.staybooking;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class AdminHostRoutingFilterTests {
+    private static final String USER_SITE = "http://localhost";
+    private static final String ADMIN_SITE = "http://admin.test";
+
+    private static RequestPostProcessor rawUri(String uri) {
+        return request -> {
+            request.setRequestURI(uri);
+            return request;
+        };
+    }
+
+    private static RequestPostProcessor remoteAddr(String ip) {
+        return request -> {
+            request.setRemoteAddr(ip);
+            return request;
+        };
+    }
+
+    @Test
+    void buildCopiesSharedAssetsIntoAdminStatic() {
+        // build.gradle 의 processResources 가 static 의 공통 파일을 admin-static 으로 복사한다
+        assertTrue(new ClassPathResource("admin-static/assets/js/api.js").exists());
+        assertTrue(new ClassPathResource("admin-static/assets/css/style.css").exists());
+    }
+
+    @Nested
+    @SpringBootTest(properties = "staybooking.admin.host=admin.test")
+    @AutoConfigureMockMvc
+    class Separated {
+        @Autowired private MockMvc mvc;
+
+        @Test
+        void userDomainHidesOperatorApis() throws Exception {
+            mvc.perform(get(USER_SITE + "/api/v1/admin/bookings/search"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+            mvc.perform(get(USER_SITE + "/api/v1/approver/bookings"))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(USER_SITE + "/api/v1/admin"))
+                .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void userDomainKeepsOtherApis() throws Exception {
+            mvc.perform(get(USER_SITE + "/api/v1/auth/check-email").param("email", "someone@example.test"))
+                .andExpect(status().isOk());
+        }
+
+        @Test
+        void internalAdminPathIsNeverReachableDirectly() throws Exception {
+            mvc.perform(get(USER_SITE + "/__admin/index.html")).andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/__admin/index.html")).andExpect(status().isNotFound());
+        }
+
+        @Test
+        void adminDomainServesAdminPages() throws Exception {
+            mvc.perform(get(ADMIN_SITE + "/"))
+                .andExpect(forwardedUrl("/__admin/index.html"));
+            mvc.perform(get(ADMIN_SITE + "/login.html"))
+                .andExpect(forwardedUrl("/__admin/login.html"));
+            mvc.perform(get(ADMIN_SITE + "/assets/js/admin.js"))
+                .andExpect(forwardedUrl("/__admin/assets/js/admin.js"));
+            // "/api" 로 시작하지만 API 경로가 아닌 것은 화면으로 취급한다
+            mvc.perform(get(ADMIN_SITE + "/apix.html"))
+                .andExpect(forwardedUrl("/__admin/apix.html"));
+        }
+
+        @Test
+        void adminDomainPassesApisToSecurity() throws Exception {
+            // 필터는 통과시키고, 토큰이 없으므로 Spring Security 가 401 을 준다
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/bookings/search"))
+                .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void adminDomainRejectsSuspiciousPaths() throws Exception {
+            mvc.perform(get(ADMIN_SITE + "/x").with(rawUri("/../application.properties")))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/x").with(rawUri("/assets/%2e%2e/index.html")))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/x").with(rawUri("/index.html;jsessionid=1")))
+                .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @SpringBootTest(properties = {
+        "staybooking.admin.host=admin.test",
+        "staybooking.admin.allowed-ips=10.10.10.0/24"
+    })
+    @AutoConfigureMockMvc
+    class IpRestricted {
+        @Autowired private MockMvc mvc;
+
+        @Test
+        void adminDomainOnlyAcceptsAllowedIps() throws Exception {
+            mvc.perform(get(ADMIN_SITE + "/").with(remoteAddr("203.0.113.7")))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/").with(remoteAddr("10.10.10.5")))
+                .andExpect(forwardedUrl("/__admin/index.html"));
+        }
+
+        @Test
+        void userDomainIsNotIpRestricted() throws Exception {
+            mvc.perform(get(USER_SITE + "/api/v1/auth/check-email").param("email", "someone@example.test")
+                    .with(remoteAddr("203.0.113.7")))
+                .andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @SpringBootTest
+    @AutoConfigureMockMvc
+    class NotConfigured {
+        @Autowired private MockMvc mvc;
+
+        @Test
+        void filterDoesNothingWithoutAdminHost() throws Exception {
+            // 관리자 도메인을 설정하지 않으면 기존 동작 그대로 (서버 권한 확인만으로 401)
+            mvc.perform(get(USER_SITE + "/api/v1/admin/bookings/search"))
+                .andExpect(status().isUnauthorized());
+        }
+    }
+}
