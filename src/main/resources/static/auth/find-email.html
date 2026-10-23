@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>아이디 찾기 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="auth-page">
+  <header class="site-header">
+    <a class="logo" href="/">스테이북</a>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="auth-card" aria-labelledby="find-title">
+      <h1 id="find-title">아이디(이메일) 찾기</h1>
+      <p class="auth-sub">가입할 때 입력한 이름과 휴대폰 번호를 입력해 주세요.</p>
+
+      <div id="find-alert" class="alert" role="alert" hidden></div>
+
+      <form id="find-form" novalidate>
+        <div class="field">
+          <label for="name">이름</label>
+          <input id="name" name="name" type="text" maxlength="20" autocomplete="name"
+                 placeholder="홍길동" required autofocus>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="phone">휴대폰 번호</label>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="13"
+                 autocomplete="tel" placeholder="010-1234-5678" required>
+          <p class="field-error" hidden></p>
+        </div>
+
+        <button id="find-submit" class="btn-primary" type="submit">이메일 찾기</button>
+      </form>
+
+      <ul id="find-result" class="find-result" hidden></ul>
+
+      <div class="auth-links">
+        <a href="/auth/login.html">로그인</a>
+        <span aria-hidden="true">·</span>
+        <a href="/auth/signup.html">회원가입</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/common.js"></script>
+  <script src="/assets/js/find-email.js"></script>
+</body>
+</html>

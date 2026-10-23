@@ -7,6 +7,7 @@ import java.time.LocalTime;
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.file.FileService;
 import com.kisia.staybooking.qna.QnaResponse;
 import com.kisia.staybooking.qna.QnaService;
 import com.kisia.staybooking.room.RoomEntity;
@@ -21,7 +22,7 @@ import org.springframework.context.annotation.Import;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@Import(QnaService.class)
+@Import({QnaService.class, FileService.class})
 class QnaServiceTests {
     @Autowired private EntityManager em;
     @Autowired private QnaService qna;

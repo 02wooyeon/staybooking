@@ -38,7 +38,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login",
-                    "/api/v1/auth/reissue", "/api/v1/auth/logout").permitAll()
+                    "/api/v1/auth/reissue", "/api/v1/auth/logout", "/api/v1/auth/find-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/check-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/accommodations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/mine").authenticated()

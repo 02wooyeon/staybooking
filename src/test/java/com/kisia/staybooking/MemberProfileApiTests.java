@@ -39,9 +39,15 @@ class MemberProfileApiTests {
     @Test
     void updatesOnlyAllowedFieldsAndIgnoresRole() throws Exception {
         UserEntity user = fixtures.user("홍길동");
+        // 현재 비밀번호 없이는 닉네임·연락처도 바꿀 수 없다.
+        mvc.perform(patch("/api/v1/members/me").header("Authorization", fixtures.bearer(user))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"여행자\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("PASSWORD_MISMATCH"));
+
         mvc.perform(patch("/api/v1/members/me").header("Authorization", fixtures.bearer(user))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"nickname\":\"여행자\",\"phone\":\"010-9999-8888\",\"role\":\"ROLE_ADMIN\",\"status\":\"ACTIVE\"}"))
+                .content("{\"currentPassword\":\"" + TestFixtures.PASSWORD + "\",\"nickname\":\"여행자\",\"phone\":\"010-9999-8888\",\"role\":\"ROLE_ADMIN\",\"status\":\"ACTIVE\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.nickname").value("여행자"))
             .andExpect(jsonPath("$.phone").value("010-9999-8888"))

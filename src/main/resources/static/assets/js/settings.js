@@ -1,5 +1,5 @@
 /*
- * 마이페이지(설정 화면): 왼쪽 메뉴로 내 정보 관리 / 마일리지 / 설정을 전환한다.
+ * 마이페이지(설정 화면): 왼쪽 메뉴로 내 정보 관리 / 내 활동 / 마일리지 / 설정을 전환한다.
  * 회원 정보와 현재 마일리지는 API에서 조회하고,
  * 일반 설정은 이 브라우저의 localStorage에만 저장한다.
  */
@@ -8,13 +8,14 @@
 
   var PHONE_RE = /^01[016789]-?\d{3,4}-?\d{4}$/;
   var NICKNAME_RE = /^[가-힣A-Za-z0-9]{2,20}$/;
+  var PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])\S{8,20}$/;
   var MILEAGE_LABELS = { EARN: '적립', USE: '사용', REFUND: '환불' };
 
   var headerReady = Ui.renderHeader();
 
   /* ---------- 왼쪽 메뉴 전환 ---------- */
 
-  var PANELS = ['profile', 'mileage', 'preferences'];
+  var PANELS = ['profile', 'activity', 'mileage', 'preferences'];
   var tabLinks = document.querySelectorAll('.settings-tabs a');
   var defaultPanel = 'profile';
 
@@ -23,6 +24,7 @@
     PANELS.forEach(function (panel) {
       document.getElementById('panel-' + panel).hidden = panel !== name;
     });
+    if (name === 'activity') loadActivities();
     tabLinks.forEach(function (link) {
       if (link.dataset.panel === name) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
@@ -50,8 +52,11 @@
   var profileSubmit = document.getElementById('profile-submit');
   var nicknameInput = document.getElementById('profile-nickname');
   var phoneInput = document.getElementById('profile-phone');
+  var currentPasswordInput = document.getElementById('profile-current-password');
+  var currentProfile = null;
 
   function renderProfile(profile) {
+    currentProfile = profile;
     document.getElementById('profile-name').textContent = profile.name || '-';
     document.getElementById('profile-email').textContent = profile.email || '-';
     document.getElementById('profile-joined').textContent = profile.createdAt || '-';
@@ -95,22 +100,129 @@
     } else {
       Ui.setFieldError(phoneInput, '');
     }
+    if (!currentPasswordInput.value) {
+      Ui.setFieldError(currentPasswordInput, '현재 비밀번호를 입력해 주세요.');
+      ok = false;
+    } else {
+      Ui.setFieldError(currentPasswordInput, '');
+    }
     if (!ok) return;
 
-    saveProfile(nickname, phone);
+    saveProfile(nickname, phone, currentPasswordInput.value);
   });
 
-  // PATCH /api/v1/members/me. 이름·이메일은 바꿀 수 없고, 서버가 입력값을 다시 검사한다.
-  async function saveProfile(nickname, phone) {
+  // PATCH /api/v1/members/me. 이름·이메일은 바꿀 수 없고, 서버가 현재 비밀번호와 입력값을 다시 검사한다.
+  async function saveProfile(nickname, phone, currentPassword) {
     Ui.setLoading(profileSubmit, true, '저장 중...');
     try {
-      var updated = await BookingApi.updateMe({ nickname: nickname, phone: phone });
+      var updated = await BookingApi.updateMe({
+        nickname: nickname, phone: phone, currentPassword: currentPassword
+      });
       renderProfile(updated);
       Ui.showAlert(profileAlert, '회원 정보가 저장되었습니다.', 'success');
     } catch (e) {
       Ui.showAlert(profileAlert, e.message, 'error');
     } finally {
+      currentPasswordInput.value = '';
       Ui.setLoading(profileSubmit, false);
+    }
+  }
+
+  /* ---------- 비밀번호 변경 ---------- */
+
+  var passwordForm = document.getElementById('password-form');
+  var passwordAlert = document.getElementById('password-alert');
+  var passwordSubmit = document.getElementById('password-submit');
+  var pwCurrent = document.getElementById('pw-current');
+  var pwNew = document.getElementById('pw-new');
+  var pwConfirm = document.getElementById('pw-confirm');
+
+  passwordForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    Ui.hideAlert(passwordAlert);
+
+    var ok = true;
+    function check(input, valid, message) {
+      Ui.setFieldError(input, valid ? '' : message);
+      if (!valid) ok = false;
+    }
+    check(pwCurrent, pwCurrent.value.length > 0, '현재 비밀번호를 입력해 주세요.');
+    check(pwNew, PASSWORD_RE.test(pwNew.value), '영문·숫자·특수문자를 포함해 8~20자로 입력해 주세요.');
+    check(pwConfirm, pwConfirm.value === pwNew.value, '새 비밀번호가 일치하지 않습니다.');
+    if (!ok || !currentProfile) return;
+
+    Ui.setLoading(passwordSubmit, true, '변경 중...');
+    try {
+      // 서버는 닉네임·연락처도 같은 요청으로 받으므로 지금 값을 그대로 함께 보낸다.
+      await BookingApi.updateMe({
+        nickname: currentProfile.nickname || '',
+        phone: currentProfile.phone || '',
+        currentPassword: pwCurrent.value,
+        newPassword: pwNew.value
+      });
+      // 비밀번호를 바꾸면 서버가 기존 토큰을 모두 폐기하므로 다시 로그인한다.
+      await BookingApi.logout().catch(function () {});
+      alert('비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해 주세요.');
+      window.location.replace('/auth/login.html');
+    } catch (e) {
+      Ui.showAlert(passwordAlert, e.message, 'error');
+      if (e.code === 'PASSWORD_MISMATCH') pwCurrent.focus();
+      Ui.setLoading(passwordSubmit, false);
+    } finally {
+      pwCurrent.value = '';
+    }
+  });
+
+  /* ---------- 내 활동 ---------- */
+
+  // showPanel이 이 아래 코드보다 먼저 불릴 수 있어(#activity로 바로 들어온 경우) 요소는 함수 안에서 찾는다.
+  var activitiesLoaded = false;
+
+  function activityItem(href, title, meta) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = href;
+    var text = document.createElement('span');
+    var strong = document.createElement('strong');
+    strong.textContent = title;
+    var small = document.createElement('small');
+    small.className = 'muted';
+    small.textContent = ' · ' + meta;
+    text.append(strong, small);
+    a.append(text);
+    li.append(a);
+    return li;
+  }
+
+  function fillList(listId, emptyId, countId, items) {
+    var list = document.getElementById(listId);
+    list.textContent = '';
+    items.forEach(function (li) { list.append(li); });
+    document.getElementById(emptyId).hidden = items.length > 0;
+    document.getElementById(countId).textContent = '(' + items.length + ')';
+  }
+
+  // GET /api/v1/members/me/activities. 제목·내용은 textContent로만 넣어 스크립트가 실행되지 않게 한다.
+  async function loadActivities() {
+    if (activitiesLoaded) return;
+    var activityAlert = document.getElementById('activity-alert');
+    Ui.hideAlert(activityAlert);
+    try {
+      var data = await BookingApi.getMyActivities();
+      activitiesLoaded = true;
+      fillList('activity-reviews', 'activity-reviews-empty', 'activity-review-count',
+        (data.reviews || []).map(function (r) {
+          return activityItem('/accommodation/detail.html?id=' + encodeURIComponent(r.accommodationId),
+            (r.accommodationName || '숙소') + ' ' + '★'.repeat(r.rating),
+            r.createdAt + (r.content ? ' · ' + r.content.slice(0, 30) : ''));
+        }));
+      fillList('activity-qna', 'activity-qna-empty', 'activity-qna-count',
+        (data.qna || []).filter(function (q) { return !q.deleted; }).map(function (q) {
+          return activityItem('/qna/detail.html?id=' + encodeURIComponent(q.qnaId),
+            q.title, String(q.createdAt || '').slice(0, 10) + ' · ' + (q.answered ? '답변 완료' : '답변 대기'));
+        }));
+    } catch (e) {
+      Ui.showAlert(activityAlert, e.status === 401 ? '로그인 후 내 활동을 확인할 수 있습니다.' : e.message);
     }
   }
 

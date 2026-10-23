@@ -23,14 +23,14 @@ public class QnaController {
     public QnaResponse create(@AuthenticationPrincipal AuthenticatedUser me,
                               @Valid @RequestBody CreateRequest request) {
         return service.create(me.userId(), request.bookingId(), request.category(),
-            request.title().trim(), request.content().trim(), request.secret());
+            request.title().trim(), request.content().trim(), request.secret(), request.imageFileId());
     }
 
     @PutMapping("/{qnaId}")
     public QnaResponse update(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable Long qnaId,
                               @Valid @RequestBody CreateRequest request) {
         return service.update(me.userId(), qnaId, request.bookingId(), request.category(),
-            request.title().trim(), request.content().trim(), request.secret());
+            request.title().trim(), request.content().trim(), request.secret(), request.imageFileId());
     }
 
     @DeleteMapping("/{qnaId}")
@@ -57,5 +57,6 @@ public class QnaController {
         Long bookingId,
         @NotBlank @Size(min = 2, max = 100) String title,
         @NotBlank @Size(min = 10, max = 2000) String content,
-        boolean secret) { }
+        boolean secret,
+        Long imageFileId) { }
 }

@@ -21,6 +21,7 @@ import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.qna.QnaRepository;
 import com.kisia.staybooking.review.ReviewRepository;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
@@ -43,13 +44,15 @@ public class FileService {
     private final FileRepository files;
     private final UserRepository users;
     private final ReviewRepository reviews;
+    private final QnaRepository qnas;
     private final Path baseDir;
 
-    public FileService(FileRepository files, UserRepository users, ReviewRepository reviews,
+    public FileService(FileRepository files, UserRepository users, ReviewRepository reviews, QnaRepository qnas,
                        @Value("${staybooking.upload.dir}") String uploadDir) {
         this.files = files;
         this.users = users;
         this.reviews = reviews;
+        this.qnas = qnas;
         this.baseDir = Path.of(uploadDir).toAbsolutePath().normalize();
     }
 
@@ -74,12 +77,14 @@ public class FileService {
         return UploadResponse.from(saved);
     }
 
-    // 후기에 연결된 사진은 누구나 볼 수 있고, 아직 연결 전인 사진은 올린 사람과 관리자만 볼 수 있다.
+    // 후기·공개 문의에 연결된 사진은 누구나 볼 수 있고, 비밀 문의 사진과 아직 연결 전인 사진은
+    // 올린 사람과 관리자만 볼 수 있다.
     // 볼 수 없는 파일은 존재 여부를 숨기려고 403 대신 404로 응답한다.
     @Transactional(readOnly = true)
     public StoredImage load(Long actorId, Long fileId) {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         boolean visible = reviews.existsByFilesFileIdAndDeletedFalse(fileId)
+            || qnas.existsByFilesFileIdAndDeletedFalseAndSecretFalse(fileId)
             || isUploader(file, actorId) || isAdmin(actorId);
         if (!visible) throw notFound();
         Path path = safePath(file);
@@ -94,8 +99,8 @@ public class FileService {
     public void delete(Long actorId, Long fileId) {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         if (!isUploader(file, actorId)) throw notFound();
-        if (reviews.existsByFilesFileId(fileId)) {
-            throw new ApiException(HttpStatus.CONFLICT, "FILE_IN_USE", "후기에 연결된 사진은 후기를 수정해서 빼 주세요.");
+        if (reviews.existsByFilesFileId(fileId) || qnas.existsByFilesFileId(fileId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "FILE_IN_USE", "글에 연결된 사진은 글을 수정해서 빼 주세요.");
         }
         files.delete(file);
         try {

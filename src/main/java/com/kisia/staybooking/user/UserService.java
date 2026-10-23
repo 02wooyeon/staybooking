@@ -51,9 +51,10 @@ public class UserService {
         UserEntity user = users.findByIdForUpdate(userId)
             .filter(u -> u.getStatus() == UserStatus.ACTIVE)
             .orElseThrow(UserService::unauthorized);
+        // 토큰을 훔친 사람이 정보를 바꾸지 못하도록 수정할 때마다 현재 비밀번호를 확인한다.
+        requirePassword(user, currentPassword, "currentPassword");
         user.updateProfile(blankToNull(nickname), blankToNull(phone));
         if (newPassword != null && !newPassword.isEmpty()) {
-            requirePassword(user, currentPassword, "currentPassword");
             List<String> invalid = new ArrayList<>();
             if (PasswordRules.containsEmailId(user.getEmail(), newPassword)
                     || passwordEncoder.matches(newPassword, user.getPasswordHash())) {

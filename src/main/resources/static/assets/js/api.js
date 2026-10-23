@@ -150,6 +150,11 @@
       return request('POST', '/api/v1/auth/signup', { body: form });
     },
 
+    /** 이름·휴대폰으로 가입 이메일 찾기 (일부를 가린 값만 받는다) */
+    findEmail: function (form) {
+      return request('POST', '/api/v1/auth/find-email', { body: form });
+    },
+
     login: async function (email, password) {
       var body = await request('POST', '/api/v1/auth/login', { body: { email: email, password: password } });
       saveToken(body);
@@ -281,6 +286,11 @@
     /** 닉네임·연락처 수정 (비밀번호 변경 시 currentPassword, newPassword를 함께 보낸다) */
     updateMe: function (form) {
       return authed('PATCH', '/api/v1/members/me', form);
+    },
+
+    /** 내가 쓴 후기·문의 */
+    getMyActivities: function () {
+      return authed('GET', '/api/v1/members/me/activities');
     },
 
     /** 회원 탈퇴. 성공하면 서버가 모든 토큰을 폐기하므로 화면의 토큰도 지운다. */
