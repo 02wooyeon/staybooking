@@ -79,6 +79,12 @@ public class PaymentController {
             request.paymentKey(), request.amount()));
     }
 
+    @PostMapping("/toss/recover")
+    public PaymentResponse recoverToss(@AuthenticationPrincipal AuthenticatedUser me,
+                                       @Valid @RequestBody PaymentRecoveryRequest request) {
+        return PaymentResponse.from(tossConfirmations.recover(me.userId(), request.orderId()));
+    }
+
     @PostMapping("/demo-complete")
     public PaymentResponse completeDemo(@AuthenticationPrincipal AuthenticatedUser me,
                                         @Valid @RequestBody DemoCompleteRequest request) {
@@ -103,6 +109,8 @@ public class PaymentController {
     public record PaymentCompleteRequest(@NotBlank @Size(max = 100) String orderId,
                                          @NotBlank @Size(max = 200) String paymentKey,
                                          @Positive long amount) { }
+
+    public record PaymentRecoveryRequest(@NotBlank @Size(max = 100) String orderId) { }
 
     public record PaymentResponse(Long paymentId, Long bookingId, String orderId, long amount, String status) {
         static PaymentResponse from(PaymentEntity payment) {
