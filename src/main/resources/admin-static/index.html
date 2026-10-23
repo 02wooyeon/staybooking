@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <!-- 관리자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>관리자 | 스테이북</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/index.html">스테이북 <span class="admin-logo-tag">관리자</span></a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+
+  <p id="admin-loading" class="admin-loading" role="status">권한을 확인하는 중입니다...</p>
+
+  <main id="admin-denied" class="admin-denied" hidden>
+    <section class="pay-card">
+      <div class="pay-icon fail" aria-hidden="true">✕</div>
+      <h1>접근 권한이 없습니다</h1>
+      <p id="admin-denied-message" class="pay-sub"></p>
+      <div class="pay-actions">
+        <button id="admin-relogin" class="btn-primary" type="button">다른 계정으로 로그인</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="admin-content" class="admin-layout" hidden>
+    <aside class="admin-side">
+      <p class="admin-side-title">관리자</p>
+      <p class="admin-side-user">
+        <strong id="admin-user-name"></strong>
+        <span id="admin-user-role" class="admin-badge muted"></span>
+      </p>
+      <nav aria-label="관리자 메뉴">
+        <ul id="admin-nav" class="admin-nav"></ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <h1>대시보드</h1>
+      <p class="page-sub">스테이북 운영 현황과 관리 메뉴입니다.</p>
+
+      <section class="info-card" aria-labelledby="admin-stats-title">
+        <h2 id="admin-stats-title">운영 현황</h2>
+        <p class="card-sub">예약·결제 통계는 준비 중입니다. (GET /api/v1/admin/statistics/*)</p>
+      </section>
+
+      <section class="info-card" aria-labelledby="admin-shortcut-title">
+        <h2 id="admin-shortcut-title">관리 메뉴</h2>
+        <ul class="admin-shortcuts">
+          <li><span class="admin-shortcut-name">예약 관리</span><span class="admin-shortcut-desc">예약 승인·취소, 취소 신청 처리</span><small>준비 중</small></li>
+          <li><span class="admin-shortcut-name">회원 관리</span><span class="admin-shortcut-desc">회원 검색, 정지·활성화, 권한 변경</span><small>준비 중</small></li>
+          <li><span class="admin-shortcut-name">숙소·객실 관리</span><span class="admin-shortcut-desc">숙소·객실 등록과 수정</span><small>준비 중</small></li>
+          <li><span class="admin-shortcut-name">Q&amp;A 관리</span><span class="admin-shortcut-desc">문의 답변, 부적절한 글 숨김</span><small>준비 중</small></li>
+          <li><span class="admin-shortcut-name">결제·환불</span><span class="admin-shortcut-desc">결제 내역·금액 대조, 환불 처리</span><small>준비 중</small></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/admin.js"></script>
+  <script src="/assets/js/admin-dashboard.js"></script>
+</body>
+</html>

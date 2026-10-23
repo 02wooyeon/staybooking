@@ -45,6 +45,16 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// 관리자 화면(admin-static)이 쓰는 공통 파일을 빌드할 때 일반 화면(static)에서 복사한다.
+// 원본은 static 하나만 두어 소스에 복사본을 만들지 않는다. (결과: build/resources/main/admin-static/assets/...)
+tasks.named('processResources', ProcessResources) {
+	from('src/main/resources/static') {
+		include 'assets/js/api.js'
+		include 'assets/css/style.css'
+		into 'admin-static'
+	}
+}
+
 tasks.named('bootWar') {
 	archiveFileName = 'staybooking.war'
 }
