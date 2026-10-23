@@ -32,6 +32,8 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     @EntityGraph(attributePaths = "booking")
     List<PaymentEntity> findAllByOrderByCreatedAtDesc();
     Page<PaymentEntity> findAllByOrderByCreatedAtDescPaymentIdDesc(Pageable pageable);
+    Page<PaymentEntity> findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc(String paymentMethod,
+                                                                              Pageable pageable);
     Page<PaymentEntity> findByStatusOrderByCreatedAtDescPaymentIdDesc(PaymentStatus status, Pageable pageable);
     Page<PaymentEntity> findByBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(Long bookingId, Pageable pageable);
     Page<PaymentEntity> findByBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(

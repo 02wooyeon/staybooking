@@ -193,6 +193,19 @@ class PaymentHistoryApiTests {
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("PAYMENT_NOT_CONFIGURED"));
 
+        String reconciliationSearch = "/api/v1/admin/payments/reconciliation/search";
+        mvc.perform(get(reconciliationSearch).param("size", "10")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].result").value("LOOKUP_FAILED"))
+            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()));
+        mvc.perform(get(reconciliationSearch)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(reconciliationSearch).param("size", "11")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest());
+
         String refundSearch = "/api/v1/admin/refunds/search?bookingId=" + booking.getBookingId()
             + "&status=REQUESTED&size=1";
         mvc.perform(get(refundSearch)
