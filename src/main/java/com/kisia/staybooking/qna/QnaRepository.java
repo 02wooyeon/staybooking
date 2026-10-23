@@ -30,6 +30,11 @@ public interface QnaRepository extends JpaRepository<QnaEntity, Long> {
                                    @Param("answered") Boolean answered,
                                    @Param("deleted") Boolean deleted,
                                    @Param("q") String q, Pageable pageable);
+    boolean existsByFilesFileId(Long fileId);
+    // 공개 문의에 붙은 사진만 누구나 볼 수 있다. 비밀글 사진은 작성자(=올린 사람)와 관리자만 본다.
+    boolean existsByFilesFileIdAndDeletedFalseAndSecretFalse(Long fileId);
+    @Query("select count(q) > 0 from QnaEntity q join q.files f where f.fileId = :fileId and q.qnaId <> :qnaId")
+    boolean fileUsedByOtherQna(@Param("fileId") Long fileId, @Param("qnaId") Long qnaId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select q from QnaEntity q where q.qnaId = :id")
     Optional<QnaEntity> findByIdForUpdate(@Param("id") Long id);

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <!-- 관리자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>회원 관리 | 스테이북 관리자</title>
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="/index.html">스테이북 <span class="admin-logo-tag">관리자</span></a>
+    <nav id="header-nav" class="header-nav" aria-label="계정"></nav>
+  </header>
+
+  <p id="admin-loading" class="admin-loading" role="status">권한을 확인하는 중입니다...</p>
+
+  <main id="admin-denied" class="admin-denied" hidden>
+    <section class="pay-card">
+      <div class="pay-icon fail" aria-hidden="true">✕</div>
+      <h1>접근 권한이 없습니다</h1>
+      <p id="admin-denied-message" class="pay-sub"></p>
+      <div class="pay-actions">
+        <button id="admin-relogin" class="btn-primary" type="button">다른 계정으로 로그인</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="admin-content" class="admin-layout" hidden>
+    <aside class="admin-side">
+      <p class="admin-side-title">관리자</p>
+      <p class="admin-side-user">
+        <strong id="admin-user-name"></strong>
+        <span id="admin-user-role" class="admin-badge muted"></span>
+      </p>
+      <nav aria-label="관리자 메뉴">
+        <ul id="admin-nav" class="admin-nav"></ul>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <h1>회원 관리</h1>
+      <p class="page-sub">회원을 검색하고 계정 정지·해제, 승인자 지정을 관리합니다. 관리자 권한은 화면에서 부여하거나 회수할 수 없습니다.</p>
+
+      <div id="page-alert" class="alert" role="alert" hidden></div>
+
+      <form id="filter-form" class="admin-filters" role="search" aria-label="회원 검색">
+        <label>검색어
+          <input name="q" type="search" maxlength="255" placeholder="이름·이메일">
+        </label>
+        <label>역할
+          <select name="role" class="form-select">
+            <option value="">전체</option>
+            <option value="ROLE_USER">일반 회원</option>
+            <option value="ROLE_APPROVER">승인자</option>
+            <option value="ROLE_ADMIN">관리자</option>
+          </select>
+        </label>
+        <label>상태
+          <select name="status" class="form-select">
+            <option value="">전체</option>
+            <option value="ACTIVE">정상</option>
+            <option value="SUSPENDED">정지</option>
+            <option value="WITHDRAWN">탈퇴</option>
+          </select>
+        </label>
+        <label>회원 ID
+          <input name="userId" type="number" min="1" step="1" inputmode="numeric" placeholder="회원 ID">
+        </label>
+        <div class="admin-filter-buttons">
+          <button class="btn-primary" type="submit">검색</button>
+          <button class="btn-outline" type="reset">초기화</button>
+        </div>
+      </form>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <caption class="sr-only">회원 목록</caption>
+          <thead>
+            <tr>
+              <th scope="col">회원 ID</th>
+              <th scope="col">이름</th>
+              <th scope="col">이메일</th>
+              <th scope="col">역할</th>
+              <th scope="col">상태</th>
+              <th scope="col">마일리지</th>
+              <th scope="col">관리</th>
+            </tr>
+          </thead>
+          <tbody id="list-body"></tbody>
+        </table>
+      </div>
+      <div id="pagination"></div>
+    </main>
+  </div>
+
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/admin.js"></script>
+  <script src="/assets/js/admin-members.js"></script>
+</body>
+</html>

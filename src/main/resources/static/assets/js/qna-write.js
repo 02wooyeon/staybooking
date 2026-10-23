@@ -1,6 +1,12 @@
-/* 1:1 문의 작성·수정: 서버 저장, 관련 예약은 로그인한 사용자의 예약만 표시 */
+/* 1:1 문의 작성·수정: 서버 저장, 관련 예약은 로그인한 사용자의 예약만 표시.
+ * 사진은 POST /api/v1/uploads/Images 로 먼저 올린 뒤 받은 파일 ID를 문의에 연결한다. */
 (function () {
   'use strict';
+
+  var MAX_FILE_SIZE = 5 * 1024 * 1024;
+  var ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'webp'];
+  var ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+  var IMAGE_URL_RE = /^\/api\/v1\/uploads\/Images\/(\d{1,19})$/;
 
   var form = document.getElementById('inquiry-form');
   var alertBox = document.getElementById('inquiry-alert');
@@ -11,8 +17,15 @@
     title: document.getElementById('inquiry-title'),
     content: document.getElementById('inquiry-content'),
     count: document.getElementById('inquiry-count'),
-    secret: document.getElementById('inquiry-secret')
+    secret: document.getElementById('inquiry-secret'),
+    image: document.getElementById('inquiry-image')
   };
+  var imageText = document.getElementById('inquiry-image-text');
+  var preview = document.getElementById('inquiry-image-preview');
+  var previewImg = document.getElementById('inquiry-image-preview-img');
+  var IMAGE_HINT = imageText.textContent;
+  var newImageFile = null;
+  var existingImageId = null;
   var editId = new URLSearchParams(window.location.search).get('edit');
   var editable = !editId;
 
@@ -38,6 +51,82 @@
   fields.content.addEventListener('input', function () {
     fields.count.textContent = fields.content.value.length + ' / 2000';
     Ui.setFieldError(fields.content, '');
+  });
+
+  /* 사진 첨부 (후기 화면과 같은 규칙. 서버가 다시 검사한다) */
+
+  function showPreview(src, label) {
+    previewImg.src = src;
+    imageText.textContent = label;
+    preview.hidden = false;
+  }
+
+  function clearImage() {
+    newImageFile = null;
+    existingImageId = null;
+    fields.image.value = '';
+    imageText.textContent = IMAGE_HINT;
+    preview.hidden = true;
+    previewImg.removeAttribute('src');
+  }
+
+  function isImageSignature(b) {
+    var jpeg = b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF;
+    var png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
+    var webp = b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46
+      && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+    return jpeg || png || webp;
+  }
+
+  function readAs(file, method) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader[method](file);
+    });
+  }
+
+  fields.image.addEventListener('change', async function () {
+    var file = fields.image.files[0];
+    Ui.setFieldError(fields.image, '');
+    if (!file) return;
+
+    var name = file.name;
+    var ext = name.lastIndexOf('.') > 0 ? name.slice(name.lastIndexOf('.') + 1).toLowerCase() : '';
+    var message = '';
+    if (ALLOWED_EXT.indexOf(ext) === -1 || ALLOWED_MIME.indexOf(file.type) === -1) {
+      message = 'jpg, png, webp 사진만 첨부할 수 있습니다.';
+    } else if (name.split('.').length > 2 || name.indexOf('\0') !== -1) {
+      message = '파일 이름을 확인해 주세요.'; // shell.jsp.png 같은 이중 확장자 차단
+    } else if (file.size > MAX_FILE_SIZE) {
+      message = '5MB 이하의 사진만 첨부할 수 있습니다.';
+    } else {
+      try {
+        var head = new Uint8Array(await readAs(file.slice(0, 12), 'readAsArrayBuffer'));
+        if (!isImageSignature(head)) message = '올바른 사진 파일이 아닙니다.';
+      } catch (e) {
+        message = '사진을 읽을 수 없습니다.';
+      }
+    }
+    if (message) {
+      clearImage();
+      Ui.setFieldError(fields.image, message);
+      return;
+    }
+    try {
+      showPreview(await readAs(file, 'readAsDataURL'), name);
+      newImageFile = file;
+      existingImageId = null;
+    } catch (e) {
+      clearImage();
+      Ui.setFieldError(fields.image, '사진을 읽을 수 없습니다.');
+    }
+  });
+
+  document.getElementById('inquiry-image-remove').addEventListener('click', function () {
+    clearImage();
+    Ui.setFieldError(fields.image, '');
   });
 
   async function load() {
@@ -76,6 +165,11 @@
       fields.content.value = q.content;
       fields.secret.checked = q.secret;
       fields.count.textContent = q.content.length + ' / 2000';
+      var match = q.image && IMAGE_URL_RE.exec(q.image);
+      if (match) {
+        existingImageId = Number(match[1]);
+        showPreview(q.image, '등록된 사진');
+      }
       document.querySelector('h1').textContent = '1:1 문의 수정';
       submit.textContent = '문의 수정';
       editable = true;
@@ -97,10 +191,18 @@
       bookingId: fields.booking.value ? Number(fields.booking.value) : null,
       title: fields.title.value.trim(),
       content: fields.content.value.trim(),
-      secret: fields.secret.checked
+      secret: fields.secret.checked,
+      imageFileId: existingImageId
     };
     Ui.setLoading(submit, true, editId ? '수정 중...' : '등록 중...');
     try {
+      if (newImageFile) {
+        var uploaded = await BookingApi.uploadImage(newImageFile);
+        body.imageFileId = uploaded.fileId;
+        // 다시 제출할 때 같은 사진을 또 올리지 않도록 올린 파일 ID를 기억한다
+        newImageFile = null;
+        existingImageId = uploaded.fileId;
+      }
       if (editId) await BookingApi.updateQna(editId, body);
       else await BookingApi.createQna(body);
       window.location.replace('/qna.html?inquiry=' + (editId ? 'updated' : 'done'));
