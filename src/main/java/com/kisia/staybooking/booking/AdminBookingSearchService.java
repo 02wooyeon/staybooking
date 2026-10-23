@@ -37,6 +37,22 @@ public class AdminBookingSearchService {
         if (admin.getStatus() != UserStatus.ACTIVE || admin.getRole() != UserRole.ROLE_ADMIN) {
             throw new IllegalStateException("Administrator permission required");
         }
+        return searchPage(request);
+    }
+
+    /** 승인자 화면에도 관리자와 동일한 예약 검색 조건·응답을 제공한다. */
+    @Transactional(readOnly = true)
+    public PageResponse<ApproverBookingResponse> searchForOperator(Long actorId, AdminBookingSearchRequest request) {
+        var actor = users.findById(actorId)
+            .orElseThrow(() -> new IllegalStateException("Operator permission required"));
+        if (actor.getStatus() != UserStatus.ACTIVE
+                || (actor.getRole() != UserRole.ROLE_APPROVER && actor.getRole() != UserRole.ROLE_ADMIN)) {
+            throw new IllegalStateException("Operator permission required");
+        }
+        return searchPage(request);
+    }
+
+    private PageResponse<ApproverBookingResponse> searchPage(AdminBookingSearchRequest request) {
         int page = request.page() == null ? 0 : request.page();
         int size = request.size() == null ? 20 : request.size();
         PageRequest paging = PageRequest.of(page, size);

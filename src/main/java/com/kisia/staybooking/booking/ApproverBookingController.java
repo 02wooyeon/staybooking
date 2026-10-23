@@ -7,6 +7,7 @@ import com.kisia.staybooking.cancellation.BookingCancellationService;
 import com.kisia.staybooking.cancellation.CancellationDecisionService;
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,14 +28,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApproverBookingController {
     private final BookingApprovalService approvals;
     private final ApproverBookingQueryService queries;
+    private final AdminBookingSearchService search;
     private final BookingCancellationService directCancellations;
     private final CancellationDecisionService cancellationDecisions;
 
     public ApproverBookingController(BookingApprovalService approvals, ApproverBookingQueryService queries,
+                                     AdminBookingSearchService search,
                                      BookingCancellationService directCancellations,
                                      CancellationDecisionService cancellationDecisions) {
         this.approvals = approvals;
         this.queries = queries;
+        this.search = search;
         this.directCancellations = directCancellations;
         this.cancellationDecisions = cancellationDecisions;
     }
@@ -44,6 +49,13 @@ public class ApproverBookingController {
         @RequestParam(defaultValue = "PENDING") BookingStatus status
     ) {
         return queries.list(me.userId(), status);
+    }
+
+    @GetMapping("/search")
+    public PageResponse<ApproverBookingResponse> search(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @Valid @ModelAttribute AdminBookingSearchRequest request) {
+        return search.searchForOperator(me.userId(), request);
     }
 
     @PatchMapping("/{bookingId}")
