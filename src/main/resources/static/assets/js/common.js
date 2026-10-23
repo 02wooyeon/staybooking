@@ -79,7 +79,7 @@
       signup.textContent = '회원가입';
       nav.append(login, signup);
     }
-    nav.append(createHeaderMenu(me));
+    nav.append(createHeaderMenu());
     return me;
   }
 
@@ -90,7 +90,7 @@
   ];
 
   /** 헤더 맨 오른쪽 메뉴 버튼: 누르면 예약 정보·고객센터·설정 링크가 펼쳐진다 */
-  function createHeaderMenu(me) {
+  function createHeaderMenu() {
     var wrap = document.createElement('div');
     wrap.className = 'header-menu';
 
@@ -112,10 +112,7 @@
     list.id = 'header-menu-list';
     list.className = 'header-menu-list';
     list.hidden = true;
-    var menuItems = me && me.role === 'ROLE_ADMIN'
-      ? MENU_ITEMS.concat({ href: '/admin/payment-reconciliation.html', label: '결제 점검' })
-      : MENU_ITEMS;
-    menuItems.forEach(function (item) {
+    MENU_ITEMS.forEach(function (item) {
       var li = document.createElement('li');
       var link = document.createElement('a');
       link.href = item.href;
