@@ -3,7 +3,7 @@
  *
  * 이 파일은 관리자 도메인 전용 폴더(src/main/resources/admin-static)에 있고,
  * 관리자 도메인에서는 이 폴더가 사이트 루트(/)가 된다.
- * 공통 파일(/assets/js/api.js, /assets/css/style.css, /assets/img/menu.svg)은
+ * 공통 파일(/assets/js/api.js, /assets/css/style.css)은
  * 빌드할 때 static 폴더에서 복사해 온다. (일반 화면의 common.js 는 쓰지 않는다)
  *
  * - 권한 확인: 페이지를 그리기 전에 내 정보(role)를 확인한다.

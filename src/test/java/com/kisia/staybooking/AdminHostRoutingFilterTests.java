@@ -2,12 +2,14 @@ package com.kisia.staybooking;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -29,6 +31,13 @@ class AdminHostRoutingFilterTests {
             request.setRemoteAddr(ip);
             return request;
         };
+    }
+
+    @Test
+    void buildCopiesSharedAssetsIntoAdminStatic() {
+        // build.gradle 의 processResources 가 static 의 공통 파일을 admin-static 으로 복사한다
+        assertTrue(new ClassPathResource("admin-static/assets/js/api.js").exists());
+        assertTrue(new ClassPathResource("admin-static/assets/css/style.css").exists());
     }
 
     @Nested
