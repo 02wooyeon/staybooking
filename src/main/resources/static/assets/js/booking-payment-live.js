@@ -33,13 +33,17 @@
     });
   }
 
-  function stayRows(booking, amount) {
-    return [
+  function stayRows(booking, amount, orderId) {
+    var rows = [
       ['예약번호', String(booking.bookingId)],
-      ['숙소 · 객실', booking.accommodationName + ' · ' + booking.roomName],
+      ['숙소 · 객실', booking.accommodationName + ' · ' + booking.roomName]
+    ];
+    if (orderId) rows.push(['결제 주문번호', orderId]);
+    rows.push(
       ['일정', booking.checkIn + ' ~ ' + booking.checkOut + ' · ' + booking.guests + '명'],
       ['결제 금액', money(amount), 'total']
-    ];
+    );
+    return rows;
   }
 
   function showError(message) {
@@ -87,7 +91,7 @@
         return showError('결제 기한이 지났습니다. 내 예약에서 상태를 확인해 주세요.');
       }
       var payment = await BookingApi.preparePayment(booking.bookingId, 'TOSS');
-      renderRows('pay-summary', stayRows(booking, payment.amount));
+      renderRows('pay-summary', stayRows(booking, payment.amount, payment.orderId));
       document.querySelectorAll('[data-state]').forEach(function (section) {
         section.hidden = section.dataset.state !== 'ready';
       });
@@ -192,7 +196,15 @@
       if (booking.status !== 'PENDING' && booking.status !== 'COMPLETED') {
         return showError('결제 완료 상태를 확인할 수 없습니다.');
       }
-      renderRows('pay-summary', stayRows(booking, booking.totalAmount));
+      var history = await BookingApi.getPaidPaymentsForBooking(bookingId);
+      var paid = history.content || [];
+      if (paid.length !== 1 || String(paid[0].bookingId) !== String(booking.bookingId)
+          || !paid[0].orderId) {
+        return showError('결제 내역을 확인할 수 없습니다. 내 예약에서 상태를 확인해 주세요.');
+      }
+      $('pay-complete-subtitle').textContent = booking.status === 'COMPLETED'
+        ? '예약 승인이 완료되었습니다.' : '결제가 완료되어 예약 승인 대기 중입니다.';
+      renderRows('pay-summary', stayRows(booking, paid[0].amount, paid[0].orderId));
       document.querySelectorAll('[data-state]').forEach(function (section) {
         section.hidden = section.dataset.state !== 'ready';
       });
