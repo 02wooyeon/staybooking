@@ -196,6 +196,11 @@
         + encodeURIComponent(bookingId) + '&status=PAID&size=2');
     },
 
+    getMyPaymentsPage: function (page, size) {
+      return authed('GET', '/api/v1/payments/me/search?page='
+        + encodeURIComponent(page) + '&size=' + encodeURIComponent(size));
+    },
+
     completeDemoPayment: function (bookingId) {
       return authed('POST', '/api/v1/payments/demo-complete', { bookingId: bookingId });
     },
