@@ -207,6 +207,10 @@
       });
     },
 
+    recoverTossPayment: function (orderId) {
+      return authed('POST', '/api/v1/payments/toss/recover', { orderId: orderId });
+    },
+
     /** 사용자는 예약을 즉시 취소하지 않고 승인자에게 취소를 신청한다. */
     requestBookingCancellation: function (bookingId, form) {
       return authed('POST', '/api/v1/bookings/' + encodeURIComponent(bookingId)

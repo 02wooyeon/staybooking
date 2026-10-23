@@ -30,6 +30,13 @@
         await BookingApi.confirmTossPayment(orderId, paymentKey, amount);
         message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
       } catch (e) {
+        try {
+          var recovered = await BookingApi.recoverTossPayment(orderId);
+          if (recovered.status === 'PAID') {
+            message.textContent = '결제가 완료되어 예약이 승인 대기 상태가 됐습니다.';
+            return;
+          }
+        } catch (recoveryError) { /* 아래에서 재시도 방법을 안내한다. */ }
         message.textContent = '결제 승인 상태를 확인하지 못했습니다. 내 예약을 확인하거나 다시 시도해 주세요.';
         retry.hidden = false;
       }
