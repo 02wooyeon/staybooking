@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -41,6 +42,25 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     @EntityGraph(attributePaths = {"room", "room.accommodation"})
     Page<BookingEntity> findByBookingIdAndStatusOrderByCreatedAtDescBookingIdDesc(
         Long bookingId, BookingStatus status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
+    @Query("""
+        select b from BookingEntity b
+        where (:bookingId is null or b.bookingId = :bookingId)
+          and (:status is null or b.status = :status)
+          and ((:cancellationRequested = true and exists (
+                select r.cancellationRequestId from CancellationRequestEntity r
+                where r.booking = b and r.status = :requestedStatus))
+            or (:cancellationRequested = false and not exists (
+                select r.cancellationRequestId from CancellationRequestEntity r
+                where r.booking = b and r.status = :requestedStatus)))
+        order by b.createdAt desc, b.bookingId desc
+        """)
+    Page<BookingEntity> findByPendingCancellation(@Param("bookingId") Long bookingId,
+                                                  @Param("status") BookingStatus status,
+                                                  @Param("cancellationRequested") boolean cancellationRequested,
+                                                  @Param("requestedStatus") CancellationRequestStatus requestedStatus,
+                                                  Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from BookingEntity b where b.bookingId = :bookingId")

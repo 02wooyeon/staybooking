@@ -8,6 +8,8 @@ import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingApprovalService;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.user.UserEntity;
 import jakarta.persistence.EntityManager;
@@ -19,6 +21,7 @@ import com.kisia.staybooking.room.RoomEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @Import(BookingApprovalService.class)
@@ -58,6 +61,22 @@ class BookingApprovalServiceTests {
         entityManager.createNativeQuery("update payments set status = 'PAID', paid_at = CURRENT_TIMESTAMP where payment_id = :id")
             .setParameter("id", payment.getPaymentId()).executeUpdate();
         entityManager.clear();
+
+        BookingEntity paidBooking = entityManager.find(BookingEntity.class, booking.getBookingId());
+        UserEntity requester = entityManager.find(UserEntity.class, customer.getUserId());
+        UserEntity activeApprover = entityManager.find(UserEntity.class, approver.getUserId());
+        CancellationRequestEntity cancellation = new CancellationRequestEntity(paidBooking, requester,
+            CancellationReasonType.USER_FAULT, "일정 변경");
+        entityManager.persist(cancellation);
+        entityManager.flush();
+
+        IllegalStateException blocked = assertThrows(IllegalStateException.class,
+            () -> approvals.accept(approver.getUserId(), booking.getBookingId()));
+        assertTrue(blocked.getMessage().contains("Pending cancellation request"));
+        assertEquals(BookingStatus.PENDING, paidBooking.getStatus());
+
+        cancellation.reject(activeApprover, LocalDateTime.now(), "취소 신청 반려");
+        entityManager.flush();
 
         BookingEntity approved = approvals.accept(approver.getUserId(), booking.getBookingId());
         assertEquals(BookingStatus.COMPLETED, approved.getStatus());

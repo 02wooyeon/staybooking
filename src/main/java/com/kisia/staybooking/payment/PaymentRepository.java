@@ -32,11 +32,29 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     @EntityGraph(attributePaths = "booking")
     List<PaymentEntity> findAllByOrderByCreatedAtDesc();
     Page<PaymentEntity> findAllByOrderByCreatedAtDescPaymentIdDesc(Pageable pageable);
+    Page<PaymentEntity> findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc(String paymentMethod,
+                                                                              Pageable pageable);
     Page<PaymentEntity> findByStatusOrderByCreatedAtDescPaymentIdDesc(PaymentStatus status, Pageable pageable);
     Page<PaymentEntity> findByBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(Long bookingId, Pageable pageable);
     Page<PaymentEntity> findByBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
         Long bookingId, PaymentStatus status, Pageable pageable);
+    @Query("select p from PaymentEntity p where p.orderId = :orderId "
+        + "and (:bookingId is null or p.booking.bookingId = :bookingId) "
+        + "and (:status is null or p.status = :status) "
+        + "order by p.createdAt desc, p.paymentId desc")
+    Page<PaymentEntity> searchByOrderIdForAdmin(@Param("orderId") String orderId,
+                                                @Param("bookingId") Long bookingId,
+                                                @Param("status") PaymentStatus status,
+                                                Pageable pageable);
     List<PaymentEntity> findByBookingUserUserIdOrderByCreatedAtDesc(Long userId);
+    Page<PaymentEntity> findByBookingUserUserIdOrderByCreatedAtDescPaymentIdDesc(Long userId,
+                                                                                  Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, PaymentStatus status, Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndBookingBookingIdOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, Long bookingId, Pageable pageable);
+    Page<PaymentEntity> findByBookingUserUserIdAndBookingBookingIdAndStatusOrderByCreatedAtDescPaymentIdDesc(
+        Long userId, Long bookingId, PaymentStatus status, Pageable pageable);
     List<PaymentEntity> findByBookingBookingIdAndStatus(Long bookingId, PaymentStatus status);
 
     Optional<PaymentEntity> findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(Long bookingId,

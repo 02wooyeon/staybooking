@@ -4,12 +4,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/v1/admin/refunds")
@@ -32,6 +36,14 @@ public class AdminRefundController {
     @GetMapping
     public List<Summary> list() {
         return refunds.findAllByOrderByCreatedAtDesc().stream().map(Summary::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/{id}")
+    public Summary detail(@PathVariable @Positive Long id) {
+        return Summary.from(refunds.findById(id)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND",
+                "환불 요청을 찾을 수 없습니다.")));
     }
 
     @GetMapping("/search")

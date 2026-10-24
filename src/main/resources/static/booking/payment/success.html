@@ -21,7 +21,7 @@
       <p class="pay-sub">잠시만 기다려 주세요. 이 화면을 닫거나 새로고침하지 마세요.</p>
 
       <ul class="pay-steps" aria-live="polite">
-        <li class="done">✓ 결제대행사 승인 완료</li>
+        <li class="done">✓ 결제 인증 완료</li>
         <li id="pay-step-verify" class="now">● 결제 금액·주문번호 확인 중</li>
         <li>○ 예약 확정 처리</li>
       </ul>
@@ -30,11 +30,15 @@
         서버가 결제대행사에 직접 결제 내역을 조회해 예약 금액과 일치하는지 확인합니다.
         확인이 끝나야 결제가 완료됩니다.
       </p>
+      <div class="pay-actions">
+        <button id="pay-retry" class="btn-primary" type="button" hidden>승인 결과 다시 확인</button>
+        <a class="btn-outline" href="/booking/my.html">내 예약 보기</a>
+      </div>
     </section>
   </main>
 
   <script src="/assets/js/api.js"></script>
   <script src="/assets/js/common.js"></script>
-  <script src="/assets/js/payment.js"></script>
+  <script src="/assets/js/booking-payment-live.js"></script>
 </body>
 </html>

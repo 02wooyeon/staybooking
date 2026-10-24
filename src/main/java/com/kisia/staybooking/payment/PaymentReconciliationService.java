@@ -5,9 +5,12 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +27,24 @@ public class PaymentReconciliationService {
         this.payments = payments;
         this.refunds = refunds;
         this.gateway = gateway;
+    }
+
+    /** 최근 토스 결제를 페이지 단위로 점검한다. 각 건의 조회 실패도 목록에 남긴다. */
+    @Transactional(readOnly = true)
+    public PageResponse<Report> scan(int page, int size) {
+        Page<PaymentEntity> candidates = payments.findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc(
+            "TOSS", PageRequest.of(page, size));
+        List<Report> reports = candidates.getContent().stream().map(payment -> {
+            try {
+                return check(payment.getPaymentId());
+            } catch (ApiException e) {
+                if (!"PAYMENT_LOOKUP_FAILED".equals(e.getCode())
+                        && !"PAYMENT_NOT_CONFIGURED".equals(e.getCode())) throw e;
+                return report(payment, null, "LOOKUP_FAILED", Result.LOOKUP_FAILED);
+            }
+        }).toList();
+        return new PageResponse<>(reports, page, size, candidates.getTotalElements(),
+            candidates.getTotalPages());
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +108,7 @@ public class PaymentReconciliationService {
             provider == null ? null : provider.balanceAmount(), result, LocalDateTime.now(ZoneOffset.UTC));
     }
 
-    public enum Result { MATCHED, REVIEW_REQUIRED, NOT_APPLICABLE }
+    public enum Result { MATCHED, REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE }
 
     public record Report(Long paymentId, Long bookingId, String orderId, PaymentStatus localStatus,
                          String providerStatus, long localAmount, Long providerAmount,

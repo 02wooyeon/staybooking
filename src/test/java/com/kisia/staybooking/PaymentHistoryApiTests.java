@@ -41,6 +41,63 @@ class PaymentHistoryApiTests {
     @Autowired private RefundRepository refunds;
 
     @Test
+    void paginatesOnlyOwnPaymentsAndFiltersByBookingAndStatus() throws Exception {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity owner = users.save(new UserEntity("history-owner-" + tag, "hash", "Owner",
+            "history-owner-" + tag + "@example.test"));
+        UserEntity other = users.save(new UserEntity("history-other-" + tag, "hash", "Other",
+            "history-other-" + tag + "@example.test"));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("History stay " + tag,
+            "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 2));
+        BookingEntity first = bookings.save(new BookingEntity(owner, room,
+            LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        BookingEntity second = bookings.save(new BookingEntity(owner, room,
+            LocalDate.now().plusDays(5), LocalDate.now().plusDays(6), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        BookingEntity foreign = bookings.save(new BookingEntity(other, room,
+            LocalDate.now().plusDays(7), LocalDate.now().plusDays(8), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        PaymentEntity paid = new PaymentEntity(first, "ORDER-PAID-" + tag, "TOSS", 100_000);
+        paid.complete("private-payment-key", LocalDateTime.now());
+        payments.save(paid);
+        PaymentEntity ready = payments.save(new PaymentEntity(second, "ORDER-READY-" + tag,
+            "TOSS", 100_000));
+        payments.save(new PaymentEntity(foreign, "ORDER-FOREIGN-" + tag, "TOSS", 100_000));
+        String token = "Bearer " + jwt.createAccessToken(owner);
+
+        mvc.perform(get("/api/v1/payments/me/search").param("size", "1")
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].paymentId").value(ready.getPaymentId()))
+            .andExpect(jsonPath("$.content[0].paymentKey").doesNotExist());
+        mvc.perform(get("/api/v1/payments/me/search").param("size", "1").param("page", "1")
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].paymentId").value(paid.getPaymentId()));
+        mvc.perform(get("/api/v1/payments/me/search")
+                .param("bookingId", first.getBookingId().toString()).param("status", "PAID")
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].paymentId").value(paid.getPaymentId()));
+        mvc.perform(get("/api/v1/payments/me/search")
+                .param("bookingId", foreign.getBookingId().toString())
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/v1/payments/me/search").param("size", "101")
+                .header("Authorization", token))
+            .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/payments/me/search"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void returnsOnlyTheOwnersPaymentAndRefundWithoutExposingThePaymentKey() throws Exception {
         String tag = Long.toString(System.nanoTime());
         UserEntity owner = users.save(new UserEntity("pay-owner-" + tag, "hash", "Owner",
@@ -58,7 +115,7 @@ class PaymentHistoryApiTests {
         PaymentEntity payment = new PaymentEntity(booking, "ORDER-" + tag, "TOSS", 100_000);
         payment.complete("secret-payment-key", LocalDateTime.now());
         payments.save(payment);
-        refunds.save(new RefundEntity(booking, 50_000, "취소 요청"));
+        RefundEntity refund = refunds.save(new RefundEntity(booking, 50_000, "취소 요청"));
 
         mvc.perform(get("/api/v1/payments/me")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
@@ -96,6 +153,37 @@ class PaymentHistoryApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());
 
+        String orderSearch = "/api/v1/admin/payments/search?orderId=" + payment.getOrderId();
+        mvc.perform(get(orderSearch).header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].paymentId").value(payment.getPaymentId()))
+            .andExpect(jsonPath("$.content[0].paymentKey").doesNotExist());
+        mvc.perform(get(orderSearch + "&status=READY")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get(orderSearch + "&bookingId=99999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get(orderSearch).header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+
+        String paymentDetail = "/api/v1/admin/payments/" + payment.getPaymentId();
+        mvc.perform(get(paymentDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderId").value(payment.getOrderId()))
+            .andExpect(jsonPath("$.refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.paymentKey").doesNotExist());
+        mvc.perform(get(paymentDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/payments/99999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isNotFound());
+
         String reconciliation = "/api/v1/admin/payments/" + payment.getPaymentId() + "/reconciliation";
         mvc.perform(get(reconciliation)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
@@ -104,6 +192,19 @@ class PaymentHistoryApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("PAYMENT_NOT_CONFIGURED"));
+
+        String reconciliationSearch = "/api/v1/admin/payments/reconciliation/search";
+        mvc.perform(get(reconciliationSearch).param("size", "10")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].result").value("LOOKUP_FAILED"))
+            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()));
+        mvc.perform(get(reconciliationSearch)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get(reconciliationSearch).param("size", "11")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isBadRequest());
 
         String refundSearch = "/api/v1/admin/refunds/search?bookingId=" + booking.getBookingId()
             + "&status=REQUESTED&size=1";
@@ -124,6 +225,18 @@ class PaymentHistoryApiTests {
         mvc.perform(get(refundSearch)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isForbidden());
+        String refundDetail = "/api/v1/admin/refunds/" + refund.getRefundId();
+        mvc.perform(get(refundDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.bookingId").value(booking.getBookingId()))
+            .andExpect(jsonPath("$.amount").value(50_000));
+        mvc.perform(get(refundDetail)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/refunds/99999999")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
+            .andExpect(status().isNotFound());
         mvc.perform(get(refundSearch.replace("&size=1", "&size=0"))
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());

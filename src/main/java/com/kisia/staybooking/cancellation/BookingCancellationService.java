@@ -47,9 +47,12 @@ public class BookingCancellationService {
         }
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
-        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.COMPLETED) {
+        if (booking.getStatus() != BookingStatus.PAYMENT_PENDING
+                && booking.getStatus() != BookingStatus.PENDING
+                && booking.getStatus() != BookingStatus.COMPLETED) {
             throw new IllegalStateException("Booking cannot be cancelled in its current state");
         }
+        boolean paymentCompleted = booking.getStatus() != BookingStatus.PAYMENT_PENDING;
         LocalDateTime checkIn = booking.getCheckInDate()
             .atTime(booking.getRoom().getAccommodation().getCheckInTime());
         if (!LocalDateTime.now(KOREA).isBefore(checkIn)) {
@@ -62,7 +65,9 @@ public class BookingCancellationService {
         // 예약 잠금 아래에서 미처리 신청도 함께 마무리해 사용자 화면에 대기로 남지 않게 한다.
         requests.findByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED)
             .ifPresent(request -> request.approve(actor, nowUtc, "운영자 직접 취소로 처리됨"));
-        refunds.record(booking);
+        if (paymentCompleted) {
+            refunds.record(booking);
+        }
         return booking;
     }
 }

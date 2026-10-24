@@ -34,6 +34,15 @@ public class AdminAccommodationController {
   }
   @Transactional
   @PatchMapping("/{id}") public AccommodationEntity update(@PathVariable Long id,@Valid @RequestBody AccommodationRequest r) { var a=accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found")); a.update(r.name(),r.address(),r.checkInTime(),r.checkOutTime(),r.description(),r.status()); return a; }
+  @Transactional
+  @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deactivate(@PathVariable @Positive Long id) {
+    var accommodation = accommodations.findById(id)
+        .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+    accommodation.update(accommodation.getName(), accommodation.getAddress(),
+        accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
+        accommodation.getDescription(), AccommodationStatus.INACTIVE);
+  }
   @PostMapping("/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) public RoomEntity createRoom(@PathVariable Long id,@Valid @RequestBody RoomRequest r) {
     var accommodation = accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found"));
     RoomEntity room = new RoomEntity(accommodation, r.name(), r.price(), r.capacity(), r.totalQuantity());
@@ -42,6 +51,17 @@ public class AdminAccommodationController {
   }
   @Transactional
   @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable Long id,@PathVariable Long roomId,@Valid @RequestBody RoomRequest r) { var room=rooms.findByIdForUpdate(roomId).orElseThrow(()->new IllegalArgumentException("Room not found")); if(!room.getAccommodation().getAccommodationId().equals(id)) throw new IllegalArgumentException("Room does not belong to accommodation"); room.update(r.name(),r.price(),r.capacity(),r.totalQuantity(),r.description(),r.status()); return room; }
+  @Transactional
+  @DeleteMapping("/{id}/rooms/{roomId}") @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deactivateRoom(@PathVariable @Positive Long id, @PathVariable @Positive Long roomId) {
+    var room = rooms.findByIdForUpdate(roomId)
+        .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+    if (!room.getAccommodation().getAccommodationId().equals(id)) {
+      throw new IllegalArgumentException("Room does not belong to accommodation");
+    }
+    room.update(room.getName(), room.getPrice(), room.getCapacity(), room.getTotalQuantity(),
+        room.getDescription(), RoomStatus.INACTIVE);
+  }
   public record AccommodationRequest(@NotBlank String name,@NotBlank String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status) {}
   public record RoomRequest(@NotBlank String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
 }

@@ -139,7 +139,17 @@
         checkOut: checkOut.value,
         guests: guestCount
       });
-      window.location.replace('/booking/my.html?created=' + encodeURIComponent(booking.bookingId));
+      var destination = '/booking/my.html?created=' + encodeURIComponent(booking.bookingId);
+      try {
+        var capabilities = await BookingApi.getPaymentCapabilities();
+        if (capabilities.tossEnabled && capabilities.tossClientKey &&
+            booking.status === 'PAYMENT_PENDING') {
+          destination = '/payment/checkout.html?bookingId=' + encodeURIComponent(booking.bookingId);
+        }
+      } catch (capabilityError) {
+        // 예약은 이미 생성되었다. 결제 설정 조회 실패로 다시 예약을 만들지 않도록 내 예약으로 이동한다.
+      }
+      window.location.replace(destination);
     } catch (e) {
       if (e.status === 401) {
         window.location.href = '/auth/login.html?next=' + encodeURIComponent(

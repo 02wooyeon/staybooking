@@ -68,6 +68,27 @@ class AdminMutationPersistenceTests {
     }
 
     @Test
+    void deactivatingAccommodationAndRoomKeepsExistingRecords() {
+        String tag = Long.toString(System.nanoTime());
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Stay " + tag, "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
+        AccommodationEntity otherStay = accommodations.save(new AccommodationEntity("Other " + tag, "Busan",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+
+        assertThrows(IllegalArgumentException.class,
+            () -> accommodationsAdmin.deactivateRoom(otherStay.getAccommodationId(), room.getRoomId()));
+        assertEquals(RoomStatus.ACTIVE, rooms.findById(room.getRoomId()).orElseThrow().getStatus());
+
+        accommodationsAdmin.deactivateRoom(stay.getAccommodationId(), room.getRoomId());
+        accommodationsAdmin.deactivate(stay.getAccommodationId());
+
+        assertEquals(RoomStatus.INACTIVE, rooms.findById(room.getRoomId()).orElseThrow().getStatus());
+        assertEquals(AccommodationStatus.INACTIVE,
+            accommodations.findById(stay.getAccommodationId()).orElseThrow().getStatus());
+    }
+
+    @Test
     void memberAndInventoryUpdatesSurviveReload() {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("admin" + tag, "hash", "Admin", null,
