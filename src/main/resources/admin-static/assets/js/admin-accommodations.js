@@ -16,7 +16,7 @@
  * 주소에 따라 화면이 바뀐다: 목록(기본) / ?mode=new 등록 / ?id={숙소 ID} 상세·수정
  * 등록·상세 화면 모두 저장 버튼은 맨 아래 하나다. 객실 추가·수정은 화면에만 담아 두고,
  * "저장"을 누르면 숙소·객실 필수값을 모두 확인한 뒤 숙소 → 객실 순서로 한 번에 저장한다.
- * 목록의 "삭제": 판매 중지된 숙소만 골라 DB에서 지운다. (아래 DELETE_API 참고, 백엔드 API가 생기면 ready 를 true 로)
+ * 목록은 숙소명·주소 검색과 판매 상태(판매 중/판매 중지) 필터로 조회한다.
  * 객실 삭제 API는 아직 없다 (판매 상태를 "판매 중지"로 바꿔 운영한다).
  */
 (function () {
@@ -54,52 +54,22 @@
   /* ---------- 목록 ---------- */
 
   var filters = null;
+  var listNotice = null; // 등록·수정 후 목록으로 돌아왔을 때 보여 줄 안내
 
   function showList() {
     document.getElementById('list-view').hidden = false;
     filters = AdminUi.bindFilters(document.getElementById('filter-form'),
-      { keyword: '', page: 0 }, loadList);
+      { status: '', keyword: '', page: 0 }, loadList);
   }
 
   async function loadList(query) {
     AdminUi.hideMessage(alertBox);
     try {
+      // status 가 비어 있으면 전체, ACTIVE 판매 중, INACTIVE 판매 중지
       var page = await AdminUi.api('GET', API + '/search' + AdminUi.buildQuery({
-        keyword: query.keyword, page: query.page, size: AdminUi.DEFAULT_PAGE_SIZE
+        status: query.status, keyword: query.keyword, page: query.page, size: AdminUi.DEFAULT_PAGE_SIZE
       }));
-      listRows = page.content || [];
-      // 페이지가 바뀌면 화면에 없는 숙소 선택은 푼다
-      selected = selected.filter(function (id) {
-        return listRows.some(function (a) { return a.accommodationId === id && a.status === 'INACTIVE'; });
-      });
-      renderList();
-      AdminUi.renderPagination(document.getElementById('pagination'), page, filters.go);
-    } catch (e) {
-      AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
-    }
-  }
-
-  function renderList() {
-    var columns = [];
-    if (deleteMode) {
-      columns.push({ label: '선택', render: function (a) {
-        var box = document.createElement('input');
-        box.type = 'checkbox';
-        box.className = 'admin-select';
-        box.checked = selected.indexOf(a.accommodationId) !== -1;
-        // 판매 중인 숙소는 고를 수 없다
-        box.disabled = a.status !== 'INACTIVE';
-        box.title = box.disabled ? '판매 중지된 숙소만 삭제할 수 있습니다.' : '';
-        box.setAttribute('aria-label', a.name + ' 선택');
-        box.addEventListener('change', function () {
-          if (box.checked) selected.push(a.accommodationId);
-          else selected.splice(selected.indexOf(a.accommodationId), 1);
-          updateDeleteBar();
-        });
-        return box;
-      } });
-    }
-    AdminUi.renderTable(document.getElementById('list-body'), listRows, columns.concat([
+      AdminUi.renderTable(document.getElementById('list-body'), page.content || [], [
         { label: '숙소 ID', render: function (a) { return a.accommodationId; } },
         { label: '숙소명', render: function (a) { return a.name; } },
         { label: '주소', className: 'admin-wrap', render: function (a) { return a.address; } },
@@ -111,97 +81,16 @@
           link.textContent = '상세·수정';
           return link;
         } }
-      ]), '조건에 맞는 숙소가 없습니다.');
-    document.getElementById('select-head').hidden = !deleteMode;
-    updateDeleteBar();
-  }
-
-  /* ---------- 숙소 삭제 (판매 중지된 숙소만) ----------
-   *
-   * 백엔드 API 가 아직 없어 아래 형식을 기준으로 만들었다.
-   *   DELETE /api/v1/admin/accommodations/{id}/permanent   → 204
-   *   서버는 판매 중지(INACTIVE) 숙소만 지우고, 판매 중이면 409 로 거절해야 한다.
-   *   (지금 있는 DELETE /api/v1/admin/accommodations/{id} 는 판매 중지로 바꾸기만 한다)
-   * 경로가 바뀌면 DELETE_API 만 고친다.
-   */
-  var DELETE_API = {
-    ready: false, // 백엔드 API 구현 후 true
-    url: function (id) { return API + '/' + encodeURIComponent(id) + '/permanent'; }
-  };
-
-  var listRows = [];      // 지금 목록 페이지의 숙소
-  var selected = [];      // 삭제하려고 고른 숙소 ID
-  var deleteMode = false;
-  var deleteButton = document.getElementById('delete-mode');
-  var deleteBar = document.getElementById('delete-bar');
-  var deleteSubmit = document.getElementById('delete-submit');
-  var selectAll = document.getElementById('select-all');
-
-  function setDeleteMode(on) {
-    deleteMode = on;
-    selected = [];
-    deleteButton.hidden = on;
-    deleteBar.hidden = !on;
-    renderList();
-  }
-
-  function updateDeleteBar() {
-    var selectable = listRows.filter(function (a) { return a.status === 'INACTIVE'; });
-    document.getElementById('delete-count').textContent = selected.length + '개 선택';
-    deleteSubmit.disabled = selected.length === 0;
-    selectAll.disabled = selectable.length === 0;
-    selectAll.checked = selectable.length > 0 && selected.length === selectable.length;
-  }
-
-  deleteButton.addEventListener('click', function () { setDeleteMode(true); });
-  document.getElementById('delete-cancel').addEventListener('click', function () { setDeleteMode(false); });
-
-  selectAll.addEventListener('change', function () {
-    selected = selectAll.checked
-      ? listRows.filter(function (a) { return a.status === 'INACTIVE'; }).map(function (a) { return a.accommodationId; })
-      : [];
-    renderList();
-  });
-
-  deleteSubmit.addEventListener('click', async function () {
-    var targets = listRows.filter(function (a) { return selected.indexOf(a.accommodationId) !== -1; });
-    if (!targets.length) return;
-    var answer = await AdminUi.confirmAction({
-      title: '숙소 삭제',
-      message: '판매 중지된 숙소 ' + targets.length + '개('
-        + targets.map(function (a) { return a.name; }).join(', ')
-        + ')를 DB에서 완전히 삭제합니다. 삭제한 숙소와 객실은 되돌릴 수 없습니다.',
-      confirmLabel: targets.length + '개 삭제',
-      danger: true
-    });
-    if (!answer.confirmed) return;
-    if (!DELETE_API.ready) {
-      AdminUi.showMessage(alertBox, '숙소 삭제 API가 아직 준비되지 않아 삭제할 수 없습니다.');
-      return;
-    }
-    deleteSubmit.disabled = true;
-    deleteSubmit.textContent = '삭제 중...';
-    var deleted = 0;
-    var failed = [];
-    // 요청 한 번에 숙소 하나
-    for (var i = 0; i < targets.length; i++) {
-      try {
-        await AdminUi.api('DELETE', DELETE_API.url(targets[i].accommodationId));
-        deleted++;
-      } catch (e) {
-        failed.push(targets[i].name + ': ' + AdminUi.errorMessage(e));
+      ], '조건에 맞는 숙소가 없습니다.');
+      AdminUi.renderPagination(document.getElementById('pagination'), page, filters.go);
+      if (listNotice) {
+        AdminUi.showMessage(alertBox, listNotice, 'success');
+        listNotice = null;
       }
+    } catch (e) {
+      AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
     }
-    deleteSubmit.textContent = '선택 삭제';
-    setDeleteMode(false);
-    await filters.reload();
-    if (!failed.length) {
-      AdminUi.showMessage(alertBox, '숙소 ' + deleted + '개를 삭제했습니다.', 'success');
-    } else {
-      AdminUi.showMessage(alertBox, (deleted ? '숙소 ' + deleted + '개를 삭제했습니다. ' : '')
-        + '삭제하지 못한 숙소: ' + failed.join(' / '), 'warning');
-    }
-  });
+  }
 
   /* ---------- 등록 · 상세 ---------- */
 
@@ -384,18 +273,26 @@
         }
       }
 
-      if (isNew) {
-        // replace: 등록 화면을 방문 기록에서 지워, 뒤로 가기로 돌아와 같은 숙소를 또 등록하지 않게 한다
-        window.location.replace('/accommodations.html' + AdminUi.buildQuery({
-          id: id, created: 1, rooms: saved || null, roomFailed: failed || null
-        }));
+      // replace: 등록·수정 화면을 방문 기록에서 지워, 뒤로 가기로 돌아와 같은 내용을 또 저장하지 않게 한다
+      if (failed) {
+        // 일부 객실을 저장하지 못했으면 목록으로 가지 않고 상세 화면에서 다시 고칠 수 있게 한다
+        if (isNew) {
+          window.location.replace('/accommodations.html' + AdminUi.buildQuery({
+            id: id, created: 1, rooms: saved || null, roomFailed: failed
+          }));
+          return;
+        }
+        await loadDetail();
+        AdminUi.showMessage(alertBox, '숙소 정보를 저장했습니다.'
+          + (saved ? ' 객실 ' + saved + '개를 함께 저장했습니다.' : '')
+          + ' 객실 ' + failed + '개는 저장하지 못했습니다. 다시 수정한 뒤 저장해 주세요.', 'warning');
         return;
       }
-      await loadDetail();
-      AdminUi.showMessage(alertBox, '숙소 정보를 저장했습니다.'
-        + (saved ? ' 객실 ' + saved + '개를 함께 저장했습니다.' : '')
-        + (failed ? ' 객실 ' + failed + '개는 저장하지 못했습니다. 다시 수정한 뒤 저장해 주세요.' : ''),
-        failed ? 'warning' : 'success');
+      // 모두 저장했으면 숙소 목록으로 돌아가 결과를 알린다
+      window.location.replace('/accommodations.html' + AdminUi.buildQuery({
+        saved: isNew ? 'created' : 'updated', rooms: saved || null
+      }));
+      return;
     } catch (e) {
       AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
     } finally {
@@ -404,8 +301,18 @@
     }
   });
 
+  // 등록·수정을 마치고 목록으로 돌아온 경우 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
+  var savedKind = params.get('saved');
+  if (savedKind === 'created' || savedKind === 'updated') {
+    var savedRoomCount = Number(params.get('rooms'));
+    listNotice = (savedKind === 'created' ? '숙소를 등록했습니다.' : '숙소 정보를 저장했습니다.')
+      + (Number.isInteger(savedRoomCount) && savedRoomCount > 0
+        ? ' 객실 ' + savedRoomCount + '개를 함께 저장했습니다.' : '');
+    window.history.replaceState(null, '', '/accommodations.html');
+  }
+
   if (params.get('created') === '1') {
-    // 등록 직후 안내 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
+    // 등록은 됐지만 일부 객실을 저장하지 못해 상세 화면으로 온 경우 안내 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
     var count = function (key) {
       var n = Number(params.get(key));
       return Number.isInteger(n) && n > 0 ? n : 0;

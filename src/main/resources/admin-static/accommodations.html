@@ -51,13 +51,17 @@
             <h1>숙소·객실 관리</h1>
             <p class="page-sub">숙소를 검색하고 숙소·객실 정보를 등록하거나 수정합니다.</p>
           </div>
-          <div class="admin-toolbar-actions">
-            <button id="delete-mode" class="btn-small admin-btn-danger" type="button">삭제</button>
-            <a class="btn-small" href="/accommodations.html?mode=new">숙소 등록</a>
-          </div>
+          <a class="btn-small" href="/accommodations.html?mode=new">숙소 등록</a>
         </div>
 
         <form id="filter-form" class="admin-filters" role="search" aria-label="숙소 검색">
+          <label>상태
+            <select name="status" class="form-select">
+              <option value="">전체</option>
+              <option value="ACTIVE">판매 중</option>
+              <option value="INACTIVE">판매 중지</option>
+            </select>
+          </label>
           <label>숙소명·주소
             <input name="keyword" type="search" maxlength="150" placeholder="검색어">
           </label>
@@ -67,23 +71,11 @@
           </div>
         </form>
 
-        <!-- 삭제 모드: 판매 중지된 숙소만 골라 삭제 -->
-        <div id="delete-bar" class="admin-delete-bar" role="region" aria-label="숙소 삭제" hidden>
-          <p><strong>판매 중지된 숙소</strong>만 선택해서 삭제할 수 있습니다. <span id="delete-count">0개 선택</span></p>
-          <div class="admin-delete-actions">
-            <button id="delete-cancel" class="admin-action" type="button">취소</button>
-            <button id="delete-submit" class="admin-action danger" type="button" disabled>선택 삭제</button>
-          </div>
-        </div>
-
         <div class="admin-table-wrap">
           <table class="admin-table">
             <caption class="sr-only">숙소 목록</caption>
             <thead>
               <tr>
-                <th id="select-head" scope="col" hidden>
-                  <input id="select-all" class="admin-select" type="checkbox" aria-label="이 페이지의 판매 중지 숙소 모두 선택">
-                </th>
                 <th scope="col">숙소 ID</th>
                 <th scope="col">숙소명</th>
                 <th scope="col">주소</th>
