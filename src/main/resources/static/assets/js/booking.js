@@ -65,6 +65,8 @@
         roomId: roomId, checkIn: checkIn.value, checkOut: checkOut.value, guests: guestCount
       });
       if (seq !== quoteSeq) return; // 그사이 날짜를 바꿨으면 늦게 온 응답은 버린다
+      document.getElementById('booking-room-total').textContent = formatPrice(quote.roomTotal);
+      document.getElementById('booking-discount-amount').textContent = formatPrice(quote.discountAmount);
       document.getElementById('booking-total-price').textContent = formatPrice(quote.totalAmount);
       soldOut = !quote.available;
       submit.disabled = soldOut;
