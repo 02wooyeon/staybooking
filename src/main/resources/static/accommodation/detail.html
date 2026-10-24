@@ -268,13 +268,22 @@
           </p>
         </div>
 
-        <button
+        <!-- 후기 작성 페이지로 이동 (주소는 review.js가 숙소 번호로 채운다) -->
+        <a
           id="review-write-button"
-          type="button"
-          class="btn-small">
+          class="btn-small"
+          href="/accommodation/review.html">
           리뷰 작성
-        </button>
+        </a>
 
+      </div>
+
+
+      <div
+        id="review-notice"
+        class="alert alert-success"
+        role="status"
+        hidden>
       </div>
 
 
@@ -282,167 +291,27 @@
         id="review-summary"
         class="review-summary">
 
-        <strong>4.7</strong>
+        <strong id="review-average">-</strong>
 
-        <span>★★★★★</span>
+        <span id="review-average-stars"></span>
 
-        <p>리뷰 2개</p>
+        <p id="review-count">리뷰 0개</p>
 
       </div>
 
 
-      <form
-  id="review-form"
-  class="review-form"
-  hidden>
-
-  <h3>리뷰 작성</h3>
-
-  <div class="review-form-field">
-    <label for="review-rating">
-      별점
-    </label>
-
-    <select id="review-rating" required>
-      <option value="">별점을 선택해 주세요</option>
-      <option value="5">★★★★★ 5점</option>
-      <option value="4">★★★★☆ 4점</option>
-      <option value="3">★★★☆☆ 3점</option>
-      <option value="2">★★☆☆☆ 2점</option>
-      <option value="1">★☆☆☆☆ 1점</option>
-    </select>
-  </div>
-
-  <div class="review-form-field">
-    <label for="review-content">
-      후기
-    </label>
-
-    <textarea
-      id="review-content"
-      maxlength="1000"
-      placeholder="숙박 후기를 작성해 주세요."
-      required></textarea>
-  </div>
-
-  <div class="review-form-field">
-
-  <span class="field-label">
-    사진 첨부
-    <span class="optional">(선택)</span>
-  </span>
-
-  <input
-    id="review-image"
-    type="file"
-    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
-
-  <p class="review-image-help">
-    jpg, png, webp / 최대 5MB
-  </p>
-
-  <div
-    id="review-image-preview"
-    class="review-image-preview"
-    hidden>
-
-    <img
-      id="review-image-preview-img"
-      alt="리뷰 첨부 이미지 미리보기">
-
-    <button
-      id="review-image-remove"
-      type="button"
-      class="btn-link">
-      첨부 삭제
-    </button>
-
-  </div>
-
-</div>
-
-  <div class="review-form-actions">
-
-    <button
-      id="review-cancel-button"
-      type="button"
-      class="btn-link">
-      취소
-    </button>
-
-    <button
-      type="submit"
-      class="btn-small">
-      등록
-    </button>
-
-  </div>
-
-</form>
-
-
+      <!-- 후기 목록은 review.js가 그린다 -->
       <div
         id="review-list"
         class="review-list">
-
-        <article class="review-item" data-owned="true">
-
-          <div class="review-item-header">
-
-            <strong>홍길동</strong>
-
-            <span>★★★★★</span>
-
-          </div>
-
-          <p>
-            객실이 깨끗하고 위치가 좋아서 편하게 이용했습니다.
-          </p>
-
-          <small>
-            2026-10-12
-          </small>
-
-          <div class="review-item-actions">
-
-  <button
-    type="button"
-    class="review-edit-button">
-    수정
-  </button>
-
-  <button
-    type="button"
-    class="review-delete-button">
-    삭제
-  </button>
-
-</div>
-
-        </article>
-
-
-        <article class="review-item">
-
-          <div class="review-item-header">
-
-            <strong>김스테이</strong>
-
-            <span>★★★★☆</span>
-
-          </div>
-
-          <p>
-            주변 교통이 편리하고 직원 응대가 좋았습니다.
-          </p>
-
-          <small>
-            2026-10-03
-          </small>
-
-        </article>
-
       </div>
+
+      <p
+        id="review-empty"
+        class="review-empty"
+        hidden>
+        아직 등록된 후기가 없습니다.
+      </p>
 
     </section>
 

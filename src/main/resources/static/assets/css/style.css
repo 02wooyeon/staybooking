@@ -223,6 +223,9 @@ a:hover { text-decoration: underline; }
 .hero { max-width: 720px; margin: 120px auto; padding: 0 24px; text-align: center; }
 .hero h1 { font-size: 32px; margin: 0 0 8px; }
 .hero p { color: var(--text-sub); margin: 0; }
+.hero:has(+ .home-search) { margin-bottom: 32px; }
+.home-search { max-width: 960px; margin: 0 auto 80px; }
+.home-search-all { margin: 12px 0 0; text-align: right; font-size: 14px; }
 
 /* ---------- 로그인·회원가입 카드 ---------- */
 
@@ -349,7 +352,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
   background: #fff;
 }
 
-#accommodation-search-form {
+#accommodation-search-form,
+#home-search-form {
   display: grid;
 
   grid-template-columns:
@@ -480,7 +484,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
 
 @media (max-width: 850px) {
 
-  #accommodation-search-form {
+  #accommodation-search-form,
+  #home-search-form {
     grid-template-columns:
       1fr 1fr;
   }
@@ -499,7 +504,8 @@ input[aria-invalid="true"] { border-color: var(--error); }
     padding-top: 30px;
   }
 
-  #accommodation-search-form {
+  #accommodation-search-form,
+  #home-search-form {
     grid-template-columns:
       1fr;
   }
@@ -1836,6 +1842,136 @@ input[aria-invalid="true"] { border-color: var(--error); }
 
 
 /* ========================================
+   이용자 정보 · 마일리지 · 결제수단
+   ======================================== */
+
+.booking-card h2 + .booking-card-sub {
+  margin-top: -12px;
+}
+
+.booking-card-sub {
+  margin: 0 0 18px;
+  color: var(--text-sub);
+  font-size: 14px;
+}
+
+.booking-card-sub strong {
+  color: var(--brand);
+}
+
+.booking-form-grid.booking-form-grid-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.booking-field input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.booking-field-help {
+  margin: 8px 0 0;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+.booking-mileage-input {
+  display: flex;
+  gap: 8px;
+}
+
+.booking-mileage-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-inline-button {
+  flex: none;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.booking-inline-button:hover:not(:disabled) { background: var(--bg); }
+.booking-inline-button:disabled { color: var(--text-sub); cursor: default; }
+
+.payment-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.payment-method,
+.easy-pay-option {
+  height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payment-method:hover:not(:disabled),
+.easy-pay-option:hover { background: var(--bg); }
+
+.payment-method[aria-checked="true"],
+.easy-pay-option[aria-checked="true"] {
+  border: 2px solid var(--brand);
+  background: var(--error-bg);
+  color: var(--brand);
+}
+
+.payment-method:disabled { opacity: 0.45; cursor: default; }
+
+.payment-method:focus-visible,
+.easy-pay-option:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.payment-panel .booking-field + .booking-form-grid { margin-top: 14px; }
+
+.easy-pay-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.payment-mileage-only {
+  margin: 0;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.booking-submit-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .booking-form-grid.booking-form-grid-two,
+  .easy-pay-options { grid-template-columns: 1fr; }
+  .payment-method { padding: 0 8px; font-size: 14px; white-space: nowrap; }
+}
+
+
+/* ========================================
    모바일
    ======================================== */
 
@@ -2025,49 +2161,10 @@ input[type="file"]:focus-visible + .file-box { outline: 2px solid var(--brand); 
   color: #6b7280;
 }
 
-/* 리뷰 작성 폼 */
-
-.review-form {
-  margin-bottom: 28px;
-  padding: 24px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fafafa;
-}
-
-.review-form h3 {
-  margin-top: 0;
-}
-
-.review-form-field {
-  margin-bottom: 18px;
-}
-
-.review-form-field label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-
-.review-form select,
-.review-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px;
-  border: 1px solid #cfd5dd;
-  border-radius: 8px;
-  font: inherit;
-}
-
-.review-form textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.review-form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.review-empty {
+  margin: 8px 0 0;
+  text-align: center;
+  color: var(--text-sub);
 }
 
 #review-write-button {
@@ -2103,6 +2200,23 @@ input[type="file"]:focus-visible + .file-box { outline: 2px solid var(--brand); 
 
 .review-delete-button:hover {
   background: #fef2f2;
+}
+
+/* 수정은 후기 작성 페이지로 가는 링크, 삭제는 버튼 — 같은 모양으로 맞춘다 */
+.review-edit-button,
+.review-delete-button {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+a.review-edit-button {
+  display: inline-block;
+  color: var(--text);
+}
+
+a.review-edit-button:hover {
+  text-decoration: none;
 }
 
 
@@ -2144,25 +2258,6 @@ input[type="file"]:focus-visible + .file-box { outline: 2px solid var(--brand); 
   display: none !important;
 }
 
-.review-image-help {
-  margin: 8px 0;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.review-image-preview {
-  margin-top: 12px;
-}
-
-.review-image-preview img {
-  display: block;
-  max-width: 240px;
-  max-height: 180px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 8px;
-}
-
 .review-item-image {
   display: block;
   width: 220px;
@@ -2172,3 +2267,92 @@ input[type="file"]:focus-visible + .file-box { outline: 2px solid var(--brand); 
   border-radius: 10px;
   margin: 12px 0;
 }
+/* ---------- 결제 대기 · 성공 · 완료 · 실패 ---------- */
+
+.pay-page { max-width: 560px; margin: 0 auto; padding: 40px 16px 72px; }
+
+.pay-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 32px 28px; text-align: center;
+}
+.pay-card h1 { margin: 0 0 6px; font-size: 24px; }
+.pay-sub { margin: 0 0 20px; color: var(--text-sub); font-size: 14px; }
+
+.pay-icon {
+  width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 30px; font-weight: 800;
+}
+.pay-icon.ok { background: var(--ok-bg); color: var(--ok); }
+.pay-icon.fail { background: var(--error-bg); color: var(--error); }
+.pay-icon.wait { background: var(--warn-bg); color: var(--warn); }
+
+.pay-spinner {
+  width: 56px; height: 56px; margin: 4px auto 18px; border-radius: 50%;
+  border: 5px solid var(--border); border-top-color: var(--brand);
+  animation: pay-spin 0.9s linear infinite;
+}
+@keyframes pay-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pay-spinner { animation-duration: 3s; } }
+
+.pay-timer {
+  display: inline-block; margin: 0 0 18px; padding: 8px 16px; border-radius: 999px;
+  background: var(--warn-bg); color: var(--warn); font-weight: 800; font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-summary { margin: 6px 0 0; text-align: left; border-top: 1px solid var(--border); }
+.pay-summary div {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.pay-summary dt { flex: none; color: var(--text-sub); }
+.pay-summary dd { margin: 0; font-weight: 700; text-align: right; word-break: keep-all; }
+.pay-summary .total dd { color: var(--brand); font-size: 18px; }
+.pay-summary[hidden] { display: none; }
+
+.pay-status-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 700;
+}
+
+.pay-actions { display: flex; gap: 10px; margin-top: 22px; }
+.pay-actions > .btn-primary,
+.pay-actions > .btn-outline {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  height: 48px; margin: 0; font-size: 15px;
+}
+.pay-actions > a.btn-primary { color: #fff; }
+.pay-actions > a:hover { text-decoration: none; }
+.pay-actions > [hidden] { display: none; }
+
+.pay-confirm {
+  margin-top: 20px; padding: 16px; border-radius: var(--radius);
+  background: var(--error-bg); text-align: left;
+}
+.pay-confirm p { margin: 0; color: var(--error); font-weight: 600; font-size: 14px; }
+.pay-confirm .pay-actions { margin-top: 12px; }
+
+.pay-demo-link { margin-top: 14px; font-size: 13px; }
+
+.pay-steps { list-style: none; margin: 0 0 6px; padding: 0; text-align: left; font-size: 14px; }
+.pay-steps li { padding: 8px 0; color: var(--text-sub); }
+.pay-steps li.done { color: var(--ok); font-weight: 600; }
+.pay-steps li.now { color: var(--text); font-weight: 700; }
+
+.pay-error-box {
+  margin: 0 0 16px; padding: 12px 14px; border-radius: var(--radius);
+  background: var(--error-bg); color: var(--error); font-size: 14px; text-align: left;
+}
+.pay-error-box p { margin: 0 0 4px; }
+.pay-error-box code { font-size: 12px; color: #8a1f26; }
+
+.pay-note { margin: 16px 0 0; color: var(--text-sub); font-size: 12px; text-align: left; line-height: 1.6; }
+
+@media (max-width: 480px) {
+  .pay-card { padding: 26px 18px; }
+  .pay-summary div { flex-direction: column; gap: 2px; }
+  .pay-summary dd { text-align: left; }
+}
+
+.find-result { list-style: none; margin: 0 0 8px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+.find-result li { padding: 4px 0; font-weight: 600; word-break: break-all; }

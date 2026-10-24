@@ -34,6 +34,12 @@
     document.getElementById('detail-title').textContent = q.title;
     document.getElementById('detail-date').textContent = (q.createdAt || '').slice(0, 10);
     document.getElementById('detail-content').textContent = q.content;
+    // 서버가 준 업로드 주소 형식일 때만 이미지로 넣는다
+    if (q.image && /^\/api\/v1\/uploads\/Images\/\d{1,19}$/.test(q.image)) {
+      var image = document.getElementById('detail-image');
+      image.src = q.image;
+      image.hidden = false;
+    }
     if (q.answered && q.answer) {
       document.getElementById('qna-answer-box').hidden = false;
       document.getElementById('detail-answer').textContent = q.answer;

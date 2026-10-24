@@ -38,11 +38,13 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login",
-                    "/api/v1/auth/reissue", "/api/v1/auth/logout").permitAll()
+                    "/api/v1/auth/reissue", "/api/v1/auth/logout", "/api/v1/auth/find-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/check-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/accommodations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/mine").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/public", "/api/v1/qna/{qnaId}").permitAll()
+                // 후기 사진은 비회원도 본다. 누가 볼 수 있는지는 FileService가 파일마다 다시 검사한다.
+                .requestMatchers(HttpMethod.GET, "/api/v1/uploads/Images/{fileId}").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/approver/**").hasAnyRole("APPROVER", "ADMIN")
                 .requestMatchers("/api/**").authenticated()

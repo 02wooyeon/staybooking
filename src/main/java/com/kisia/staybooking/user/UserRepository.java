@@ -1,5 +1,6 @@
 package com.kisia.staybooking.user;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -29,6 +30,7 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     @Query("select u from UserEntity u where u.userId = :userId")
     Optional<UserEntity> findByIdForUpdate(@Param("userId") Long userId);
     Optional<UserEntity> findByEmail(String email);
+    List<UserEntity> findByNameAndStatus(String name, UserStatus status);
 
     boolean existsByLoginId(String loginId);
     boolean existsByEmail(String email);

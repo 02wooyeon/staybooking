@@ -42,11 +42,44 @@
       - Date.parse(checkIn.value + 'T00:00:00Z')) / 86400000);
   }
 
+  // 화면에서 계산한 값은 바로 보여 주는 참고값이고, 로그인 상태면 서버 견적(POST /bookings/quote)으로 바꾼다.
+  var quoteSeq = 0;
+  var soldOut = false;
+
   function updatePrice() {
     var count = nights();
     document.getElementById('booking-night-count').textContent = count ? count + '박' : '-';
     document.getElementById('booking-total-price').textContent = room && count
       ? formatPrice(room.price * count) : '-';
+    refreshQuote(count);
+  }
+
+  async function refreshQuote(count) {
+    var seq = ++quoteSeq;
+    var guestCount = Number(guests.value);
+    if (!room || !count || !Number.isInteger(guestCount) || guestCount < 1 || guestCount > room.maxGuests) {
+      return;
+    }
+    try {
+      var quote = await BookingApi.quoteBooking({
+        roomId: roomId, checkIn: checkIn.value, checkOut: checkOut.value, guests: guestCount
+      });
+      if (seq !== quoteSeq) return; // 그사이 날짜를 바꿨으면 늦게 온 응답은 버린다
+      document.getElementById('booking-room-total').textContent = formatPrice(quote.roomTotal);
+      document.getElementById('booking-discount-amount').textContent = formatPrice(quote.discountAmount);
+      document.getElementById('booking-total-price').textContent = formatPrice(quote.totalAmount);
+      soldOut = !quote.available;
+      submit.disabled = soldOut;
+      if (soldOut) Ui.showAlert(alertBox, '선택한 날짜에 남은 객실이 없습니다. 다른 날짜를 선택해 주세요.', 'error');
+      else Ui.hideAlert(alertBox);
+    } catch (e) {
+      // 로그인 전이거나 날짜가 맞지 않으면 참고값을 그대로 둔다 (예약할 때 서버가 다시 검사한다)
+      if (seq === quoteSeq && soldOut) {
+        soldOut = false;
+        submit.disabled = false;
+        Ui.hideAlert(alertBox);
+      }
+    }
   }
 
   checkIn.addEventListener('change', function () {
@@ -111,7 +144,7 @@
         var capabilities = await BookingApi.getPaymentCapabilities();
         if (capabilities.tossEnabled && capabilities.tossClientKey &&
             booking.status === 'PAYMENT_PENDING') {
-          destination = '/booking/payment/pay.html?bookingId=' + encodeURIComponent(booking.bookingId);
+          destination = '/payment/checkout.html?bookingId=' + encodeURIComponent(booking.bookingId);
         }
       } catch (capabilityError) {
         // 예약은 이미 생성되었다. 결제 설정 조회 실패로 다시 예약을 만들지 않도록 내 예약으로 이동한다.

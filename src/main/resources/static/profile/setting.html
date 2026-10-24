@@ -18,6 +18,7 @@
       <nav aria-label="마이페이지 메뉴">
         <ul class="settings-tabs">
           <li><a href="#profile" data-panel="profile">내 정보 관리</a></li>
+          <li><a href="#activity" data-panel="activity">내 활동</a></li>
           <li><a href="#mileage" data-panel="mileage">마일리지</a></li>
           <li><a href="#preferences" data-panel="preferences">설정</a></li>
         </ul>
@@ -43,8 +44,7 @@
 
         <form id="profile-form" class="info-card" novalidate>
           <h2>정보 수정</h2>
-          <p class="card-sub">변경할 항목을 입력한 뒤 저장하세요.</p>
-          <p class="card-sub">api 적용 시 p/w 입력해야 수정 할 수 있도록 수정</p>
+          <p class="card-sub">변경할 항목을 입력하고 현재 비밀번호를 확인한 뒤 저장하세요.</p>
 
           <div id="profile-alert" class="alert" role="alert" hidden></div>
 
@@ -59,8 +59,39 @@
                    autocomplete="tel" placeholder="010-1234-5678">
             <p class="field-error" hidden></p>
           </div>
+          <div class="field">
+            <label for="profile-current-password">현재 비밀번호</label>
+            <input id="profile-current-password" type="password" maxlength="20"
+                   autocomplete="current-password" placeholder="본인 확인을 위해 입력해 주세요." required>
+            <p class="field-error" hidden></p>
+          </div>
 
           <button id="profile-submit" class="btn-primary" type="submit">저장</button>
+        </form>
+
+        <form id="password-form" class="info-card" novalidate>
+          <h2>비밀번호 변경</h2>
+          <p class="card-sub">영문·숫자·특수문자를 포함해 8~20자. 변경하면 모든 기기에서 로그아웃됩니다.</p>
+
+          <div id="password-alert" class="alert" role="alert" hidden></div>
+
+          <div class="field">
+            <label for="pw-current">현재 비밀번호</label>
+            <input id="pw-current" type="password" maxlength="20" autocomplete="current-password" required>
+            <p class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="pw-new">새 비밀번호</label>
+            <input id="pw-new" type="password" maxlength="20" autocomplete="new-password" required>
+            <p class="field-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="pw-confirm">새 비밀번호 확인</label>
+            <input id="pw-confirm" type="password" maxlength="20" autocomplete="new-password" required>
+            <p class="field-error" hidden></p>
+          </div>
+
+          <button id="password-submit" class="btn-primary" type="submit">비밀번호 변경</button>
         </form>
 
         <div class="info-card">
@@ -122,7 +153,6 @@
 
 </div>
           <ul class="link-list">
-            <li><span class="link-disabled">비밀번호 변경 (준비 중)</span></li>
             <li>
              <button
                 id="withdraw-open-button"
@@ -132,6 +162,26 @@
                </button>
             </li>
           </ul>
+        </div>
+      </section>
+
+      <!-- ---------- 내 활동 ---------- -->
+      <section id="panel-activity" class="settings-panel" aria-labelledby="activity-title" hidden>
+        <h1 id="activity-title">내 활동</h1>
+        <p class="page-sub">내가 쓴 후기와 문의를 모아 봅니다.</p>
+
+        <div id="activity-alert" class="alert" role="alert" hidden></div>
+
+        <div class="info-card">
+          <h2>내 후기 <span id="activity-review-count" class="muted"></span></h2>
+          <ul id="activity-reviews" class="link-list"></ul>
+          <p id="activity-reviews-empty" class="muted" hidden>작성한 후기가 없습니다.</p>
+        </div>
+
+        <div class="info-card">
+          <h2>내 문의 <span id="activity-qna-count" class="muted"></span></h2>
+          <ul id="activity-qna" class="link-list"></ul>
+          <p id="activity-qna-empty" class="muted" hidden>작성한 문의가 없습니다.</p>
         </div>
       </section>
 

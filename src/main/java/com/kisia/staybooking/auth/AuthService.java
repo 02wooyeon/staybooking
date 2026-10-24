@@ -29,25 +29,33 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final int REFRESH_TOKEN_BYTES = 32;
-    private static final int MIN_EMAIL_ID_IN_PASSWORD = 4;
 
     private final UserRepository users;
     private final RefreshTokenRepository refreshTokens;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwt;
     private final Duration refreshTokenTtl;
+    private final AttemptLimiter limiter;
+    private final int maxFailuresPerEmail;
+    private final int maxFailuresPerIp;
     private final SecureRandom random = new SecureRandom();
     // 없는 이메일로 로그인할 때도 비밀번호 비교 시간을 들여 계정 존재 여부가 응답 시간으로 드러나지 않게 한다.
     private final String dummyPasswordHash;
 
     public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, JwtTokenProvider jwt,
-                       @Value("${staybooking.jwt.refresh-token-ttl:P14D}") Duration refreshTokenTtl) {
+                       @Value("${staybooking.jwt.refresh-token-ttl:P14D}") Duration refreshTokenTtl,
+                       AttemptLimiter limiter,
+                       @Value("${staybooking.auth.max-login-failures-per-email:5}") int maxFailuresPerEmail,
+                       @Value("${staybooking.auth.max-login-failures-per-ip:20}") int maxFailuresPerIp) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.jwt = jwt;
         this.refreshTokenTtl = refreshTokenTtl;
+        this.limiter = limiter;
+        this.maxFailuresPerEmail = maxFailuresPerEmail;
+        this.maxFailuresPerIp = maxFailuresPerIp;
         this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
@@ -62,9 +70,7 @@ public class AuthService {
     public SignupResponse signup(SignupRequest request) {
         String email = normalizeEmail(request.email());
         List<String> invalid = new ArrayList<>();
-        String emailId = email.substring(0, Math.max(email.indexOf('@'), 0));
-        if (emailId.length() >= MIN_EMAIL_ID_IN_PASSWORD
-                && request.password().toLowerCase(Locale.ROOT).contains(emailId)) {
+        if (PasswordRules.containsEmailId(email, request.password())) {
             invalid.add("password");
         }
         if (!request.password().equals(request.passwordConfirm())) {
@@ -89,13 +95,29 @@ public class AuthService {
 
     @Transactional
     public IssuedTokens login(LoginRequest request) {
-        Optional<UserEntity> found = users.findByEmail(normalizeEmail(request.email()));
+        return login(request, null);
+    }
+
+    // 같은 이메일로 여러 번 틀리거나(비밀번호 대입), 같은 IP에서 여러 계정을 돌아가며 틀리면 잠시 막는다.
+    // 없는 이메일이어도 똑같이 세고 잠가서, 잠김 여부로 가입 여부를 알 수 없게 한다.
+    @Transactional
+    public IssuedTokens login(LoginRequest request, String clientIp) {
+        String email = normalizeEmail(request.email());
+        String emailKey = "login-email:" + email;
+        String ipKey = clientIp == null ? null : "login-ip:" + clientIp;
+        if (limiter.isLocked(emailKey) || (ipKey != null && limiter.isLocked(ipKey))) {
+            throw loginLocked();
+        }
+        Optional<UserEntity> found = users.findByEmail(email);
         String hash = found.map(UserEntity::getPasswordHash).orElse(dummyPasswordHash);
         boolean matches = passwordEncoder.matches(request.password(), hash);
         if (found.isEmpty() || !matches || found.get().getStatus() != UserStatus.ACTIVE) {
+            limiter.recordFailure(emailKey, maxFailuresPerEmail);
+            if (ipKey != null) limiter.recordFailure(ipKey, maxFailuresPerIp);
             throw new ApiException(HttpStatus.UNAUTHORIZED, "LOGIN_FAILED",
                 "이메일 또는 비밀번호가 올바르지 않습니다.");
         }
+        limiter.reset(emailKey);
         return issueTokens(found.get());
     }
 
@@ -155,6 +177,45 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    // AUTH_006. 이름과 휴대폰 번호가 모두 맞는 정상 계정의 이메일을 일부 가려서 준다.
+    // 같은 IP에서 짧은 시간에 여러 번 조회하면(남의 정보로 계정을 알아내려는 시도) 잠시 막는다.
+    @Transactional(readOnly = true)
+    public FindEmailResponse findEmails(String name, String phone, String clientIp) {
+        String ipKey = "find-email-ip:" + clientIp;
+        if (limiter.isLocked(ipKey)) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_REQUESTS",
+                "조회 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
+        }
+        limiter.recordFailure(ipKey, maxFailuresPerEmail * 2);
+        String digits = phone.replaceAll("\\D", "");
+        List<String> emails = users.findByNameAndStatus(name.trim(), UserStatus.ACTIVE).stream()
+            .filter(user -> user.getPhone() != null && user.getPhone().replaceAll("\\D", "").equals(digits))
+            .map(user -> maskEmail(user.getEmail()))
+            .toList();
+        return new FindEmailResponse(emails);
+    }
+
+    // guest@stay.test → gu***@st***.test
+    static String maskEmail(String email) {
+        int at = email.indexOf('@');
+        String local = email.substring(0, at);
+        String domain = email.substring(at + 1);
+        int dot = domain.lastIndexOf('.');
+        String host = dot > 0 ? domain.substring(0, dot) : domain;
+        String tld = dot > 0 ? domain.substring(dot) : "";
+        return keepTwo(local) + "@" + keepTwo(host) + tld;
+    }
+
+    private static String keepTwo(String value) {
+        return value.substring(0, Math.min(2, value.length())) + "***";
+    }
+
+    // 화면(login.js)이 LOGIN_LOCKED를 경고로 보여 준다.
+    private static ApiException loginLocked() {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS, "LOGIN_LOCKED",
+            "로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요.");
     }
 
     private static ApiException duplicateEmail() {

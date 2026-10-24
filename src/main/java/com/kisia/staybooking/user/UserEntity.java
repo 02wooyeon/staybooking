@@ -107,6 +107,28 @@ public class UserEntity extends AuditedEntity {
             tokenVersion++;
         }
     }
+    // PROFILE_002. 이름·이메일은 본인 확인 정보라 바꾸지 않는다.
+    public void updateProfile(String nickname, String phone) {
+        this.nickname = nickname;
+        this.phone = phone;
+    }
+    // 비밀번호를 바꾸면 기존에 발급된 Access Token도 모두 쓸 수 없게 한다.
+    public void changePassword(String passwordHash) {
+        this.passwordHash = Objects.requireNonNull(passwordHash);
+        tokenVersion++;
+    }
+    // PROFILE_003. 예약·결제 기록은 남기되 회원을 알아볼 수 있는 정보는 지운다.
+    // 이메일·아이디는 유일해야 하므로 회원번호로 만든 값으로 바꾼다.
+    public void withdraw(String unusablePasswordHash) {
+        String anonymous = "withdrawn-" + userId + "@deleted.invalid";
+        this.loginId = anonymous;
+        this.email = anonymous;
+        this.passwordHash = Objects.requireNonNull(unusablePasswordHash);
+        this.name = "탈퇴회원";
+        this.nickname = null;
+        this.phone = null;
+        changeStatus(UserStatus.WITHDRAWN);
+    }
     public void changeAssignableRole(UserRole role) {
         if (this.role == UserRole.ROLE_ADMIN) {
             throw new IllegalStateException("Administrator role cannot be changed here");

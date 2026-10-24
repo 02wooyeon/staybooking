@@ -23,9 +23,11 @@
   var NAV_ITEMS = [
     { key: 'dashboard', href: '/index.html', label: '대시보드', roles: ['ROLE_ADMIN'], ready: true },
     { key: 'bookings', href: '/bookings.html', label: '예약 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'approver-bookings', href: '/approver-bookings.html', label: '예약 승인', roles: ['ROLE_APPROVER', 'ROLE_ADMIN'], ready: true },
     { key: 'members', href: '/members.html', label: '회원 관리', roles: ['ROLE_ADMIN'], ready: true },
     { key: 'accommodations', href: '/accommodations.html', label: '숙소·객실 관리', roles: ['ROLE_ADMIN'], ready: true },
     { key: 'qna', href: '/qna.html', label: 'Q&A 관리', roles: ['ROLE_ADMIN'], ready: true },
+    { key: 'reviews', href: '/reviews.html', label: '리뷰 관리', roles: ['ROLE_ADMIN'], ready: true },
     { key: 'payments', href: '/payments.html', label: '결제·환불', roles: ['ROLE_ADMIN'], ready: true }
   ];
 
