@@ -14,15 +14,15 @@
 4. 서버를 재시작하고 로그인한 뒤 예약을 생성한다. **내 예약 → 결제하기**에서 SDK 주문서를 열고 테스트 결제를 진행한다. 토스 인증이 성공하면 `/payment/success.html`이 서버의 `/api/v1/payments/toss/confirm`을 호출한다. 서버는 저장된 주문번호·금액과 사용자 소유권을 검사한 다음 토스 승인 API를 호출한다. 승인 응답이 `DONE`일 때만 예약이 `PENDING`(승인 대기)으로 바뀐다. 승인 응답이 유실되면 같은 주문번호로 토스 결제를 조회하며, 동일한 승인 요청을 다시 보내도 결제를 중복 기록하지 않는다.
 5. 결제 요청에는 브라우저가 토스 SDK에 접근할 수 있어야 하고, WAS에서는 `https://api.tosspayments.com`으로 나가는 HTTPS 연결이 필요하다. 성공·실패 URL은 사용자가 실제 접속하는 같은 사이트 주소를 사용한다.
 
-로그인한 사용자는 `GET /api/v1/payments/me`로 자신의 결제 시도와 환불 처리 상태를 조회할 수 있다. 각 항목에는 `paymentId`, `bookingId`, `orderId`, `paymentMethod`, `amount`, `status`, `paidAt`, `refundId`, `refundStatus`, `refundAmount`가 들어간다. 환불 요청이 없으면 환불 필드는 `null`이다. 이 조회 API는 토스 `paymentKey`와 시크릿 키를 응답에 포함하지 않는다. 프런트엔드의 내 예약 화면에서 이 API를 연결하면 결제 완료·환불 요청·환불 승인 상태를 표시할 수 있다.
+로그인한 사용자는 `GET /api/v1/payments/me`로 자신의 결제 시도와 환불 처리 상태를 조회할 수 있다. 각 항목에는 `paymentId`, `bookingId`, `orderId`, `paymentMethod`, `amount`, `status`, `paidAt`, `refundId`, `refundStatus`, `refundAmount`가 들어간다. 환불 요청이 없으면 환불 필드는 `null`이다. 이 조회 API는 토스 `paymentKey`와 시크릿 키를 응답에 포함하지 않는다. 내 예약 조회에도 `refundStatus`와 `refundAmount`가 포함되어 자동 환불의 처리 중·완료·실패 상태를 표시할 수 있다.
 
 관리자는 `GET /api/v1/admin/payments/search`에서 `bookingId`, `status`, `page`, `size`로 결제·환불 상태를 함께 검색할 수 있다. `page`는 0부터, `size`는 1~100이며 기본값은 각각 0과 20이다. 응답은 `content`, `page`, `size`, `totalElements`, `totalPages` 형태다. 기존 `GET /api/v1/admin/payments`의 목록 응답은 유지한다.
 
-환불 검토 목록도 `GET /api/v1/admin/refunds/search`에서 같은 방식으로 `bookingId`, `status`(`REQUESTED`, `APPROVED`, `REJECTED`), `page`, `size`를 받을 수 있다. 기존 `GET /api/v1/admin/refunds`와 `PATCH /api/v1/admin/refunds/{id}`의 응답 형식은 유지한다.
+자동 환불 목록은 `GET /api/v1/admin/refunds/search`에서 `bookingId`, `status`(`REQUESTED`, `PROCESSING`, `REFUNDED`, `FAILED`), `page`, `size`로 조회한다. 기존 `APPROVED`, `REJECTED`는 과거 데이터 조회용이다. 대기·실패 건 또는 30초 이상 처리 중인 건은 결제대행사 내역을 확인한 뒤 `POST /api/v1/admin/refunds/{id}/retry`로 같은 환불 번호를 재시도할 수 있다. 기존 수동 승인·반려 PATCH는 제거됐다.
 
 토스 테스트 키가 설정된 환경에서 관리자는 `GET /api/v1/admin/payments/{paymentId}/reconciliation`으로 로컬 결제·환불 상태와 토스 주문번호 조회 결과를 비교할 수 있다. `result`가 `MATCHED`면 조회 시점의 두 기록이 일치하고, `REVIEW_REQUIRED`면 결제·환불 내역과 객실 재고를 직접 확인해야 한다. 로컬 모의 결제는 `NOT_APPLICABLE`이다. 이 API는 조회만 수행하며 토스 결제 키를 반환하거나 결제·예약·환불 상태를 자동으로 바꾸지 않는다. 토스 조회가 실패하면 성공으로 간주하지 않고 오류를 반환한다.
 
-관리자는 `GET /api/v1/admin/statistics/payment-summary`로 로컬 DB에 기록된 전체 기간의 결제·환불 금액을 조회할 수 있다. `grossPaidAmount`는 결제 완료 후 부분·전액 환불된 원결제액까지 포함하며 미완료 결제는 제외한다. `approvedRefundAmount`는 승인된 환불액, `requestedRefundAmount`는 처리 대기 중인 환불 요청액이고, `netPaidAmount`는 원결제액에서 승인된 환불액을 뺀 값이다. 요청 중이거나 반려된 환불액은 실제 환불액에 포함하지 않는다. 이 수치는 내부 운영 집계이며 토스의 실제 정산·입금액과 수수료를 검증한 결과가 아니다.
+관리자는 `GET /api/v1/admin/statistics/payment-summary`로 로컬 DB에 기록된 전체 기간의 결제·환불 금액을 조회할 수 있다. `grossPaidAmount`는 결제 완료 후 부분·전액 환불된 원결제액까지 포함하며 미완료 결제는 제외한다. 기존 응답 필드명 `approvedRefundAmount`는 실제 환불 완료액(`REFUNDED`, 과거 `APPROVED`)을 뜻하고, `requestedRefundAmount`는 미완료액(`REQUESTED`, `PROCESSING`, `FAILED`)이다. `netPaidAmount`는 원결제액에서 완료된 환불액을 뺀 값이다. 이 수치는 내부 운영 집계이며 토스의 실제 정산·입금액과 수수료를 검증한 결과가 아니다.
 
 같은 API에 `from=YYYY-MM-DD&to=YYYY-MM-DD`를 함께 보내면 양 끝 날짜를 포함한 기간별 금액을 조회한다. 날짜는 UTC 기준이다. 결제액은 `paidAt`, 승인 환불액은 `processedAt`, 대기 환불 요청액은 `createdAt`이 해당 기간에 속하는 건만 합산한다. 조회 기간에 과거 결제의 환불만 처리됐다면 `netPaidAmount`가 음수일 수 있다. 날짜를 보내지 않으면 기존처럼 전체 기간을 조회하며, 한쪽 날짜만 보내거나 시작일이 종료일보다 늦으면 400 오류를 반환한다.
 
@@ -30,7 +30,7 @@
 
 테스트 결제도 서버와 브라우저가 키를 읽어야 하므로, 팀원마다 키를 직접 환경변수로 설정한다. 실제 키 값은 보고서나 이 문서에 적지 않는다. 기존 **로컬 테스트 결제** 버튼은 토스 키가 설정되지 않은 로컬 환경에서만 화면에 표시된다.
 
-예약 취소 시 환불 요청을 생성하고, 관리자가 승인하면 토스 테스트 취소 API를 호출한다. 환불 요청 번호를 멱등키로 사용해 재시도 시 중복 취소를 막는다. 예약 결제 가능 시간이 지난 뒤 토스에서는 승인됐지만 DB에는 저장되지 않은 건은 자동으로 예약을 완료하지 않는다. 이 경우 다른 예약이 이미 객실을 점유했을 수 있으므로 토스 결제 내역과 객실 재고를 확인해 수동으로 처리해야 한다.
+예약 취소가 DB에 커밋되면 서버가 토스 테스트 취소 API를 자동 호출한다. 결과가 확인될 때만 `REFUNDED`로 기록하고, 실패하거나 응답을 확인하지 못하면 `FAILED`로 기록해 관리자가 확인·재시도한다. 환불 요청 번호를 멱등키로 사용해 재시도 시 중복 취소를 막는다. 예약 결제 가능 시간이 지난 뒤 토스에서는 승인됐지만 DB에는 저장되지 않은 건은 자동으로 예약을 완료하지 않는다. 이 경우 다른 예약이 이미 객실을 점유했을 수 있으므로 토스 결제 내역과 객실 재고를 확인해 수동으로 처리해야 한다.
 
 운영 전에는 라이브 키 활성화와 함께 가상계좌 입금 웹훅(사용할 경우), 만료 후 불일치 결제의 관리 절차, 정산 검증을 추가해야 한다. 현재 코드에서 라이브 키는 의도적으로 비활성화돼 있다.
 

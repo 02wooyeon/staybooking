@@ -10,6 +10,7 @@ import com.kisia.staybooking.payment.PaymentStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 
 /** 예약 취소와 같은 트랜잭션에서 환불 검토 건을 만든다. */
 @Service
@@ -17,10 +18,13 @@ public class RefundRequestService {
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
     private final PaymentRepository payments;
     private final RefundRepository refunds;
+    private final ApplicationEventPublisher events;
 
-    public RefundRequestService(PaymentRepository payments, RefundRepository refunds) {
+    public RefundRequestService(PaymentRepository payments, RefundRepository refunds,
+                                ApplicationEventPublisher events) {
         this.payments = payments;
         this.refunds = refunds;
+        this.events = events;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -35,6 +39,9 @@ public class RefundRequestService {
             .withZoneSameInstant(KOREA).toLocalDate();
         RefundQuote quote = RefundPolicy.quote(booking.getCancelReasonType(), booking.getCheckInDate(),
             cancellationDate, payment.getPaidAmount(), booking.getUsedMileage());
-        refunds.save(new RefundEntity(booking, quote.refundAmount(), booking.getCancelReason()));
+        RefundEntity refund = refunds.save(new RefundEntity(booking, quote.refundAmount(), booking.getCancelReason()));
+        events.publishEvent(new RefundCreated(refund.getRefundId()));
     }
+
+    public record RefundCreated(Long refundId) { }
 }

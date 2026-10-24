@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 import com.kisia.staybooking.accommodation.AccommodationRepository;
@@ -59,7 +60,8 @@ public class AdminStatisticsService {
             bookings.countByStatus(BookingStatus.COMPLETED),
             bookings.countByStatus(BookingStatus.CANCELLED),
             payments.countByStatus(PaymentStatus.PAID),
-            refunds.countByStatus(RefundStatus.REQUESTED),
+            refunds.countByStatus(RefundStatus.REQUESTED) + refunds.countByStatus(RefundStatus.PROCESSING)
+                + refunds.countByStatus(RefundStatus.FAILED),
             questions.countVisibleUnanswered()
         );
     }
@@ -68,8 +70,11 @@ public class AdminStatisticsService {
     public AdminPaymentSummary paymentSummary() {
         long grossPaidAmount = payments.sumPaidAmountByStatusIn(List.of(
             PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED));
-        long approvedRefundAmount = refunds.sumAmountByStatus(RefundStatus.APPROVED);
-        long requestedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REQUESTED);
+        long approvedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REFUNDED)
+            + refunds.sumAmountByStatus(RefundStatus.APPROVED);
+        long requestedRefundAmount = refunds.sumAmountByStatus(RefundStatus.REQUESTED)
+            + refunds.sumAmountByStatus(RefundStatus.PROCESSING)
+            + refunds.sumAmountByStatus(RefundStatus.FAILED);
         return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
             Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
     }
@@ -86,9 +91,12 @@ public class AdminStatisticsService {
         long grossPaidAmount = payments.sumPaidAmountByStatusInAndPaidAtRange(List.of(
             PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc);
         long approvedRefundAmount = refunds.sumProcessedAmountByStatusAndRange(
-            RefundStatus.APPROVED, fromUtc, toUtc);
+            RefundStatus.REFUNDED, fromUtc, toUtc)
+            + refunds.sumProcessedAmountByStatusAndRange(RefundStatus.APPROVED, fromUtc, toUtc);
         long requestedRefundAmount = refunds.sumCreatedAmountByStatusAndRange(
-            RefundStatus.REQUESTED, fromUtc, toUtc);
+            RefundStatus.REQUESTED, fromUtc, toUtc)
+            + refunds.sumCreatedAmountByStatusAndRange(RefundStatus.PROCESSING, fromUtc, toUtc)
+            + refunds.sumCreatedAmountByStatusAndRange(RefundStatus.FAILED, fromUtc, toUtc);
         return new AdminPaymentSummary(grossPaidAmount, approvedRefundAmount,
             Math.subtractExact(grossPaidAmount, approvedRefundAmount), requestedRefundAmount);
     }
@@ -101,10 +109,12 @@ public class AdminStatisticsService {
         LocalDateTime toUtc = to.plusDays(1).atStartOfDay();
         Map<LocalDate, Long> paidByDay = sumByDay(payments.findPaidAmountsInRange(List.of(
             PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED), fromUtc, toUtc));
-        Map<LocalDate, Long> refundedByDay = sumByDay(refunds.findProcessedAmountsInRange(
-            RefundStatus.APPROVED, fromUtc, toUtc));
-        Map<LocalDate, Long> requestedByDay = sumByDay(refunds.findCreatedAmountsInRange(
-            RefundStatus.REQUESTED, fromUtc, toUtc));
+        Map<LocalDate, Long> refundedByDay = sumByDay(Stream.concat(
+            refunds.findProcessedAmountsInRange(RefundStatus.REFUNDED, fromUtc, toUtc).stream(),
+            refunds.findProcessedAmountsInRange(RefundStatus.APPROVED, fromUtc, toUtc).stream()).toList());
+        Map<LocalDate, Long> requestedByDay = sumByDay(Stream.of(
+            RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.FAILED)
+            .flatMap(status -> refunds.findCreatedAmountsInRange(status, fromUtc, toUtc).stream()).toList());
 
         return from.datesUntil(to.plusDays(1)).map(date -> {
             long paid = paidByDay.getOrDefault(date, 0L);

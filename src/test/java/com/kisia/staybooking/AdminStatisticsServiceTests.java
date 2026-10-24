@@ -115,8 +115,10 @@ class AdminStatisticsServiceTests {
         em.persist(partial);
         em.persist(full);
         em.persist(rejected);
-        partial.process(admin, RefundStatus.APPROVED, nowUtc.minusDays(2));
-        full.process(admin, RefundStatus.APPROVED, nowUtc);
+        partial.start(nowUtc.minusDays(2));
+        partial.refunded(nowUtc.minusDays(2));
+        full.start(nowUtc);
+        full.refunded(nowUtc);
         rejected.process(admin, RefundStatus.REJECTED, nowUtc);
         em.flush();
 

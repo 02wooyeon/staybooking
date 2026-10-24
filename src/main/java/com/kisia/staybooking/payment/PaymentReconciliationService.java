@@ -74,7 +74,7 @@ public class PaymentReconciliationService {
             case READY -> "READY".equals(provider.status()) || "IN_PROGRESS".equals(provider.status());
             case PAID -> "DONE".equals(provider.status())
                 && balanceIs(provider, payment.getPaidAmount())
-                && (refund == null || refund.getStatus() != RefundStatus.APPROVED || refund.getAmount() == 0);
+                && (refund == null || !settled(refund) || refund.getAmount() == 0);
             case PARTIALLY_REFUNDED -> "PARTIAL_CANCELED".equals(provider.status())
                 && approvedRefundBetween(refund, 0, payment.getPaidAmount())
                 && balanceIs(provider, payment.getPaidAmount() - refund.getAmount());
@@ -87,13 +87,17 @@ public class PaymentReconciliationService {
     }
 
     private static boolean approvedRefundBetween(RefundEntity refund, long min, long max) {
-        return refund != null && refund.getStatus() == RefundStatus.APPROVED
+        return refund != null && settled(refund)
             && refund.getAmount() > min && refund.getAmount() < max;
     }
 
     private static boolean approvedRefundOf(RefundEntity refund, long amount) {
-        return refund != null && refund.getStatus() == RefundStatus.APPROVED
+        return refund != null && settled(refund)
             && refund.getAmount() == amount;
+    }
+
+    private static boolean settled(RefundEntity refund) {
+        return refund.getStatus() == RefundStatus.REFUNDED || refund.getStatus() == RefundStatus.APPROVED;
     }
 
     private static boolean balanceIs(TossPaymentGateway.Confirmation provider, long expected) {

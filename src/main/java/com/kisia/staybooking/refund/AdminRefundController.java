@@ -7,7 +7,6 @@ import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,9 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,9 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequestMapping("/api/v1/admin/refunds")
 public class AdminRefundController {
     private final RefundRepository refunds;
-    private final AdminRefundService service;
+    private final AutomaticRefundService service;
 
-    public AdminRefundController(RefundRepository refunds, AdminRefundService service) {
+    public AdminRefundController(RefundRepository refunds, AutomaticRefundService service) {
         this.refunds = refunds;
         this.service = service;
     }
@@ -66,21 +64,19 @@ public class AdminRefundController {
             page, size, result.getTotalElements(), result.getTotalPages());
     }
 
-    @PatchMapping("/{id}")
-    public Summary process(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable Long id,
-                           @Valid @RequestBody ProcessRequest request) {
-        return Summary.from(service.process(me.userId(), id, request.status()));
+    @PostMapping("/{id}/retry")
+    public Summary retry(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable @Positive Long id) {
+        return Summary.from(service.retry(me.userId(), id));
     }
 
-    public record ProcessRequest(@NotNull RefundStatus status) { }
-
     public record Summary(Long refundId, Long bookingId, long amount, RefundStatus status,
-                          String reason, Long processedBy, LocalDateTime processedAt) {
+                          String reason, Long processedBy, LocalDateTime processedAt,
+                          LocalDateTime startedAt, String failureCode) {
         static Summary from(RefundEntity refund) {
             return new Summary(refund.getRefundId(), refund.getBooking().getBookingId(),
                 refund.getAmount(), refund.getStatus(), refund.getReason(),
                 refund.getProcessedBy() == null ? null : refund.getProcessedBy().getUserId(),
-                refund.getProcessedAt());
+                refund.getProcessedAt(), refund.getStartedAt(), refund.getFailureCode());
         }
     }
 }

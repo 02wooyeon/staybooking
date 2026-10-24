@@ -10,7 +10,8 @@
     READY: '결제 대기', PAID: '결제 완료', PARTIALLY_REFUNDED: '부분 환불',
     REFUNDED: '환불 완료', FAILED: '결제 실패'
   };
-  var refundLabels = { REQUESTED: '환불 검토 중', APPROVED: '환불 승인', REJECTED: '환불 반려' };
+  var refundLabels = { REQUESTED: '환불 대기', PROCESSING: '환불 처리 중', REFUNDED: '환불 완료',
+    FAILED: '환불 확인 필요', APPROVED: '환불 완료', REJECTED: '환불 반려' };
   var nextPage = 0;
   var loading = false;
 

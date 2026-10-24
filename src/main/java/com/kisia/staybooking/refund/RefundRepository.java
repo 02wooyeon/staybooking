@@ -13,6 +13,9 @@ import java.util.Collection;
 import java.time.LocalDateTime;
 import com.kisia.staybooking.statistics.TimedAmount;
 public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
+ @Override
+ @EntityGraph(attributePaths={"booking","processedBy"})
+ Optional<RefundEntity> findById(Long id);
  long countByStatus(RefundStatus status);
  @Query("select coalesce(sum(r.amount), 0) from RefundEntity r where r.status = :status")
  long sumAmountByStatus(@Param("status") RefundStatus status);
