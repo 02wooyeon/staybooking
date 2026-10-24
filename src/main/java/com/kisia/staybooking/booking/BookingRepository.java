@@ -31,6 +31,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
                                                    @Param("toUtc") LocalDateTime toUtc);
     List<BookingEntity> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
+    @EntityGraph(attributePaths = {"room", "room.accommodation"})
     List<BookingEntity> findByStatusOrderByCreatedAtAsc(BookingStatus status);
 
     @EntityGraph(attributePaths = {"room", "room.accommodation"})

@@ -1,6 +1,9 @@
 package com.kisia.staybooking.booking;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationRequestRepository;
@@ -32,11 +35,14 @@ public class ApproverBookingQueryService {
     public List<ApproverBookingResponse> list(Long actorId, BookingStatus status) {
         requireOperator(actorId);
 
-        return bookings.findByStatusOrderByCreatedAtAsc(status).stream()
-            .map(booking -> ApproverBookingResponse.from(booking,
-                cancellationRequests.findByBookingBookingIdAndStatus(booking.getBookingId(),
-                    CancellationRequestStatus.REQUESTED).orElse(null)))
-            .toList();
+        List<BookingEntity> found = bookings.findByStatusOrderByCreatedAtAsc(status);
+        if (found.isEmpty()) return List.of();
+        Map<Long, CancellationRequestEntity> pendingByBooking = cancellationRequests
+            .findByBookingBookingIdInAndStatus(found.stream().map(BookingEntity::getBookingId).toList(),
+                CancellationRequestStatus.REQUESTED)
+            .stream().collect(Collectors.toMap(request -> request.getBooking().getBookingId(), Function.identity()));
+        return found.stream().map(booking -> ApproverBookingResponse.from(booking,
+            pendingByBooking.get(booking.getBookingId()))).toList();
     }
 
     @Transactional(readOnly = true)
