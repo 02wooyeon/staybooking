@@ -117,6 +117,21 @@ class PaymentHistoryApiTests {
         payments.save(payment);
         RefundEntity refund = refunds.save(new RefundEntity(booking, 50_000, "취소 요청"));
 
+        mvc.perform(get("/api/v1/bookings/me")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].bookingId").value(booking.getBookingId()))
+            .andExpect(jsonPath("$[0].refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$[0].refundAmount").value(50_000));
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.refundAmount").value(50_000));
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(stranger)))
+            .andExpect(status().isNotFound());
+
         mvc.perform(get("/api/v1/payments/me")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isOk())

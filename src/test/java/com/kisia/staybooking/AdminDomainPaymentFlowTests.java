@@ -91,5 +91,10 @@ class AdminDomainPaymentFlowTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].status").value("APPROVED"))
             .andExpect(jsonPath("$.content[0].processedBy").value(admin.getUserId()));
+        mvc.perform(get("http://localhost/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.refundStatus").value("APPROVED"))
+            .andExpect(jsonPath("$.refundAmount").value(100_000));
     }
 }

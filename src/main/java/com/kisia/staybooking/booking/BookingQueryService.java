@@ -2,11 +2,15 @@ package com.kisia.staybooking.booking;
 
 import java.util.Set;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.kisia.staybooking.cancellation.CancellationRequestRepository;
 import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.refund.RefundEntity;
+import com.kisia.staybooking.refund.RefundRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,10 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingQueryService {
     private final BookingRepository bookings;
     private final CancellationRequestRepository cancellations;
+    private final RefundRepository refunds;
 
-    public BookingQueryService(BookingRepository bookings, CancellationRequestRepository cancellations) {
+    public BookingQueryService(BookingRepository bookings, CancellationRequestRepository cancellations,
+                               RefundRepository refunds) {
         this.bookings = bookings;
         this.cancellations = cancellations;
+        this.refunds = refunds;
     }
 
     @Transactional(readOnly = true)
@@ -28,8 +35,11 @@ public class BookingQueryService {
         var ids = mine.stream().map(BookingEntity::getBookingId).toList();
         Set<Long> requested = cancellations.findBookingIdsWithStatus(ids, CancellationRequestStatus.REQUESTED)
             .stream().collect(Collectors.toSet());
+        Map<Long, RefundEntity> refundsByBooking = refunds.findByBookingBookingIdIn(ids).stream()
+            .collect(Collectors.toMap(refund -> refund.getBooking().getBookingId(), Function.identity()));
         return mine.stream()
-            .map(booking -> BookingResponse.from(booking, requested.contains(booking.getBookingId())))
+            .map(booking -> BookingResponse.from(booking, requested.contains(booking.getBookingId()),
+                refundsByBooking.get(booking.getBookingId())))
             .toList();
     }
 
@@ -37,8 +47,9 @@ public class BookingQueryService {
     @Transactional(readOnly = true)
     public BookingResponse mineDetail(Long userId, Long bookingId) {
         BookingEntity booking = ownedBooking(userId, bookingId);
+        RefundEntity refund = refunds.findByBookingBookingIdIn(List.of(bookingId)).stream().findFirst().orElse(null);
         return BookingResponse.from(booking, cancellations.existsByBookingBookingIdAndStatus(
-            bookingId, CancellationRequestStatus.REQUESTED));
+            bookingId, CancellationRequestStatus.REQUESTED), refund);
     }
 
     @Transactional(readOnly = true)
