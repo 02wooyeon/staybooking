@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+
+  <!-- 관리자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <title>리뷰 관리 | 스테이북 관리자</title>
+
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+
+<body>
+
+  <!-- 상단 헤더 -->
+  <header class="site-header">
+    <a class="logo" href="/index.html">
+      스테이북
+      <span class="admin-logo-tag">관리자</span>
+    </a>
+
+    <nav
+      id="header-nav"
+      class="header-nav"
+      aria-label="계정">
+    </nav>
+  </header>
+
+
+  <!-- 관리자 권한 확인 중 -->
+  <p
+    id="admin-loading"
+    class="admin-loading"
+    role="status">
+    권한을 확인하는 중입니다...
+  </p>
+
+
+  <!-- 관리자 권한이 없는 경우 -->
+  <main
+    id="admin-denied"
+    class="admin-denied"
+    hidden>
+
+    <section class="pay-card">
+
+      <div
+        class="pay-icon fail"
+        aria-hidden="true">
+        ✕
+      </div>
+
+      <h1>접근 권한이 없습니다</h1>
+
+      <p
+        id="admin-denied-message"
+        class="pay-sub">
+      </p>
+
+      <div class="pay-actions">
+        <button
+          id="admin-relogin"
+          class="btn-primary"
+          type="button">
+          다른 계정으로 로그인
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+
+  <!-- 관리자 화면 -->
+  <div
+    id="admin-content"
+    class="admin-layout"
+    hidden>
+
+
+    <!-- 왼쪽 관리자 메뉴 -->
+    <aside class="admin-side">
+
+      <p class="admin-side-title">
+        관리자
+      </p>
+
+      <p class="admin-side-user">
+        <strong id="admin-user-name"></strong>
+
+        <span
+          id="admin-user-role"
+          class="admin-badge muted">
+        </span>
+      </p>
+
+      <nav aria-label="관리자 메뉴">
+        <ul
+          id="admin-nav"
+          class="admin-nav">
+        </ul>
+      </nav>
+
+    </aside>
+
+
+    <!-- 메인 영역 -->
+    <main class="admin-main">
+
+      <h1>리뷰 관리</h1>
+
+      <p class="page-sub">
+        등록된 리뷰를 확인하고 부적절한 리뷰를 사유와 함께 숨김 처리합니다.
+      </p>
+
+
+      <!-- 성공/오류 메시지 -->
+      <div
+        id="page-alert"
+        class="alert"
+        role="alert"
+        hidden>
+      </div>
+
+
+      <!-- 리뷰 목록 -->
+      <div class="admin-table-wrap">
+
+        <table class="admin-table">
+
+          <caption class="sr-only">
+            리뷰 목록
+          </caption>
+
+          <thead>
+            <tr>
+              <th scope="col">리뷰 ID</th>
+              <th scope="col">숙소</th>
+              <th scope="col">작성자</th>
+              <th scope="col">평점</th>
+              <th scope="col">내용</th>
+              <th scope="col">작성일</th>
+              <th scope="col">상태</th>
+              <th scope="col">관리</th>
+            </tr>
+          </thead>
+
+          <tbody id="list-body">
+          </tbody>
+
+        </table>
+
+      </div>
+
+
+      <!-- 페이지 이동 -->
+      <div id="pagination">
+      </div>
+
+
+      <!-- 리뷰 상세 -->
+      <section
+        id="review-detail"
+        class="info-card admin-detail"
+        aria-labelledby="review-detail-title"
+        hidden>
+
+        <div class="admin-toolbar">
+
+          <div>
+            <h2 id="review-detail-title">
+              리뷰 상세
+            </h2>
+
+            <p
+              id="review-detail-meta"
+              class="card-sub">
+            </p>
+          </div>
+
+          <button
+            id="review-detail-close"
+            class="btn-link"
+            type="button">
+            닫기
+          </button>
+
+        </div>
+
+
+        <!-- 리뷰 상태 -->
+        <div
+          id="review-detail-badges"
+          class="admin-badges">
+        </div>
+
+
+        <!-- 리뷰 본문 -->
+        <p
+          id="review-detail-content"
+          class="admin-pre">
+        </p>
+
+
+        <!-- 이미 숨김된 리뷰의 숨김 사유 -->
+        <p
+          id="review-detail-hidden"
+          class="admin-hidden-note"
+          hidden>
+        </p>
+
+
+        <!-- 관리자 기능 -->
+        <div class="admin-form-actions">
+
+          <button
+            id="review-hide"
+            class="btn-outline admin-danger-outline"
+            type="button">
+            리뷰 숨기기
+          </button>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+
+  <!-- 공통 API -->
+  <script src="/assets/js/api.js"></script>
+
+  <!-- 관리자 공통 -->
+  <script src="/assets/js/admin.js"></script>
+
+  <!-- 리뷰 관리 -->
+  <script src="/assets/js/admin-reviews.js"></script>
+
+</body>
+</html>

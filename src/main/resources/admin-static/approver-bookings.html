@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+
+  <!-- 승인자 화면은 검색 엔진에 노출하지 않는다 -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <title>예약 승인 | 스테이북 승인자</title>
+
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+</head>
+
+<body>
+
+  <header class="site-header">
+
+    <a class="logo" href="/index.html">
+      스테이북
+      <span class="admin-logo-tag">승인자</span>
+    </a>
+
+    <nav
+      id="header-nav"
+      class="header-nav"
+      aria-label="계정">
+    </nav>
+
+  </header>
+
+
+  <!-- 권한 확인 중 -->
+  <p
+    id="admin-loading"
+    class="admin-loading"
+    role="status">
+    권한을 확인하는 중입니다...
+  </p>
+
+
+  <!-- 접근 권한 없음 -->
+  <main
+    id="admin-denied"
+    class="admin-denied"
+    hidden>
+
+    <section class="pay-card">
+
+      <div
+        class="pay-icon fail"
+        aria-hidden="true">
+        ✕
+      </div>
+
+      <h1>접근 권한이 없습니다</h1>
+
+      <p
+        id="admin-denied-message"
+        class="pay-sub">
+      </p>
+
+      <div class="pay-actions">
+
+        <button
+          id="admin-relogin"
+          class="btn-primary"
+          type="button">
+          다른 계정으로 로그인
+        </button>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- 승인자 화면 -->
+  <div
+    id="admin-content"
+    class="admin-layout"
+    hidden>
+
+
+    <!-- 왼쪽 메뉴 -->
+    <aside class="admin-side">
+
+      <p class="admin-side-title">
+        승인자
+      </p>
+
+      <p class="admin-side-user">
+
+        <strong id="admin-user-name"></strong>
+
+        <span
+          id="admin-user-role"
+          class="admin-badge muted">
+        </span>
+
+      </p>
+
+
+      <nav aria-label="승인자 메뉴">
+
+        <ul
+          id="admin-nav"
+          class="admin-nav">
+        </ul>
+
+      </nav>
+
+    </aside>
+
+
+    <!-- 본문 -->
+    <main class="admin-main">
+
+      <h1>예약 승인</h1>
+
+      <p class="page-sub">
+        사용자의 예약 요청을 조회하고 승인하거나 취소 관련 요청을 처리합니다.
+      </p>
+
+
+      <!-- 성공/오류 메시지 -->
+      <div
+        id="page-alert"
+        class="alert"
+        role="alert"
+        hidden>
+      </div>
+
+
+      <!-- 상태별 조회 -->
+      <form
+        id="filter-form"
+        class="admin-filters"
+        role="search"
+        aria-label="예약 상태 조회">
+
+        <label>
+          예약 상태
+
+          <select
+            name="status"
+            class="form-select">
+
+            <option value="PENDING">
+              승인 대기
+            </option>
+
+            <option value="PAYMENT_PENDING">
+              결제 대기
+            </option>
+
+            <option value="COMPLETED">
+              예약 완료
+            </option>
+
+            <option value="CANCELLED">
+              취소됨
+            </option>
+
+          </select>
+
+        </label>
+
+
+        <div class="admin-filter-buttons">
+
+          <button
+            class="btn-primary"
+            type="submit">
+            조회
+          </button>
+
+        </div>
+
+      </form>
+
+
+      <!-- 예약 목록 -->
+      <div class="admin-table-wrap">
+
+        <table class="admin-table">
+
+          <caption class="sr-only">
+            승인 처리 예약 목록
+          </caption>
+
+          <thead>
+
+            <tr>
+
+              <th scope="col">
+                예약 ID
+              </th>
+
+              <th scope="col">
+                숙소 · 객실
+              </th>
+
+              <th scope="col">
+                일정
+              </th>
+
+              <th scope="col">
+                인원
+              </th>
+
+              <th scope="col">
+                금액
+              </th>
+
+              <th scope="col">
+                상태
+              </th>
+
+              <th scope="col">
+                처리
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody id="list-body">
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </main>
+
+  </div>
+
+
+  <!-- 공통 API -->
+  <script src="/assets/js/api.js"></script>
+
+  <!-- 관리자/승인자 공통 -->
+  <script src="/assets/js/admin.js"></script>
+
+  <!-- 승인자 예약 처리 -->
+  <script src="/assets/js/approver-bookings.js"></script>
+
+</body>
+
+</html>
