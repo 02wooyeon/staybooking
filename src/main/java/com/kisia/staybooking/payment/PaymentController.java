@@ -44,6 +44,14 @@ public class PaymentController {
     @ResponseStatus(HttpStatus.CREATED)
     public PaymentResponse prepare(@AuthenticationPrincipal AuthenticatedUser me,
                                    @Valid @RequestBody PaymentPrepareRequest request) {
+        if (!"TOSS".equals(request.paymentMethod())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_PAYMENT_METHOD",
+                "지원하지 않는 결제 방식입니다.");
+        }
+        if (!tossGateway.isConfigured()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_NOT_CONFIGURED",
+                "결제 서비스가 아직 연결되지 않았습니다.");
+        }
         return PaymentResponse.from(payments.prepare(me.userId(), request.bookingId(), request.paymentMethod()));
     }
 
@@ -51,8 +59,7 @@ public class PaymentController {
     public PaymentResponse complete(@AuthenticationPrincipal AuthenticatedUser me,
                                     @Valid @RequestBody PaymentCompleteRequest request) {
         requireDemoEnabled();
-        return PaymentResponse.from(payments.complete(me.userId(), request.orderId(), request.paymentKey(),
-            request.amount()));
+        return PaymentResponse.from(payments.completeDemoOrder(me.userId(), request.orderId(), request.amount()));
     }
 
     @GetMapping("/capabilities")

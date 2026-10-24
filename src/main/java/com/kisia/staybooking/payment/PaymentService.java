@@ -54,8 +54,21 @@ public class PaymentService {
     @Transactional
     public PaymentEntity completeDemo(Long userId, Long bookingId) {
         PaymentEntity prepared = prepare(userId, bookingId, "DEMO");
-        return complete(userId, prepared.getOrderId(), "DEMO-" + UUID.randomUUID(),
-            prepared.getPaidAmount());
+        return completeDemoOrder(userId, prepared.getOrderId(), prepared.getPaidAmount());
+    }
+
+    /** 모의 결제 경로에서는 토스 주문을 임의로 결제 완료 처리할 수 없다. */
+    @Transactional
+    public PaymentEntity completeDemoOrder(Long userId, String orderId, long amount) {
+        PaymentEntity prepared = payments.findByOrderIdForUpdate(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        if (!prepared.getBooking().getUser().getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Payment not found");
+        }
+        if (!"DEMO".equals(prepared.getPaymentMethod())) {
+            throw new IllegalStateException("Only demo payments can use demo completion");
+        }
+        return complete(userId, orderId, "DEMO-" + UUID.randomUUID(), amount);
     }
 
     private BookingEntity ownedBooking(Long userId, Long bookingId) {
