@@ -1,5 +1,9 @@
 package com.kisia.staybooking;
 
+import com.kisia.staybooking.auth.JwtTokenProvider;
+import com.kisia.staybooking.user.UserEntity;
+import com.kisia.staybooking.user.UserRepository;
+import com.kisia.staybooking.user.UserRole;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -35,7 +39,6 @@ class AdminHostRoutingFilterTests {
 
     @Test
     void buildCopiesSharedAssetsIntoAdminStatic() {
-        // build.gradle 의 processResources 가 static 의 공통 파일을 admin-static 으로 복사한다
         assertTrue(new ClassPathResource("admin-static/assets/js/api.js").exists());
         assertTrue(new ClassPathResource("admin-static/assets/css/style.css").exists());
     }
@@ -45,12 +48,16 @@ class AdminHostRoutingFilterTests {
     @AutoConfigureMockMvc
     class Separated {
         @Autowired private MockMvc mvc;
+        @Autowired private JwtTokenProvider jwt;
+        @Autowired private UserRepository users;
 
         @Test
         void userDomainHidesOperatorApis() throws Exception {
             mvc.perform(get(USER_SITE + "/api/v1/admin/bookings/search"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+            mvc.perform(get(USER_SITE + "/api/v1/admin/payments/reconciliation/search"))
+                .andExpect(status().isNotFound());
             mvc.perform(get(USER_SITE + "/api/v1/approver/bookings"))
                 .andExpect(status().isNotFound());
             mvc.perform(get(USER_SITE + "/api/v1/admin"))
@@ -87,6 +94,28 @@ class AdminHostRoutingFilterTests {
             // 필터는 통과시키고, 토큰이 없으므로 Spring Security 가 401 을 준다
             mvc.perform(get(ADMIN_SITE + "/api/v1/admin/bookings/search"))
                 .andExpect(status().isUnauthorized());
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/payments/reconciliation/search"))
+                .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void validAdminTokenWorksOnlyOnAdminDomain() throws Exception {
+            String tag = Long.toString(System.nanoTime());
+            UserEntity admin = users.save(new UserEntity("host-admin-" + tag, "hash", "Admin", null,
+                "host-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+            UserEntity member = users.save(new UserEntity("host-member-" + tag, "hash", "Member",
+                "host-member-" + tag + "@example.test"));
+            String authorization = "Bearer " + jwt.createAccessToken(admin);
+
+            mvc.perform(get(USER_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", authorization))
+                .andExpect(status().isNotFound());
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", authorization))
+                .andExpect(status().isOk());
+            mvc.perform(get(ADMIN_SITE + "/api/v1/admin/statistics/overview")
+                    .header("Authorization", "Bearer " + jwt.createAccessToken(member)))
+                .andExpect(status().isForbidden());
         }
 
         @Test
@@ -126,7 +155,7 @@ class AdminHostRoutingFilterTests {
     }
 
     @Nested
-    @SpringBootTest
+    @SpringBootTest(properties = "staybooking.admin.host=")
     @AutoConfigureMockMvc
     class NotConfigured {
         @Autowired private MockMvc mvc;

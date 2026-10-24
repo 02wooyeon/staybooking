@@ -20,6 +20,8 @@ import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.user.UserEntity;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -85,6 +87,40 @@ class PaymentReconciliationServiceTests {
         payment("DEMO");
         assertEquals(PaymentReconciliationService.Result.NOT_APPLICABLE, service.check(7L).result());
         verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void scansOnlyTossPaymentsAndFlagsAChargeMissingFromLocalRecords() {
+        PaymentEntity payment = payment("TOSS");
+        when(payments.findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc("TOSS", PageRequest.of(0, 10)))
+            .thenReturn(new PageImpl<>(List.of(payment), PageRequest.of(0, 10), 1));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        var page = service.scan(0, 10);
+
+        assertEquals(1, page.totalElements());
+        assertEquals(1, page.content().size());
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED,
+            page.content().getFirst().result());
+        assertEquals(PaymentStatus.READY, payment.getStatus());
+    }
+
+    @Test
+    void keepsAProviderLookupFailureVisibleInTheScan() {
+        PaymentEntity payment = payment("TOSS");
+        when(payments.findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc("TOSS", PageRequest.of(0, 10)))
+            .thenReturn(new PageImpl<>(List.of(payment), PageRequest.of(0, 10), 1));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_LOOKUP_FAILED", "조회 실패"));
+
+        var page = service.scan(0, 10);
+
+        assertEquals(PaymentReconciliationService.Result.LOOKUP_FAILED,
+            page.content().getFirst().result());
+        assertEquals("LOOKUP_FAILED", page.content().getFirst().providerStatus());
+        assertEquals(PaymentStatus.READY, payment.getStatus());
     }
 
     private PaymentEntity payment(String method) {

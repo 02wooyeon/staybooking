@@ -15,6 +15,7 @@ import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.user.UserEntity;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @Import(ApproverBookingQueryService.class)
@@ -60,11 +62,16 @@ class ApproverBookingQueryServiceTests {
         entityManager.flush();
         entityManager.clear();
 
+        var statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
         var results = queries.list(approver.getUserId(), BookingStatus.PENDING);
         assertEquals(2, results.size());
         assertNotNull(results.getFirst().cancellationRequest());
         assertEquals("USER_FAULT", results.getFirst().cancellationRequest().reasonType());
         assertNull(results.get(1).cancellationRequest());
+        assertTrue(statistics.getPrepareStatementCount() <= 3,
+            "승인자 목록은 권한, 예약·객실, 취소 요청을 각각 한 번씩 조회해야 합니다.");
     }
 
     @Test

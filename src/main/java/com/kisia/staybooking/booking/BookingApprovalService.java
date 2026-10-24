@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import com.kisia.staybooking.cancellation.CancellationRequestRepository;
+import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
@@ -19,12 +21,14 @@ public class BookingApprovalService {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final PaymentRepository payments;
+    private final CancellationRequestRepository cancellationRequests;
 
     public BookingApprovalService(UserRepository users, BookingRepository bookings,
-                                  PaymentRepository payments) {
+                                  PaymentRepository payments, CancellationRequestRepository cancellationRequests) {
         this.users = users;
         this.bookings = bookings;
         this.payments = payments;
+        this.cancellationRequests = cancellationRequests;
     }
 
     @Transactional
@@ -39,6 +43,9 @@ public class BookingApprovalService {
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException("Booking is not awaiting approval");
+        }
+        if (cancellationRequests.existsByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED)) {
+            throw new IllegalStateException("Pending cancellation request must be decided before approval");
         }
         List<PaymentEntity> paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
         if (paid.size() != 1 || paid.getFirst().getPaidAt() == null ||

@@ -27,6 +27,9 @@
 
       <dl id="pay-summary" class="pay-summary"></dl>
 
+      <div id="payment-method"></div>
+      <div id="payment-agreement"></div>
+
       <div id="pay-cancel-confirm" class="pay-confirm" role="alertdialog" aria-labelledby="pay-cancel-text" hidden>
         <p id="pay-cancel-text">예약을 취소할까요? 취소한 예약은 되돌릴 수 없습니다.</p>
         <div class="pay-actions">
@@ -36,8 +39,8 @@
       </div>
 
       <div class="pay-actions">
-        <button id="pay-cancel-button" class="btn-outline" type="button">예약 취소</button>
-        <button id="pay-button" class="btn-primary" type="button">결제하기</button>
+        <button id="pay-cancel-button" class="btn-outline" type="button" hidden>예약 취소</button>
+        <button id="pay-button" class="btn-primary" type="button" disabled>결제하기</button>
       </div>
 
       <button id="pay-fail-demo" class="btn-link pay-demo-link" type="button" hidden>(화면 시연) 결제 실패로 이동</button>
@@ -55,6 +58,7 @@
 
   <script src="/assets/js/api.js"></script>
   <script src="/assets/js/common.js"></script>
-  <script src="/assets/js/payment.js"></script>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <script src="/assets/js/booking-payment-live.js"></script>
 </body>
 </html>

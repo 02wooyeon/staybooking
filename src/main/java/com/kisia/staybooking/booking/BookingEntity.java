@@ -171,8 +171,9 @@ public class BookingEntity extends AuditedEntity {
      */
     public void cancel(UserEntity actor, CancellationSource source,
                        CancellationReasonType reasonType, String reason, LocalDateTime nowUtc) {
-        if (status != BookingStatus.PENDING && status != BookingStatus.COMPLETED) {
-            throw new IllegalStateException("Only paid or approved bookings can be cancelled");
+        if (status != BookingStatus.PAYMENT_PENDING && status != BookingStatus.PENDING
+                && status != BookingStatus.COMPLETED) {
+            throw new IllegalStateException("Booking cannot be cancelled in its current state");
         }
         if (reason != null && reason.length() > 255) {
             throw new IllegalArgumentException("Cancellation reason is too long");
