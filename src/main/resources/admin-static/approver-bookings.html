@@ -136,12 +136,12 @@
       </div>
 
 
-      <!-- 상태별 조회 -->
+      <!-- 예약 검색 -->
       <form
         id="filter-form"
         class="admin-filters"
         role="search"
-        aria-label="예약 상태 조회">
+        aria-label="예약 검색">
 
         <label>
           예약 상태
@@ -149,6 +149,10 @@
           <select
             name="status"
             class="form-select">
+
+            <option value="">
+              전체
+            </option>
 
             <option value="PENDING">
               승인 대기
@@ -171,12 +175,46 @@
         </label>
 
 
+        <label>
+          예약 ID
+
+          <input
+            name="bookingId"
+            type="number"
+            min="1"
+            step="1"
+            inputmode="numeric"
+            placeholder="예약 ID">
+        </label>
+
+
+        <label>
+          취소 신청
+
+          <select
+            name="cancellationRequested"
+            class="form-select">
+
+            <option value="">전체</option>
+            <option value="true">처리 대기</option>
+            <option value="false">신청 없음</option>
+
+          </select>
+        </label>
+
+
         <div class="admin-filter-buttons">
 
           <button
             class="btn-primary"
             type="submit">
-            조회
+            검색
+          </button>
+
+          <button
+            class="btn-outline"
+            type="reset">
+            초기화
           </button>
 
         </div>
@@ -236,6 +274,8 @@
         </table>
 
       </div>
+
+      <div id="pagination"></div>
 
     </main>
 

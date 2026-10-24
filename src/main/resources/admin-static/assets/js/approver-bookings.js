@@ -2,7 +2,7 @@
  * 예약 승인 담당자 (APPROVER_001)
  *
  * GET
- *   /api/v1/approver/bookings?status=PENDING
+ *   /api/v1/approver/bookings/search?status=PENDING&bookingId=&cancellationRequested=&page=&size=
  *
  * PATCH
  *   /api/v1/approver/bookings/{bookingId}
@@ -17,6 +17,13 @@
  *     reason: '...'
  *   }
  *
+ * 취소 신청 승인/거절:
+ *   {
+ *     action: 'APPROVE_CANCELLATION' | 'REJECT_CANCELLATION',
+ *     cancellationRequestId: 1,
+ *     reason: '...'
+ *   }
+ *
  * ROLE_APPROVER와 ROLE_ADMIN이 사용할 수 있다.
  */
 (function () {
@@ -27,6 +34,8 @@
   var alertBox = document.getElementById('page-alert');
   var tbody = document.getElementById('list-body');
   var filterForm = document.getElementById('filter-form');
+  var pager = document.getElementById('pagination');
+  var filters = null;
 
   /*
    * 예약 직접 취소 시 사용할 취소 사유 목록
@@ -49,44 +58,45 @@
   }).then(function (me) {
     if (!me) return;
 
-    /*
-     * 처음 들어오면 승인 대기(PENDING) 예약 조회
-     */
-    load('PENDING');
+    filters = AdminUi.bindFilters(
+      filterForm,
+      { status: '', bookingId: '', cancellationRequested: '', page: 0 },
+      load
+    );
+  });
+
+
+  filterForm.elements.cancellationRequested.addEventListener('change', function () {
+    if (this.value === 'true') {
+      filterForm.elements.status.value = '';
+    }
   });
 
 
   /*
-   * 상태 검색
+   * 예약 ID·상태·취소 신청 여부로 검색하고 한 페이지씩 조회한다.
    */
-  filterForm.addEventListener('submit', function (event) {
-    event.preventDefault();
-
-    var status =
-      filterForm.elements.status.value || 'PENDING';
-
-    load(status);
-  });
-
-
-  /*
-   * 예약 목록 조회
-   *
-   * 승인자 API는 PageResponse가 아니라
-   * List<ApproverBookingResponse>를 반환한다.
-   */
-  async function load(status) {
+  async function load(query) {
     AdminUi.hideMessage(alertBox);
 
+    if (query.bookingId && !AdminUi.isPositiveId(query.bookingId)) {
+      AdminUi.showMessage(alertBox, '예약 ID는 1 이상의 숫자로 입력해 주세요.');
+      return;
+    }
+
     try {
-      var list = await AdminUi.api(
+      var page = await AdminUi.api(
         'GET',
-        API + AdminUi.buildQuery({
-          status: status
+        API + '/search' + AdminUi.buildQuery({
+          status: query.status,
+          bookingId: query.bookingId,
+          cancellationRequested: query.cancellationRequested,
+          page: query.page,
+          size: AdminUi.DEFAULT_PAGE_SIZE
         })
       );
 
-      render(list || []);
+      render(page);
 
     } catch (e) {
       AdminUi.showMessage(
@@ -100,10 +110,10 @@
   /*
    * 예약 목록 출력
    */
-  function render(list) {
+  function render(page) {
     AdminUi.renderTable(
       tbody,
-      list,
+      page.content || [],
       [
         {
           label: '예약 ID',
@@ -164,7 +174,7 @@
 
             /*
              * 사용자가 취소 신청한 예약이면
-             * 상태 옆에 표시만 해 준다.
+             * 상태 옆에 표시한다.
              */
             if (
               r.cancellationRequest ||
@@ -219,8 +229,10 @@
         }
       ],
 
-      '해당 상태의 예약이 없습니다.'
+      '조건에 맞는 예약이 없습니다.'
     );
+
+    AdminUi.renderPagination(pager, page, filters.go);
   }
 
 
@@ -270,7 +282,7 @@
     /*
      * PENDING 예약만 승인 가능
      */
-    if (booking.status === 'PENDING') {
+    if (booking.status === 'PENDING' && !r.cancellationRequest) {
       buttons.push(
         AdminUi.actionButton(
           '승인',
@@ -286,6 +298,27 @@
     }
 
 
+    if (r.cancellationRequest) {
+      buttons.push(
+        AdminUi.actionButton(
+          '취소 신청 승인',
+          function (button) {
+            approveCancellation(r, button);
+          }
+        )
+      );
+
+      buttons.push(
+        AdminUi.actionButton(
+          '취소 신청 거절',
+          function (button) {
+            rejectCancellation(r, button);
+          }
+        )
+      );
+    }
+
+
     /*
      * 이미 취소된 예약에는
      * 취소 버튼을 표시하지 않는다.
@@ -293,7 +326,7 @@
     if (booking.status !== 'CANCELLED') {
       buttons.push(
         AdminUi.actionButton(
-          '취소',
+          '직접 취소',
           function (button) {
             cancel(
               booking,
@@ -418,8 +451,68 @@
   }
 
 
+  function requestSummary(r) {
+    var request = r.cancellationRequest;
+
+    return (
+      '신청 사유: ' +
+      AdminUi.label('cancelReason', request.reasonType) +
+      (request.reasonDetail ? ' - ' + request.reasonDetail : '')
+    );
+  }
+
+
+  async function approveCancellation(r, button) {
+    var answer = await AdminUi.confirmAction({
+      title: '취소 신청 승인',
+      message: describe(r.booking) + '의 취소 신청을 승인하면 예약이 취소됩니다. ' + requestSummary(r),
+      reasonLabel: '처리 메모',
+      reasonRequired: false,
+      confirmLabel: '취소 승인',
+      danger: true
+    });
+
+    if (answer.confirmed) {
+      send(
+        r.booking.bookingId,
+        {
+          action: 'APPROVE_CANCELLATION',
+          cancellationRequestId: r.cancellationRequest.cancellationRequestId,
+          reason: answer.reason || null
+        },
+        '취소 신청을 승인했습니다.',
+        button
+      );
+    }
+  }
+
+
+  async function rejectCancellation(r, button) {
+    var answer = await AdminUi.confirmAction({
+      title: '취소 신청 거절',
+      message: describe(r.booking) + '의 취소 신청을 거절합니다. ' + requestSummary(r),
+      reasonLabel: '거절 사유',
+      reasonRequired: true,
+      confirmLabel: '거절'
+    });
+
+    if (answer.confirmed) {
+      send(
+        r.booking.bookingId,
+        {
+          action: 'REJECT_CANCELLATION',
+          cancellationRequestId: r.cancellationRequest.cancellationRequestId,
+          reason: answer.reason
+        },
+        '취소 신청을 거절했습니다.',
+        button
+      );
+    }
+  }
+
+
   /*
-   * 승인/취소 API 호출
+   * 예약 처리 API 호출
    */
   async function send(
     bookingId,
@@ -444,15 +537,7 @@
       );
 
 
-      /*
-       * 현재 선택된 상태를 다시 조회해서
-       * 변경 결과 반영
-       */
-      var status =
-        filterForm.elements.status.value ||
-        'PENDING';
-
-      await load(status);
+      await filters.reload();
 
 
       AdminUi.showMessage(
@@ -473,11 +558,7 @@
        */
       if (e.status >= 500) {
 
-        var currentStatus =
-          filterForm.elements.status.value ||
-          'PENDING';
-
-        await load(currentStatus);
+        await filters.reload();
 
 
         AdminUi.showMessage(
