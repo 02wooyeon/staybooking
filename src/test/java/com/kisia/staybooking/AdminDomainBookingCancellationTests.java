@@ -36,7 +36,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "staybooking.admin.host=admin.localhost",
-    "staybooking.payment.demo-enabled=true"
+    "staybooking.payment.demo-enabled=true",
+    "spring.jpa.open-in-view=false"
 })
 @AutoConfigureMockMvc
 class AdminDomainBookingCancellationTests {

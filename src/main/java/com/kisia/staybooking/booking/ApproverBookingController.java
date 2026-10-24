@@ -3,15 +3,10 @@ package com.kisia.staybooking.booking;
 import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
-import com.kisia.staybooking.cancellation.BookingCancellationService;
-import com.kisia.staybooking.cancellation.CancellationDecisionService;
-import com.kisia.staybooking.cancellation.CancellationRequestEntity;
-import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,21 +21,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/approver/bookings")
 public class ApproverBookingController {
-    private final BookingApprovalService approvals;
+    private final OperatorBookingActionService actions;
     private final ApproverBookingQueryService queries;
     private final AdminBookingSearchService search;
-    private final BookingCancellationService directCancellations;
-    private final CancellationDecisionService cancellationDecisions;
 
-    public ApproverBookingController(BookingApprovalService approvals, ApproverBookingQueryService queries,
-                                     AdminBookingSearchService search,
-                                     BookingCancellationService directCancellations,
-                                     CancellationDecisionService cancellationDecisions) {
-        this.approvals = approvals;
+    public ApproverBookingController(OperatorBookingActionService actions, ApproverBookingQueryService queries,
+                                     AdminBookingSearchService search) {
+        this.actions = actions;
         this.queries = queries;
         this.search = search;
-        this.directCancellations = directCancellations;
-        this.cancellationDecisions = cancellationDecisions;
     }
 
     @GetMapping
@@ -68,41 +57,7 @@ public class ApproverBookingController {
     public BookingResponse process(@AuthenticationPrincipal AuthenticatedUser me,
                                    @PathVariable @Positive Long bookingId,
                                    @Valid @RequestBody ApproverBookingActionRequest request) {
-        return switch (request.action()) {
-            case ACCEPT -> BookingResponse.from(approvals.accept(me.userId(), bookingId));
-            case CANCEL -> BookingResponse.from(directCancellations.cancel(me.userId(), bookingId,
-                required(request.reasonType(), "reasonType"), requiredText(request.reason(), "reason")));
-            case APPROVE_CANCELLATION -> BookingResponse.from(approveRequest(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason()));
-            case REJECT_CANCELLATION -> BookingResponse.from(rejectRequest(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), requiredText(request.reason(), "reason")));
-        };
-    }
-
-    private BookingEntity approveRequest(Long actorId, Long bookingId, Long requestId, String reason) {
-        CancellationRequestEntity decision = cancellationDecisions.approve(actorId, bookingId, requestId, reason);
-        return decision.getBooking();
-    }
-
-    private BookingEntity rejectRequest(Long actorId, Long bookingId, Long requestId, String reason) {
-        CancellationRequestEntity decision = cancellationDecisions.reject(actorId, bookingId, requestId, reason);
-        return decision.getBooking();
-    }
-
-    private static <T> T required(T value, String field) {
-        if (value == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다.",
-                java.util.List.of(field));
-        }
-        return value;
-    }
-
-    private static String requiredText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다.",
-                java.util.List.of(field));
-        }
-        return value;
+        return actions.process(me.userId(), bookingId, request);
     }
 
     public record ApproverBookingActionRequest(@NotNull Action action, Long cancellationRequestId,
