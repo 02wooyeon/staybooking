@@ -153,7 +153,7 @@ erDiagram
 
 MySQL 프로필에서는 1분마다 `auto_processing = TRUE`인 건 중 1분 넘게 `REQUESTED`로 남은 건과 2분 넘게 `PROCESSING`에 머문 건을 최대 25건씩 복구합니다. `FAILED`는 자동 재시도하지 않으며 관리자가 원인을 확인한 뒤 재시도합니다.
 
-기존 MySQL을 계속 사용할 때는 배포 전에 `SHOW COLUMNS FROM refunds LIKE 'status'`로 실제 컬럼 타입을 확인합니다. 이전 스키마가 `ENUM('REQUESTED','APPROVED','REJECTED')`라면 DB 백업 후 `status`를 `VARCHAR(30)`으로 변경해야 새 상태를 저장할 수 있습니다. `started_at`, `failure_code`, `auto_processing` 컬럼도 추가됐는지 확인합니다. 이전 행의 `auto_processing`은 `NULL`로 두어 자동 복구 대상에서 제외합니다. 로컬 H2 테스트 통과만으로 DB01 스키마 변경을 검증한 것은 아닙니다.
+2026-10-25 DB01 읽기 전용 확인에서 `status`가 이전 ENUM 형식이고 새 컬럼 3개가 없음을 확인했습니다. 배포 전 [수동 변경 SQL](../sql/2026-10-25-refunds-auto-processing.sql)을 적용해야 합니다. 이전 행의 `auto_processing`은 `NULL`로 두어 자동 복구 대상에서 제외합니다. 로컬 H2 테스트 통과만으로 DB01 스키마 변경을 검증한 것은 아닙니다.
 
 ### `mileage_history`
 
