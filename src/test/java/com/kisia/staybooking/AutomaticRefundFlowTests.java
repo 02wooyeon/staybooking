@@ -16,6 +16,7 @@ import com.kisia.staybooking.payment.TossPaymentGateway;
 import com.kisia.staybooking.refund.AutomaticRefundService;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
+import com.kisia.staybooking.refund.RefundRecoveryService;
 import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.user.UserEntity;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +47,9 @@ class AutomaticRefundFlowTests {
     @Autowired private BookingCancellationService cancellations;
     @Autowired private AutomaticRefundService settlement;
     @Autowired private RefundRepository refunds;
+    @Autowired private RefundRecoveryService recovery;
     @Autowired private PaymentRepository payments;
+    @Autowired private JdbcTemplate jdbc;
     @MockitoBean private TossPaymentGateway gateway;
 
     @Test
@@ -58,6 +62,41 @@ class AutomaticRefundFlowTests {
         assertTrue(refund.canRetry(started.plusSeconds(31)));
         refund.refunded(started.plusSeconds(31));
         assertFalse(refund.canRetry(started.plusSeconds(60)));
+    }
+
+    @Test
+    void recoverySettlesOnlyNewAutomaticRefundsLeftPendingOrStale() {
+        UserEntity guest = fixtures.user("예약자");
+        RoomEntity room = fixtures.room(100_000, 2, 3);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity missed = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1), BookingStatus.PENDING);
+        BookingEntity stale = fixtures.booking(guest, room, checkIn.plusDays(2), checkIn.plusDays(3), BookingStatus.PENDING);
+        BookingEntity legacy = fixtures.booking(guest, room, checkIn.plusDays(4), checkIn.plusDays(5), BookingStatus.PENDING);
+        BookingEntity active = fixtures.booking(guest, room, checkIn.plusDays(6), checkIn.plusDays(7), BookingStatus.PENDING);
+
+        for (BookingEntity booking : java.util.List.of(missed, stale, legacy, active)) {
+            PaymentEntity payment = new PaymentEntity(booking, "DEMO-ORDER-" + booking.getBookingId(), "DEMO", 100_000);
+            payment.complete("DEMO-KEY-" + booking.getBookingId(), LocalDateTime.now(ZoneOffset.UTC));
+            payments.save(payment);
+        }
+        RefundEntity missedRefund = refunds.save(new RefundEntity(missed, 100_000, "자동 환불 대기"));
+        RefundEntity staleRefund = new RefundEntity(stale, 100_000, "자동 환불 처리 중");
+        staleRefund.start(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(3));
+        staleRefund = refunds.save(staleRefund);
+        RefundEntity legacyRefund = refunds.save(new RefundEntity(legacy, 100_000, "이전 수동 환불"));
+        RefundEntity activeRefund = new RefundEntity(active, 100_000, "진행 중인 환불");
+        activeRefund.start(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(1));
+        activeRefund = refunds.save(activeRefund);
+        jdbc.update("update refunds set created_at = ?, auto_processing = null where refund_id = ?",
+            LocalDateTime.now(ZoneOffset.UTC).minusMinutes(3), legacyRefund.getRefundId());
+        jdbc.update("update refunds set created_at = ? where refund_id = ?",
+            LocalDateTime.now(ZoneOffset.UTC).minusMinutes(3), missedRefund.getRefundId());
+
+        assertEquals(2, recovery.recover());
+        assertEquals(RefundStatus.REFUNDED, refunds.findById(missedRefund.getRefundId()).orElseThrow().getStatus());
+        assertEquals(RefundStatus.REFUNDED, refunds.findById(staleRefund.getRefundId()).orElseThrow().getStatus());
+        assertEquals(RefundStatus.REQUESTED, refunds.findById(legacyRefund.getRefundId()).orElseThrow().getStatus());
+        assertEquals(RefundStatus.PROCESSING, refunds.findById(activeRefund.getRefundId()).orElseThrow().getStatus());
     }
 
     @Test

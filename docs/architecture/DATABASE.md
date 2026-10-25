@@ -145,12 +145,15 @@ erDiagram
 | `status` | VARCHAR(30) NN DEFAULT `REQUESTED` | 신규 흐름: `REQUESTED`, `PROCESSING`, `REFUNDED`, `FAILED` |
 | `started_at`, `processed_at` | DATETIME(6) / DATETIME(6) | 마지막 처리 시작 / 환불 완료 시각 |
 | `failure_code` | VARCHAR(80) | 마지막 실패 원인 코드 |
+| `auto_processing` | BOOLEAN | `TRUE`인 신규 자동 환불만 서버 재시작 후 복구 대상. 과거 수동 환불 행은 `NULL` |
 | `processed_by` | BIGINT FK → `users.user_id` | 이전 수동 처리 기록 호환용. 자동 처리에서는 비어 있음 |
 | `created_at`, `updated_at` | DATETIME(6) NN | 생성·수정 시각 |
 
 기존 DB의 `APPROVED`, `REJECTED` 상태값은 과거 행을 읽기 위해 enum에 남겨 둡니다. 신규 자동 처리에서는 생성하지 않습니다. 원결제는 예약의 유일한 `PAID` 결제를 조회해 검증하며, 환불 재시도에는 같은 `refund_id`를 멱등키로 사용합니다. 마일리지 이력은 아직 구현되지 않았습니다.
 
-기존 MySQL을 계속 사용할 때는 배포 전에 `SHOW COLUMNS FROM refunds LIKE 'status'`로 실제 컬럼 타입을 확인합니다. 이전 스키마가 `ENUM('REQUESTED','APPROVED','REJECTED')`라면 DB 백업 후 `status`를 `VARCHAR(30)`으로 변경해야 새 상태를 저장할 수 있습니다. `started_at`과 `failure_code` 컬럼도 추가됐는지 확인합니다. 로컬 H2 테스트 통과만으로 DB01 스키마 변경을 검증한 것은 아닙니다.
+MySQL 프로필에서는 1분마다 `auto_processing = TRUE`인 건 중 1분 넘게 `REQUESTED`로 남은 건과 2분 넘게 `PROCESSING`에 머문 건을 최대 25건씩 복구합니다. `FAILED`는 자동 재시도하지 않으며 관리자가 원인을 확인한 뒤 재시도합니다.
+
+기존 MySQL을 계속 사용할 때는 배포 전에 `SHOW COLUMNS FROM refunds LIKE 'status'`로 실제 컬럼 타입을 확인합니다. 이전 스키마가 `ENUM('REQUESTED','APPROVED','REJECTED')`라면 DB 백업 후 `status`를 `VARCHAR(30)`으로 변경해야 새 상태를 저장할 수 있습니다. `started_at`, `failure_code`, `auto_processing` 컬럼도 추가됐는지 확인합니다. 이전 행의 `auto_processing`은 `NULL`로 두어 자동 복구 대상에서 제외합니다. 로컬 H2 테스트 통과만으로 DB01 스키마 변경을 검증한 것은 아닙니다.
 
 ### `mileage_history`
 

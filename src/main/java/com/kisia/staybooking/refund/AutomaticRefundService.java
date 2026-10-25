@@ -63,6 +63,19 @@ public class AutomaticRefundService {
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
     }
 
+    void recover(Long refundId) {
+        try {
+            settle(refundId);
+        } catch (ApiException e) {
+            // 조회 후 다른 요청이 먼저 처리한 건은 다시 호출하지 않는다.
+            if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) {
+                log.error("Refund recovery could not start for refund {}", refundId, e);
+            }
+        } catch (RuntimeException e) {
+            log.error("Refund recovery failed for refund {}", refundId, e);
+        }
+    }
+
     private void settle(Long refundId) {
         Work work;
         try {

@@ -17,8 +17,9 @@ public class RefundEntity extends AuditedEntity {
  private LocalDateTime processedAt; private String reason;
  private LocalDateTime startedAt;
  @Column(length=80) private String failureCode;
+ @Column(name="auto_processing") private Boolean autoProcessing;
  protected RefundEntity(){}
- public RefundEntity(BookingEntity booking,long amount,String reason){this.booking=booking;this.amount=amount;this.reason=reason;}
+ public RefundEntity(BookingEntity booking,long amount,String reason){this.booking=booking;this.amount=amount;this.reason=reason;this.autoProcessing=true;}
  public Long getRefundId(){return refundId;} public BookingEntity getBooking(){return booking;} public long getAmount(){return amount;} public RefundStatus getStatus(){return status;} public UserEntity getProcessedBy(){return processedBy;} public LocalDateTime getProcessedAt(){return processedAt;} public String getReason(){return reason;} public LocalDateTime getStartedAt(){return startedAt;} public String getFailureCode(){return failureCode;}
  public boolean canRetry(LocalDateTime nowUtc){
   return status==RefundStatus.REQUESTED || status==RefundStatus.FAILED

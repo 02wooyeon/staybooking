@@ -53,4 +53,12 @@ public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select r from RefundEntity r where r.refundId = :id")
  Optional<RefundEntity> findByIdForUpdate(@Param("id") Long id);
+ @Query("select r.refundId from RefundEntity r where r.autoProcessing = true and "
+     + "((r.status = :requested and r.createdAt < :requestedBefore) "
+     + "or (r.status = :processing and r.startedAt < :processingBefore)) "
+     + "order by r.refundId")
+ List<Long> findRecoveryCandidates(@Param("requested") RefundStatus requested,
+     @Param("requestedBefore") LocalDateTime requestedBefore,
+     @Param("processing") RefundStatus processing,
+     @Param("processingBefore") LocalDateTime processingBefore, Pageable pageable);
 }
