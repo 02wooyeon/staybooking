@@ -38,6 +38,31 @@ class PaymentServiceTests {
     @Autowired private PaymentService payments;
 
     @Test
+    void preservesAnExistingOrderWhenAnotherPaymentMethodIsRequested() {
+        UserEntity owner = new UserEntity("method-owner", "hash", "Owner", "method-owner@example.test");
+        AccommodationEntity accommodation = new AccommodationEntity(
+            "Stay", "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0));
+        RoomEntity room = new RoomEntity(accommodation, "Standard", 120_000, 2, 1);
+        entityManager.persist(owner);
+        entityManager.persist(accommodation);
+        entityManager.persist(room);
+        BookingEntity booking = new BookingEntity(owner, room, LocalDate.now().plusDays(3),
+            LocalDate.now().plusDays(4), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
+        entityManager.persist(booking);
+        entityManager.flush();
+
+        PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "DEMO");
+        ApiException error = assertThrows(ApiException.class,
+            () -> payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PAYMENT_METHOD_CONFLICT", error.getCode());
+        assertSame(prepared, payments.prepare(owner.getUserId(), booking.getBookingId(), "DEMO"));
+        assertEquals(PaymentStatus.READY, prepared.getStatus());
+        assertEquals(BookingStatus.PAYMENT_PENDING, booking.getStatus());
+    }
+
+    @Test
     void completesOnlyOneMatchingPaymentAndMakesBookingApprovable() {
         UserEntity user = new UserEntity("guest", "hash", "Guest", "guest@example.test");
         AccommodationEntity accommodation = new AccommodationEntity(

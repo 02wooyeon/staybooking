@@ -37,7 +37,8 @@ public class PaymentService {
         if (ready != null) {
             requireBookingAmount(booking, ready);
             if (!ready.getPaymentMethod().equals(paymentMethod)) {
-                throw new IllegalStateException("A different payment method is already prepared");
+                throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_METHOD_CONFLICT",
+                    "이미 다른 결제 방식으로 준비된 주문이 있습니다.");
             }
             return ready;
         }
