@@ -101,6 +101,11 @@ class AdminDomainPaymentFlowTests {
                 .header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUNDED"));
+        mvc.perform(post("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId() + "/retry")
+                .header("Authorization", authorization))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUNDED"))
+            .andExpect(jsonPath("$.retryable").value(false));
 
         mvc.perform(get("http://admin.localhost" + paymentPath).header("Authorization", authorization))
             .andExpect(status().isOk())

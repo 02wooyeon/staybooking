@@ -62,7 +62,14 @@ public class AutomaticRefundService {
         if (admin.getRole() != UserRole.ROLE_ADMIN || admin.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "관리자 권한이 필요합니다.");
         }
-        settle(refundId, admin.getUserId());
+        try {
+            settle(refundId, admin.getUserId());
+        } catch (ApiException e) {
+            if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) throw e;
+            RefundEntity current = refunds.findById(refundId).orElseThrow();
+            if (current.getStatus() == RefundStatus.REFUNDED) return current;
+            throw e;
+        }
         RefundEntity refund = refunds.findById(refundId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
         if (refund.getStatus() != RefundStatus.REFUNDED) {
