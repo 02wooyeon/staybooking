@@ -194,6 +194,19 @@ class AdminDomainBookingCancellationTests {
         mvc.perform(get(path).header("Authorization", token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"));
+        mvc.perform(get("http://localhost/api/v1/payments/me")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].paymentId").value(payment.getPaymentId()))
+            .andExpect(jsonPath("$[0].status").value("REFUNDED"))
+            .andExpect(jsonPath("$[0].refundId").value(refund.getRefundId()))
+            .andExpect(jsonPath("$[0].refundStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$[0].refundedAmount").value(100_000));
+        mvc.perform(get("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId())
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUNDED"))
+            .andExpect(jsonPath("$.processedBy").value(admin.getUserId()));
         assertEquals(PaymentStatus.REFUNDED, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
         verify(gateway, times(2)).cancel(eq(payment.getPaymentKey()),
             eq("운영자 직접 취소"), eq(100_000L), eq(refund.getRefundId()));
