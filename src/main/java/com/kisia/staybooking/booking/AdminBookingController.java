@@ -3,14 +3,9 @@ package com.kisia.staybooking.booking;
 import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
-import com.kisia.staybooking.cancellation.BookingCancellationService;
-import com.kisia.staybooking.cancellation.CancellationDecisionService;
-import com.kisia.staybooking.cancellation.CancellationRequestEntity;
-import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -27,19 +22,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminBookingController {
     private final ApproverBookingQueryService queries;
     private final AdminBookingSearchService search;
-    private final BookingApprovalService approvals;
-    private final BookingCancellationService directCancellations;
-    private final CancellationDecisionService cancellationDecisions;
+    private final OperatorBookingActionService actions;
 
     public AdminBookingController(ApproverBookingQueryService queries, AdminBookingSearchService search,
-                                  BookingApprovalService approvals,
-                                  BookingCancellationService directCancellations,
-                                  CancellationDecisionService cancellationDecisions) {
+                                  OperatorBookingActionService actions) {
         this.queries = queries;
         this.search = search;
-        this.approvals = approvals;
-        this.directCancellations = directCancellations;
-        this.cancellationDecisions = cancellationDecisions;
+        this.actions = actions;
     }
 
     @GetMapping
@@ -64,39 +53,6 @@ public class AdminBookingController {
     public BookingResponse process(@AuthenticationPrincipal AuthenticatedUser me,
                                    @PathVariable @Positive Long bookingId,
                                    @Valid @RequestBody ApproverBookingController.ApproverBookingActionRequest request) {
-        switch (request.action()) {
-            case ACCEPT -> approvals.accept(me.userId(), bookingId);
-            case CANCEL -> directCancellations.cancel(me.userId(), bookingId,
-                required(request.reasonType(), "reasonType"), requiredText(request.reason(), "reason"));
-            case APPROVE_CANCELLATION -> approve(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason());
-            case REJECT_CANCELLATION -> reject(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), requiredText(request.reason(), "reason"));
-        }
-        return queries.detail(me.userId(), bookingId).summary().booking();
-    }
-
-    private BookingEntity approve(Long actorId, Long bookingId, Long requestId, String reason) {
-        CancellationRequestEntity request = cancellationDecisions.approve(actorId, bookingId, requestId, reason);
-        return request.getBooking();
-    }
-
-    private BookingEntity reject(Long actorId, Long bookingId, Long requestId, String reason) {
-        CancellationRequestEntity request = cancellationDecisions.reject(actorId, bookingId, requestId, reason);
-        return request.getBooking();
-    }
-
-    private static <T> T required(T value, String field) {
-        if (value == null) throw invalid(field);
-        return value;
-    }
-
-    private static String requiredText(String value, String field) {
-        if (value == null || value.isBlank()) throw invalid(field);
-        return value;
-    }
-
-    private static ApiException invalid(String field) {
-        return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다.", List.of(field));
+        return actions.process(me.userId(), bookingId, request);
     }
 }

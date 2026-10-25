@@ -34,11 +34,9 @@
     document.getElementById('detail-title').textContent = q.title;
     document.getElementById('detail-date').textContent = (q.createdAt || '').slice(0, 10);
     document.getElementById('detail-content').textContent = q.content;
-    // 서버가 준 업로드 주소 형식일 때만 이미지로 넣는다
+    // 첨부 사진이 있을 때만 보여 준다. 서버가 준 업로드 주소 형식일 때만 받는다.
     if (q.image && /^\/api\/v1\/uploads\/Images\/\d{1,19}$/.test(q.image)) {
-      var image = document.getElementById('detail-image');
-      image.src = q.image;
-      image.hidden = false;
+      showImage(q.image);
     }
     if (q.answered && q.answer) {
       document.getElementById('qna-answer-box').hidden = false;
@@ -62,6 +60,19 @@
         window.alert(e.message);
       }
     });
+  }
+
+  // <img src> 로 바로 부르면 로그인 토큰이 안 붙어 비밀글 사진이 404 로 깨진다.
+  // 토큰을 붙여 받아 온 뒤 보여 주고, 받지 못하면 사진 칸은 숨긴 채 글만 보여 준다.
+  async function showImage(url) {
+    var image = document.getElementById('detail-image');
+    try {
+      var blob = await BookingApi.getImage(url);
+      image.src = URL.createObjectURL(blob);
+      image.hidden = false;
+    } catch (e) {
+      image.hidden = true;
+    }
   }
 
   load();

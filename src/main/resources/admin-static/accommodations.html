@@ -55,6 +55,13 @@
         </div>
 
         <form id="filter-form" class="admin-filters" role="search" aria-label="숙소 검색">
+          <label>상태
+            <select name="status" class="form-select">
+              <option value="">전체</option>
+              <option value="ACTIVE">판매 중</option>
+              <option value="INACTIVE">판매 중지</option>
+            </select>
+          </label>
           <label>숙소명·주소
             <input name="keyword" type="search" maxlength="150" placeholder="검색어">
           </label>
@@ -88,7 +95,7 @@
         <h1 id="edit-title">숙소 정보</h1>
         <p class="page-sub" id="edit-sub"></p>
 
-        <form id="acc-form" class="info-card" novalidate>
+        <form id="acc-form" class="info-card" novalidate autocomplete="off">
           <h2>숙소 정보</h2>
           <div class="admin-form-grid">
             <div class="field admin-span-2">
@@ -118,10 +125,32 @@
               <label for="acc-description">숙소 소개 <span class="optional">(선택)</span></label>
               <textarea id="acc-description" name="description" class="form-textarea" rows="5" maxlength="2000"></textarea>
             </div>
-          </div>
-          <p id="acc-form-error" class="field-error" hidden></p>
-          <div class="admin-form-actions">
-            <button id="acc-submit" class="btn-primary" type="submit">저장</button>
+            <fieldset class="field admin-span-2 admin-fieldset">
+              <legend>편의시설 <span class="optional">(선택)</span></legend>
+              <div class="admin-checks">
+                <label class="admin-check"><input type="checkbox" name="amenities" value="무료 Wi-Fi"> 무료 Wi-Fi</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="주차"> 주차</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="에어컨"> 에어컨</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="난방"> 난방</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="TV"> TV</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="냉장고"> 냉장고</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="전자레인지"> 전자레인지</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="취사 가능"> 취사 가능</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="세탁기"> 세탁기</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="수영장"> 수영장</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="피트니스"> 피트니스</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="조식 제공"> 조식 제공</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="바비큐"> 바비큐</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="엘리베이터"> 엘리베이터</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="반려동물 동반"> 반려동물 동반</label>
+                <label class="admin-check"><input type="checkbox" name="amenities" value="금연 객실"> 금연 객실</label>
+              </div>
+            </fieldset>
+            <div class="field admin-span-2">
+              <label for="acc-rules">이용 규칙 <span class="optional">(선택, 한 줄에 하나씩)</span></label>
+              <textarea id="acc-rules" name="rules" class="form-textarea" rows="4" maxlength="2000"
+                        placeholder="예) 객실 내 흡연 금지&#10;22시 이후 소음 자제"></textarea>
+            </div>
           </div>
         </form>
 
@@ -132,6 +161,10 @@
               <p class="card-sub">jpg·png·webp, 한 장당 5MB 이하, 최대 <span id="image-max"></span>장. 첫 번째 이미지가 대표 이미지로 쓰입니다.</p>
             </div>
           </div>
+
+          <p id="images-create-hint" class="card-sub" hidden>
+            사진을 골라 두면 아래 "숙소 등록"을 누를 때 숙소와 함께 올라갑니다.
+          </p>
 
           <p id="images-not-ready" class="admin-notice" hidden>
             이미지 업로드 API가 아직 준비되지 않았습니다. 사진을 골라 미리 확인할 수는 있지만 저장되지는 않습니다.
@@ -156,15 +189,11 @@
           </div>
         </section>
 
-        <p id="images-after-create" class="admin-notice" hidden>
-          숙소 이미지는 숙소를 등록한 뒤 상세 화면에서 추가할 수 있습니다.
-        </p>
-
         <section id="rooms-card" class="info-card" hidden>
           <div class="admin-toolbar">
             <div>
               <h2>객실</h2>
-              <p class="card-sub">객실 유형별 가격·정원·판매 수량을 관리합니다.</p>
+              <p class="card-sub">객실을 추가·수정한 뒤 맨 아래 "저장"을 눌러야 숙소 정보와 함께 반영됩니다.</p>
             </div>
             <button id="room-add" class="btn-small" type="button">객실 추가</button>
           </div>
@@ -221,10 +250,16 @@
             <p id="room-form-error" class="field-error" hidden></p>
             <div class="admin-form-actions">
               <button id="room-cancel" class="btn-outline" type="button">취소</button>
-              <button id="room-submit" class="btn-primary" type="submit">객실 저장</button>
+              <button id="room-submit" class="btn-primary" type="submit">확인</button>
             </div>
           </form>
         </section>
+
+        <!-- 숙소 정보·객실을 한 번에 저장 -->
+        <p id="acc-form-error" class="field-error" role="alert" hidden></p>
+        <div class="admin-form-actions">
+          <button id="acc-submit" class="btn-primary" type="submit" form="acc-form">저장</button>
+        </div>
       </section>
     </main>
   </div>

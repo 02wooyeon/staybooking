@@ -20,6 +20,8 @@
   var alertBox = document.getElementById('login-alert');
 
   var DEFAULT_PAGE = '/index.html';
+  // 승인자는 관리자 화면 중 예약 승인만 쓸 수 있다
+  var APPROVER_PAGE = '/approver-bookings.html';
   var params = new URLSearchParams(window.location.search);
   // 같은 사이트 주소만 허용 (오픈 리다이렉트 방지)
   var next = window.BookingApi.safeNext(params.get('next'));
@@ -27,6 +29,13 @@
 
   function isOperator(me) {
     return Boolean(me) && AdminUi.OPERATOR_ROLES.indexOf(me.role) !== -1;
+  }
+
+  // 로그인 뒤 갈 곳. 승인자는 예약 승인 화면이 아니면 예약 승인 화면으로 보낸다
+  // (대시보드 등 관리자 전용 화면으로 가면 "접근 권한이 없습니다"만 보이기 때문)
+  function destination(me) {
+    if (me.role === 'ROLE_APPROVER' && next.split('?')[0] !== APPROVER_PAGE) return APPROVER_PAGE;
+    return next;
   }
 
   function showAlert(message, type) {
@@ -56,7 +65,7 @@
 
   // 이미 관리자로 로그인한 상태면 바로 이동
   window.BookingApi.me().then(function (me) {
-    if (isOperator(me)) window.location.replace(next);
+    if (isOperator(me)) window.location.replace(destination(me));
   }).catch(function () { /* 로그인 화면 유지 */ });
 
   form.addEventListener('submit', async function (event) {
@@ -94,7 +103,7 @@
         return;
       }
 
-      window.location.replace(next);
+      window.location.replace(destination(me));
     } catch (e) {
       // 서버가 계정 존재 여부를 숨긴 일반 메시지를 준다
       showAlert(e.message, e.code === 'LOGIN_LOCKED' ? 'warning' : 'error');

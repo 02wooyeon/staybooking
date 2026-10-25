@@ -32,6 +32,14 @@ public record BookingResponse(
             refund == null ? null : refund.amount());
     }
 
+    public BookingResponse withRefund(RefundSummary refund) {
+        RefundStatus status = refund == null ? null : refund.status();
+        Long amount = refund == null ? null : refund.amount();
+        return new BookingResponse(bookingId, accommodationId, accommodationName, roomId, roomName,
+            checkIn, checkOut, guests, totalAmount, this.status, cancellationRequested, paymentExpiresAt,
+            status, amount, status == null ? null : status == RefundStatus.REFUNDED ? amount : 0L);
+    }
+
     private static BookingResponse create(BookingEntity booking, boolean cancellationRequested,
                                           RefundStatus refundStatus, Long refundAmount) {
         return new BookingResponse(booking.getBookingId(), booking.getRoom().getAccommodation().getAccommodationId(),

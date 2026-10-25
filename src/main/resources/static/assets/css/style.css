@@ -2267,9 +2267,10 @@ a.review-edit-button:hover {
   border-radius: 10px;
   margin: 12px 0;
 }
-/* ---------- 결제 대기 · 성공 · 완료 · 실패 ---------- */
 
-.pay-page { max-width: 560px; margin: 0 auto; padding: 40px 16px 72px; }
+/* display:block 이 hidden 속성을 덮어써 첨부 사진이 없는 글에도 빈 사진 칸이 보이지 않도록 */
+.review-item-image[hidden] { display: none; }
+/* ---------- 안내 카드 (관리자 화면의 로딩·권한 없음 카드가 쓴다) ---------- */
 
 .pay-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -2286,35 +2287,6 @@ a.review-edit-button:hover {
 .pay-icon.fail { background: var(--error-bg); color: var(--error); }
 .pay-icon.wait { background: var(--warn-bg); color: var(--warn); }
 
-.pay-spinner {
-  width: 56px; height: 56px; margin: 4px auto 18px; border-radius: 50%;
-  border: 5px solid var(--border); border-top-color: var(--brand);
-  animation: pay-spin 0.9s linear infinite;
-}
-@keyframes pay-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .pay-spinner { animation-duration: 3s; } }
-
-.pay-timer {
-  display: inline-block; margin: 0 0 18px; padding: 8px 16px; border-radius: 999px;
-  background: var(--warn-bg); color: var(--warn); font-weight: 800; font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-.pay-summary { margin: 6px 0 0; text-align: left; border-top: 1px solid var(--border); }
-.pay-summary div {
-  display: flex; justify-content: space-between; gap: 12px;
-  padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px;
-}
-.pay-summary dt { flex: none; color: var(--text-sub); }
-.pay-summary dd { margin: 0; font-weight: 700; text-align: right; word-break: keep-all; }
-.pay-summary .total dd { color: var(--brand); font-size: 18px; }
-.pay-summary[hidden] { display: none; }
-
-.pay-status-badge {
-  display: inline-block; padding: 3px 10px; border-radius: 999px;
-  background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 700;
-}
-
 .pay-actions { display: flex; gap: 10px; margin-top: 22px; }
 .pay-actions > .btn-primary,
 .pay-actions > .btn-outline {
@@ -2325,33 +2297,8 @@ a.review-edit-button:hover {
 .pay-actions > a:hover { text-decoration: none; }
 .pay-actions > [hidden] { display: none; }
 
-.pay-confirm {
-  margin-top: 20px; padding: 16px; border-radius: var(--radius);
-  background: var(--error-bg); text-align: left;
-}
-.pay-confirm p { margin: 0; color: var(--error); font-weight: 600; font-size: 14px; }
-.pay-confirm .pay-actions { margin-top: 12px; }
-
-.pay-demo-link { margin-top: 14px; font-size: 13px; }
-
-.pay-steps { list-style: none; margin: 0 0 6px; padding: 0; text-align: left; font-size: 14px; }
-.pay-steps li { padding: 8px 0; color: var(--text-sub); }
-.pay-steps li.done { color: var(--ok); font-weight: 600; }
-.pay-steps li.now { color: var(--text); font-weight: 700; }
-
-.pay-error-box {
-  margin: 0 0 16px; padding: 12px 14px; border-radius: var(--radius);
-  background: var(--error-bg); color: var(--error); font-size: 14px; text-align: left;
-}
-.pay-error-box p { margin: 0 0 4px; }
-.pay-error-box code { font-size: 12px; color: #8a1f26; }
-
-.pay-note { margin: 16px 0 0; color: var(--text-sub); font-size: 12px; text-align: left; line-height: 1.6; }
-
 @media (max-width: 480px) {
   .pay-card { padding: 26px 18px; }
-  .pay-summary div { flex-direction: column; gap: 2px; }
-  .pay-summary dd { text-align: left; }
 }
 
 .find-result { list-style: none; margin: 0 0 8px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); }
