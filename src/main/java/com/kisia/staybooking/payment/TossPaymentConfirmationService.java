@@ -73,7 +73,9 @@ public class TossPaymentConfirmationService {
                 || !orderId.equals(confirmed.orderId())
                 || confirmed.paymentKey() == null || confirmed.paymentKey().isBlank()
                 || (expectedPaymentKey != null && !expectedPaymentKey.equals(confirmed.paymentKey()))
-                || prepared.paidAmount() != confirmed.totalAmount()) {
+                || prepared.paidAmount() != confirmed.totalAmount()
+                || confirmed.balanceAmount() == null
+                || prepared.paidAmount() != confirmed.balanceAmount()) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CONFIRM_MISMATCH",
                 "결제 승인 정보가 주문 정보와 일치하지 않습니다. 결제 내역을 확인해 주세요.");
         }

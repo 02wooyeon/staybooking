@@ -52,7 +52,8 @@ class TossPaymentCancellationRaceTests {
             .thenAnswer(invocation -> {
                 cancellations.cancel(admin.getUserId(), booking.getBookingId(),
                     CancellationReasonType.ACCOMMODATION_FAULT, "운영자 취소");
-                return new TossPaymentGateway.Confirmation(key, prepared.getOrderId(), 100_000, "DONE");
+                return new TossPaymentGateway.Confirmation(key, prepared.getOrderId(),
+                    100_000, "DONE", 100_000L);
             });
         when(gateway.findByOrderId(prepared.getOrderId()))
             .thenReturn(new TossPaymentGateway.Confirmation(key, prepared.getOrderId(),

@@ -109,8 +109,14 @@ class PaymentServiceTests {
         verifyNoInteractions(gateway);
 
         when(gateway.confirm("payment-key", prepared.getOrderId(), 120_000))
-            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 1, "DONE"))
-            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE"));
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 1, "DONE", 1L))
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE", 0L))
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE"))
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE", 120_000L));
+        assertThrows(ApiException.class, () -> confirmations.confirm(owner.getUserId(),
+            prepared.getOrderId(), "payment-key", 120_000));
+        assertThrows(ApiException.class, () -> confirmations.confirm(owner.getUserId(),
+            prepared.getOrderId(), "payment-key", 120_000));
         assertThrows(ApiException.class, () -> confirmations.confirm(owner.getUserId(),
             prepared.getOrderId(), "payment-key", 120_000));
         assertEquals(PaymentStatus.READY, prepared.getStatus());
@@ -122,7 +128,7 @@ class PaymentServiceTests {
         assertEquals(BookingStatus.PENDING, booking.getStatus());
         assertSame(paid, confirmations.confirm(owner.getUserId(), prepared.getOrderId(),
             "payment-key", 120_000));
-        verify(gateway, times(2)).confirm("payment-key", prepared.getOrderId(), 120_000);
+        verify(gateway, times(4)).confirm("payment-key", prepared.getOrderId(), 120_000);
     }
 
     @Test
@@ -145,7 +151,7 @@ class PaymentServiceTests {
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CONFIRM_FAILED", "응답 없음"));
         when(gateway.findByOrderId(prepared.getOrderId()))
             .thenReturn(new TossPaymentGateway.Confirmation(
-                "payment-key", prepared.getOrderId(), 120_000, "DONE"));
+                "payment-key", prepared.getOrderId(), 120_000, "DONE", 120_000L));
 
         PaymentEntity paid = confirmations.confirm(owner.getUserId(), prepared.getOrderId(),
             "payment-key", 120_000);
@@ -177,8 +183,10 @@ class PaymentServiceTests {
         verifyNoInteractions(gateway);
 
         when(gateway.findByOrderId(prepared.getOrderId()))
-            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 1, "DONE"))
-            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE"));
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 1, "DONE", 1L))
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE", 0L))
+            .thenReturn(new TossPaymentGateway.Confirmation("payment-key", prepared.getOrderId(), 120_000, "DONE", 120_000L));
+        assertThrows(ApiException.class, () -> confirmations.recover(owner.getUserId(), prepared.getOrderId()));
         assertThrows(ApiException.class, () -> confirmations.recover(owner.getUserId(), prepared.getOrderId()));
         assertEquals(PaymentStatus.READY, prepared.getStatus());
         assertEquals(BookingStatus.PAYMENT_PENDING, booking.getStatus());
@@ -187,14 +195,14 @@ class PaymentServiceTests {
         assertEquals(PaymentStatus.PAID, recovered.getStatus());
         assertEquals(BookingStatus.PENDING, booking.getStatus());
         assertSame(recovered, confirmations.recover(owner.getUserId(), prepared.getOrderId()));
-        verify(gateway, times(2)).findByOrderId(prepared.getOrderId());
+        verify(gateway, times(3)).findByOrderId(prepared.getOrderId());
 
         BookingEntity otherBooking = new BookingEntity(owner, room, LocalDate.now().plusDays(5),
             LocalDate.now().plusDays(6), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
         entityManager.persist(otherBooking);
         PaymentEntity card = payments.prepare(owner.getUserId(), otherBooking.getBookingId(), "CARD");
         assertThrows(ApiException.class, () -> confirmations.recover(owner.getUserId(), card.getOrderId()));
-        verify(gateway, times(2)).findByOrderId(prepared.getOrderId());
+        verify(gateway, times(3)).findByOrderId(prepared.getOrderId());
     }
 
     @Test
