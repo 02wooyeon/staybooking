@@ -114,7 +114,11 @@ class AutomaticRefundFlowTests {
         when(gateway.cancel(eq(key), eq("운영자 취소"), eq(100_000L), anyLong()))
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED", "응답 확인 실패"))
             .thenReturn(new TossPaymentGateway.Cancellation(key, payment.getOrderId(), 100_000,
-                0, "CANCELED", java.util.List.of(new TossPaymentGateway.Cancel(100_000))));
+                0, "CANCELED", java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE",
+                    "cancel-transaction")), "cancel-transaction"));
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(key, payment.getOrderId(),
+                100_000, "DONE", 100_000L));
 
         cancellations.cancel(admin.getUserId(), booking.getBookingId(),
             CancellationReasonType.ACCOMMODATION_FAULT, "운영자 취소");
@@ -126,9 +130,100 @@ class AutomaticRefundFlowTests {
         var retried = settlement.retry(admin.getUserId(), refund.getRefundId());
         assertEquals(RefundStatus.REFUNDED, retried.getStatus());
         assertNotNull(retried.getProcessedAt());
+        assertEquals(admin.getUserId(), retried.getProcessedBy().getUserId());
         assertEquals(PaymentStatus.REFUNDED, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
         verify(gateway, times(2)).cancel(eq(key), eq("운영자 취소"), eq(100_000L), eq(refund.getRefundId()));
-        assertThrows(ApiException.class, () -> settlement.retry(admin.getUserId(), refund.getRefundId()));
+        var repeated = settlement.retry(admin.getUserId(), refund.getRefundId());
+        assertEquals(RefundStatus.REFUNDED, repeated.getStatus());
+        assertEquals(admin.getUserId(), repeated.getProcessedBy().getUserId());
+        verify(gateway, times(2)).cancel(eq(key), eq("운영자 취소"), eq(100_000L), eq(refund.getRefundId()));
+    }
+
+    @Test
+    void blocksRetryWhenProviderAlreadyCancelledThePayment() {
+        UserEntity guest = fixtures.user("취소 결과 확인 예약자");
+        UserEntity admin = fixtures.user("취소 결과 확인 관리자", UserRole.ROLE_ADMIN);
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1),
+            BookingStatus.CANCELLED);
+        PaymentEntity payment = new PaymentEntity(booking,
+            "ALREADY-CANCELLED-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("ALREADY-CANCELLED-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        RefundEntity refund = new RefundEntity(booking, 100_000, "예약 취소");
+        refund.start(LocalDateTime.now(ZoneOffset.UTC));
+        refund.failed("PAYMENT_CANCEL_FAILED");
+        Long refundId = refunds.save(refund).getRefundId();
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(), payment.getOrderId(),
+                100_000, "CANCELED", 0L));
+
+        ApiException error = assertThrows(ApiException.class,
+            () -> settlement.retry(admin.getUserId(), refundId));
+
+        assertEquals("REFUND_REVIEW_REQUIRED", error.getCode());
+        assertEquals("REFUND_REVIEW_REQUIRED",
+            refunds.findById(refundId).orElseThrow().getFailureCode());
+        assertEquals(PaymentStatus.PAID,
+            payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+        verify(gateway, times(0)).cancel(eq(payment.getPaymentKey()), eq("예약 취소"),
+            eq(100_000L), eq(refundId));
+    }
+
+    @Test
+    void recoveryDoesNotRepeatAStaleRefundAlreadyCancelledByProvider() {
+        UserEntity guest = fixtures.user("자동 복구 예약자");
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1),
+            BookingStatus.CANCELLED);
+        PaymentEntity payment = new PaymentEntity(booking,
+            "STALE-REFUND-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("STALE-REFUND-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        RefundEntity refund = new RefundEntity(booking, 100_000, "예약 취소");
+        refund.start(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(3));
+        Long refundId = refunds.save(refund).getRefundId();
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(), payment.getOrderId(),
+                100_000, "CANCELED", 0L));
+
+        assertEquals(1, recovery.recover());
+
+        RefundEntity recovered = refunds.findById(refundId).orElseThrow();
+        assertEquals(RefundStatus.FAILED, recovered.getStatus());
+        assertEquals("REFUND_REVIEW_REQUIRED", recovered.getFailureCode());
+        verify(gateway, times(0)).cancel(eq(payment.getPaymentKey()), eq("예약 취소"),
+            eq(100_000L), eq(refundId));
+    }
+
+    @Test
+    void firstRefundAttemptDoesNotRepeatAnEarlierProviderCancellation() {
+        UserEntity guest = fixtures.user("첫 환불 예약자");
+        UserEntity admin = fixtures.user("첫 환불 관리자", UserRole.ROLE_ADMIN);
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1),
+            BookingStatus.CANCELLED);
+        PaymentEntity payment = new PaymentEntity(booking,
+            "FIRST-REFUND-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("FIRST-REFUND-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        Long refundId = refunds.save(new RefundEntity(booking, 100_000, "예약 취소")).getRefundId();
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(), payment.getOrderId(),
+                100_000, "CANCELED", 0L));
+
+        ApiException error = assertThrows(ApiException.class,
+            () -> settlement.retry(admin.getUserId(), refundId));
+
+        assertEquals("REFUND_REVIEW_REQUIRED", error.getCode());
+        assertEquals(RefundStatus.FAILED, refunds.findById(refundId).orElseThrow().getStatus());
+        assertEquals(PaymentStatus.PAID,
+            payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+        verify(gateway, times(0)).cancel(eq(payment.getPaymentKey()), eq("예약 취소"),
+            eq(100_000L), eq(refundId));
     }
 
     @Test
@@ -145,6 +240,9 @@ class AutomaticRefundFlowTests {
         when(gateway.cancel(eq(payment.getPaymentKey()), eq("예약 취소"), eq(100_000L),
                 eq(refund.getRefundId())))
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED", "응답 확인 실패"));
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(), payment.getOrderId(),
+                100_000, "DONE", 100_000L));
 
         ApiException error = assertThrows(ApiException.class,
             () -> settlement.retry(admin.getUserId(), refund.getRefundId()));
@@ -155,6 +253,69 @@ class AutomaticRefundFlowTests {
         assertEquals(RefundStatus.FAILED, failed.getStatus());
         assertEquals("PAYMENT_CANCEL_FAILED", failed.getFailureCode());
         assertEquals(PaymentStatus.PAID, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void rejectsCancellationWhenCompletedEntryIsNotTheLastTransaction() {
+        UserEntity guest = fixtures.user("취소 거래 키 확인 예약자");
+        UserEntity admin = fixtures.user("취소 거래 키 확인 관리자", UserRole.ROLE_ADMIN);
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1),
+            BookingStatus.CANCELLED);
+        PaymentEntity payment = new PaymentEntity(booking,
+            "CANCEL-KEY-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("CANCEL-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        Long refundId = refunds.save(new RefundEntity(booking, 100_000, "예약 취소")).getRefundId();
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(),
+                payment.getOrderId(), 100_000, "DONE", 100_000L));
+        when(gateway.cancel(eq(payment.getPaymentKey()), eq("예약 취소"), eq(100_000L), eq(refundId)))
+            .thenReturn(new TossPaymentGateway.Cancellation(payment.getPaymentKey(),
+                payment.getOrderId(), 100_000, 0, "CANCELED",
+                java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE", "older-transaction")),
+                "last-transaction"));
+
+        ApiException error = assertThrows(ApiException.class,
+            () -> settlement.retry(admin.getUserId(), refundId));
+
+        assertEquals("REFUND_RETRY_FAILED", error.getCode());
+        assertEquals("PAYMENT_CANCEL_MISMATCH", refunds.findById(refundId).orElseThrow().getFailureCode());
+        assertEquals(PaymentStatus.PAID, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void rejectsProviderCancellationWithoutACompletedCancelEntry() {
+        UserEntity guest = fixtures.user("취소 상태 확인 예약자");
+        UserEntity admin = fixtures.user("취소 상태 확인 관리자", UserRole.ROLE_ADMIN);
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1),
+            BookingStatus.CANCELLED);
+        PaymentEntity payment = new PaymentEntity(booking,
+            "CANCEL-STATUS-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("CANCEL-STATUS-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        Long refundId = refunds.save(new RefundEntity(booking, 100_000, "예약 취소")).getRefundId();
+        when(gateway.findByOrderId(payment.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(),
+                payment.getOrderId(), 100_000, "DONE", 100_000L));
+        when(gateway.cancel(eq(payment.getPaymentKey()), eq("예약 취소"), eq(100_000L), eq(refundId)))
+            .thenReturn(new TossPaymentGateway.Cancellation(payment.getPaymentKey(),
+                payment.getOrderId(), 100_000, 0, "CANCELED",
+                java.util.List.of(new TossPaymentGateway.Cancel(100_000, "IN_PROGRESS",
+                    "cancel-transaction")), "cancel-transaction"));
+
+        ApiException error = assertThrows(ApiException.class,
+            () -> settlement.retry(admin.getUserId(), refundId));
+
+        assertEquals("REFUND_RETRY_FAILED", error.getCode());
+        RefundEntity failed = refunds.findById(refundId).orElseThrow();
+        assertEquals(RefundStatus.FAILED, failed.getStatus());
+        assertEquals("PAYMENT_CANCEL_MISMATCH", failed.getFailureCode());
+        assertEquals(PaymentStatus.PAID,
+            payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
     }
 
     @Test
@@ -176,8 +337,12 @@ class AutomaticRefundFlowTests {
                 other.complete("OTHER-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
                 payments.save(other);
                 return new TossPaymentGateway.Cancellation(original.getPaymentKey(), original.getOrderId(),
-                    100_000, 0, "CANCELED", java.util.List.of(new TossPaymentGateway.Cancel(100_000)));
+                    100_000, 0, "CANCELED", java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE",
+                        "cancel-transaction")), "cancel-transaction");
             });
+        when(gateway.findByOrderId(original.getOrderId()))
+            .thenReturn(new TossPaymentGateway.Confirmation(original.getPaymentKey(), original.getOrderId(),
+                100_000, "DONE", 100_000L));
 
         ApiException error = assertThrows(ApiException.class,
             () -> settlement.retry(admin.getUserId(), refund.getRefundId()));

@@ -5,6 +5,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
@@ -89,6 +90,9 @@ public class RefundReconciliationService {
     }
 
     private static boolean localStatesConsistent(RefundEntity refund, PaymentEntity payment) {
+        if (refund.getBooking().getStatus() != BookingStatus.CANCELLED) {
+            return false;
+        }
         if (settled(refund)) {
             PaymentStatus expected = refund.getAmount() == 0 ? PaymentStatus.PAID
                 : refund.getAmount() == payment.getPaidAmount()

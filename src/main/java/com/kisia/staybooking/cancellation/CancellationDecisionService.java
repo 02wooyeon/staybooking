@@ -3,6 +3,7 @@ package com.kisia.staybooking.cancellation;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Objects;
 
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
@@ -35,18 +36,19 @@ public class CancellationDecisionService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CancellationRequestEntity reject(Long actorId, Long bookingId, Long requestId, String reason) {
-        UserEntity actor = users.findById(actorId)
-            .orElseThrow(() -> new IllegalArgumentException("Actor not found"));
-        if (actor.getStatus() != UserStatus.ACTIVE ||
-                (actor.getRole() != UserRole.ROLE_APPROVER && actor.getRole() != UserRole.ROLE_ADMIN)) {
-            throw new IllegalStateException("Decision permission required");
-        }
-        BookingEntity booking = bookings.findByIdForUpdate(bookingId)
+        UserEntity actor = approver(actorId);
+        bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         CancellationRequestEntity request = requests.findByIdForUpdate(requestId)
             .orElseThrow(() -> new IllegalArgumentException("Cancellation request not found"));
         if (!request.getBooking().getBookingId().equals(bookingId)) {
             throw new IllegalArgumentException("Cancellation request belongs to another booking");
+        }
+        if (request.getStatus() == CancellationRequestStatus.REJECTED
+                && request.getDecidedBy() != null
+                && actorId.equals(request.getDecidedBy().getUserId())
+                && Objects.equals(request.getDecisionReason(), reason)) {
+            return request;
         }
         request.reject(actor, LocalDateTime.now(ZoneOffset.UTC), reason);
         return request;
@@ -61,6 +63,16 @@ public class CancellationDecisionService {
             .orElseThrow(() -> new IllegalArgumentException("Cancellation request not found"));
         if (!request.getBooking().getBookingId().equals(bookingId)) {
             throw new IllegalArgumentException("Cancellation request belongs to another booking");
+        }
+        if (request.getStatus() == CancellationRequestStatus.APPROVED
+                && booking.getStatus() == BookingStatus.CANCELLED
+                && booking.getCancelSource() == CancellationSource.USER_REQUEST
+                && request.getDecidedBy() != null
+                && actorId.equals(request.getDecidedBy().getUserId())
+                && booking.getCancelledBy() != null
+                && actorId.equals(booking.getCancelledBy().getUserId())
+                && Objects.equals(request.getDecisionReason(), reason)) {
+            return request;
         }
         requireCancellableBeforeCheckIn(booking);
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);

@@ -101,6 +101,11 @@ class AdminDomainPaymentFlowTests {
                 .header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUNDED"));
+        mvc.perform(post("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId() + "/retry")
+                .header("Authorization", authorization))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUNDED"))
+            .andExpect(jsonPath("$.retryable").value(false));
 
         mvc.perform(get("http://admin.localhost" + paymentPath).header("Authorization", authorization))
             .andExpect(status().isOk())
@@ -115,6 +120,12 @@ class AdminDomainPaymentFlowTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
-            .andExpect(jsonPath("$.refundAmount").value(100_000));
+            .andExpect(jsonPath("$.refundAmount").value(100_000))
+            .andExpect(jsonPath("$.refundedAmount").value(100_000));
+        mvc.perform(get("http://localhost/api/v1/payments/me")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].refundStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$[0].refundedAmount").value(100_000));
     }
 }

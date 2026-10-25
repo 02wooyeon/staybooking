@@ -3,6 +3,7 @@ package com.kisia.staybooking.cancellation;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Objects;
 
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
@@ -47,6 +48,16 @@ public class BookingCancellationService {
         }
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        CancellationSource source = actor.getRole() == UserRole.ROLE_ADMIN
+            ? CancellationSource.ADMIN_DIRECT : CancellationSource.APPROVER_DIRECT;
+        if (booking.getStatus() == BookingStatus.CANCELLED
+                && booking.getCancelledBy() != null
+                && actorId.equals(booking.getCancelledBy().getUserId())
+                && booking.getCancelSource() == source
+                && booking.getCancelReasonType() == reasonType
+                && Objects.equals(booking.getCancelReason(), reason)) {
+            return booking;
+        }
         if (booking.getStatus() != BookingStatus.PAYMENT_PENDING
                 && booking.getStatus() != BookingStatus.PENDING
                 && booking.getStatus() != BookingStatus.COMPLETED) {
@@ -58,8 +69,6 @@ public class BookingCancellationService {
         if (!LocalDateTime.now(KOREA).isBefore(checkIn)) {
             throw new IllegalStateException("Cancellation after check-in is unavailable");
         }
-        CancellationSource source = actor.getRole() == UserRole.ROLE_ADMIN
-            ? CancellationSource.ADMIN_DIRECT : CancellationSource.APPROVER_DIRECT;
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
         booking.cancel(actor, source, reasonType, reason, nowUtc);
         // 예약 잠금 아래에서 미처리 신청도 함께 마무리해 사용자 화면에 대기로 남지 않게 한다.

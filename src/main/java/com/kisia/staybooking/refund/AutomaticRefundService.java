@@ -30,15 +30,18 @@ public class AutomaticRefundService {
     private final PaymentRepository payments;
     private final UserRepository users;
     private final TossPaymentGateway gateway;
+    private final RefundReconciliationService reconciliation;
     private final TransactionTemplate transaction;
 
     public AutomaticRefundService(RefundRepository refunds, PaymentRepository payments,
                                   UserRepository users, TossPaymentGateway gateway,
+                                  RefundReconciliationService reconciliation,
                                   PlatformTransactionManager manager) {
         this.refunds = refunds;
         this.payments = payments;
         this.users = users;
         this.gateway = gateway;
+        this.reconciliation = reconciliation;
         this.transaction = new TransactionTemplate(manager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -46,7 +49,7 @@ public class AutomaticRefundService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRefundCreated(RefundRequestService.RefundCreated event) {
         try {
-            settle(event.refundId());
+            settle(event.refundId(), null);
         } catch (RuntimeException e) {
             // 예약 취소는 이미 커밋됐다. 오류를 숨기지 않고 환불 상태와 로그로 추적한다.
             log.error("Automatic refund could not start for refund {}", event.refundId(), e);
@@ -59,10 +62,21 @@ public class AutomaticRefundService {
         if (admin.getRole() != UserRole.ROLE_ADMIN || admin.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "관리자 권한이 필요합니다.");
         }
-        settle(refundId);
+        try {
+            settle(refundId, admin.getUserId());
+        } catch (ApiException e) {
+            if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) throw e;
+            RefundEntity current = refunds.findById(refundId).orElseThrow();
+            if (current.getStatus() == RefundStatus.REFUNDED) return current;
+            throw e;
+        }
         RefundEntity refund = refunds.findById(refundId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
         if (refund.getStatus() != RefundStatus.REFUNDED) {
+            if ("REFUND_REVIEW_REQUIRED".equals(refund.getFailureCode())) {
+                throw new ApiException(HttpStatus.CONFLICT, "REFUND_REVIEW_REQUIRED",
+                    "PG 취소 내역을 먼저 확인해야 합니다. 환불 대조 결과를 확인해 주세요.");
+            }
             throw new ApiException(HttpStatus.BAD_GATEWAY, "REFUND_RETRY_FAILED",
                 "환불 처리 결과를 확인하지 못했습니다. 환불 상태와 결제대행사 내역을 확인해 주세요.");
         }
@@ -71,7 +85,7 @@ public class AutomaticRefundService {
 
     void recover(Long refundId) {
         try {
-            settle(refundId);
+            settle(refundId, null);
         } catch (ApiException e) {
             // 조회 후 다른 요청이 먼저 처리한 건은 다시 호출하지 않는다.
             if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) {
@@ -82,7 +96,7 @@ public class AutomaticRefundService {
         }
     }
 
-    private void settle(Long refundId) {
+    private void settle(Long refundId, Long processedById) {
         Work work;
         try {
             work = transaction.execute(status -> {
@@ -118,6 +132,11 @@ public class AutomaticRefundService {
         if (work == null) throw new IllegalStateException("Refund transaction returned no work");
         try {
             if (work.amount() > 0 && !work.demo()) {
+                if (reconciliation.check(refundId).result()
+                        != RefundReconciliationService.Result.NO_CANCELLATION_RECORDED) {
+                    throw new ApiException(HttpStatus.CONFLICT, "REFUND_REVIEW_REQUIRED",
+                        "PG 취소 내역을 먼저 확인해야 합니다. 환불 대조 결과를 확인해 주세요.");
+                }
                 String reason = work.reason() == null || work.reason().isBlank() ? "예약 취소" : work.reason();
                 var result = gateway.cancel(work.paymentKey(),
                     reason.length() > 200 ? reason.substring(0, 200) : reason,
@@ -127,7 +146,10 @@ public class AutomaticRefundService {
                         || result.totalAmount() != work.paidAmount()
                         || result.balanceAmount() != work.paidAmount() - work.amount()
                         || !expected.equals(result.status()) || result.cancels() == null
-                        || result.cancels().stream().noneMatch(c -> c.cancelAmount() == work.amount())) {
+                        || result.lastTransactionKey() == null || result.lastTransactionKey().isBlank()
+                        || result.cancels().stream().noneMatch(c -> c != null
+                            && c.cancelAmount() == work.amount() && "DONE".equals(c.cancelStatus())
+                            && result.lastTransactionKey().equals(c.transactionKey()))) {
                     throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_MISMATCH",
                         "토스 결제 취소 결과가 환불 요청과 일치하지 않습니다.");
                 }
@@ -148,7 +170,8 @@ public class AutomaticRefundService {
                 }
                 PaymentEntity payment = paid.getFirst();
                 payment.refund(refund.getAmount());
-                refund.refunded(LocalDateTime.now(ZoneOffset.UTC));
+                refund.refunded(LocalDateTime.now(ZoneOffset.UTC),
+                    processedById == null ? null : users.getReferenceById(processedById));
             });
         } catch (RuntimeException e) {
             String code = e instanceof ApiException api ? api.getCode() : "REFUND_PROCESSING_FAILED";

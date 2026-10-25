@@ -85,6 +85,16 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertEquals(approver.getUserId(), bookings.findById(booking.getBookingId())
             .orElseThrow().getApprovedBy().getUserId());
+        LocalDateTime firstApprovalAt = bookings.findById(booking.getBookingId()).orElseThrow().getApprovedAt();
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"ACCEPT\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("COMPLETED"));
+        assertEquals(firstApprovalAt, bookings.findById(booking.getBookingId()).orElseThrow().getApprovedAt());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"ACCEPT\"}"))
+            .andExpect(status().isConflict());
         String searchPath = "http://admin.localhost/api/v1/approver/bookings/search";
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .header("Authorization", operatorToken))
@@ -110,6 +120,25 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertEquals(CancellationRequestStatus.REJECTED,
             requests.findById(firstRequestId).orElseThrow().getStatus());
+        LocalDateTime firstDecisionAt = requests.findById(firstRequestId).orElseThrow().getDecidedAt();
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"사유 확인 필요\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("COMPLETED"));
+        assertEquals(firstDecisionAt, requests.findById(firstRequestId).orElseThrow().getDecidedAt());
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"다른 반려 사유\"}"))
+            .andExpect(status().isConflict());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"사유 확인 필요\"}"))
+            .andExpect(status().isConflict());
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .param("cancellationRequested", "true").header("Authorization", operatorToken))
             .andExpect(status().isOk())
@@ -134,6 +163,20 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("CANCELLED"))
             .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
             .andExpect(jsonPath("$.refundAmount").value(100_000));
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
+                    + secondRequestId + "}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"));
+        assertEquals(1, refunds.findByBookingBookingIdIn(java.util.List.of(booking.getBookingId())).size());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
+                    + secondRequestId + "}"))
+            .andExpect(status().isConflict());
         assertEquals(BookingStatus.CANCELLED, bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
         assertEquals(CancellationRequestStatus.APPROVED,
             requests.findById(secondRequestId).orElseThrow().getStatus());

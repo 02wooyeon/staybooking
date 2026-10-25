@@ -12,7 +12,7 @@ public record BookingResponse(
     Long bookingId, Long accommodationId, String accommodationName, Long roomId, String roomName,
     LocalDate checkIn, LocalDate checkOut, int guests, long totalAmount, BookingStatus status,
     boolean cancellationRequested, LocalDateTime paymentExpiresAt,
-    RefundStatus refundStatus, Long refundAmount
+    RefundStatus refundStatus, Long refundAmount, Long refundedAmount
 ) {
     public static BookingResponse from(BookingEntity booking) {
         return create(booking, false, null, null);
@@ -32,12 +32,21 @@ public record BookingResponse(
             refund == null ? null : refund.amount());
     }
 
+    public BookingResponse withRefund(RefundSummary refund) {
+        RefundStatus status = refund == null ? null : refund.status();
+        Long amount = refund == null ? null : refund.amount();
+        return new BookingResponse(bookingId, accommodationId, accommodationName, roomId, roomName,
+            checkIn, checkOut, guests, totalAmount, this.status, cancellationRequested, paymentExpiresAt,
+            status, amount, status == null ? null : status.isSettled() ? amount : 0L);
+    }
+
     private static BookingResponse create(BookingEntity booking, boolean cancellationRequested,
                                           RefundStatus refundStatus, Long refundAmount) {
         return new BookingResponse(booking.getBookingId(), booking.getRoom().getAccommodation().getAccommodationId(),
             booking.getRoom().getAccommodation().getName(), booking.getRoom().getRoomId(), booking.getRoom().getName(),
             booking.getCheckInDate(), booking.getCheckOutDate(), booking.getGuests(), booking.getTotalAmount(),
             booking.getStatus(), cancellationRequested, booking.getPaymentExpiresAt(),
-            refundStatus, refundAmount);
+            refundStatus, refundAmount, refundStatus == null ? null
+                : refundStatus.isSettled() ? refundAmount : 0L);
     }
 }

@@ -98,6 +98,59 @@ class PaymentReconciliationServiceTests {
     }
 
     @Test
+    void distinguishesAnOutstandingRefundFromAFailedRefund() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 100_000, "예약 취소");
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REFUND_PENDING, service.check(7L).result());
+        refund.start(LocalDateTime.now());
+        assertEquals(PaymentReconciliationService.Result.REFUND_PENDING, service.check(7L).result());
+        refund.failed("PAYMENT_CANCEL_FAILED");
+        assertEquals(PaymentReconciliationService.Result.REFUND_FAILED, service.check(7L).result());
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
+    }
+
+    @Test
+    void requiresReviewWhenTheProviderRefundedAnOutstandingLocalRefund() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 100_000, "예약 취소");
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "CANCELED", 0L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void includesZeroAmountRefundsThatAreStillWaitingForLocalCompletion() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 0, "환불 금액 없음");
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REFUND_PENDING, service.check(7L).result());
+        refund.start(LocalDateTime.now());
+        refund.refunded(LocalDateTime.now());
+        assertEquals(PaymentReconciliationService.Result.MATCHED, service.check(7L).result());
+    }
+
+    @Test
     void doesNotMatchARefundedPaymentForAnActiveBooking() {
         PaymentEntity payment = payment("TOSS");
         payment.complete("toss-key", LocalDateTime.now());

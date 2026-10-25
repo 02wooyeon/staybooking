@@ -79,8 +79,9 @@ public class PaymentReconciliationService {
             case PAID -> "DONE".equals(provider.status())
                 && balanceIs(provider, payment.getPaidAmount())
                 && payment.getBooking().getStatus() != BookingStatus.PAYMENT_PENDING
-                && (payment.getBooking().getStatus() != BookingStatus.CANCELLED || refund != null)
-                && (refund == null || !settled(refund) || refund.getAmount() == 0);
+                && (payment.getBooking().getStatus() == BookingStatus.CANCELLED
+                    ? refund != null && settled(refund) && refund.getAmount() == 0
+                    : refund == null);
             case PARTIALLY_REFUNDED -> "PARTIAL_CANCELED".equals(provider.status())
                 && payment.getBooking().getStatus() == BookingStatus.CANCELLED
                 && approvedRefundBetween(refund, 0, payment.getPaidAmount())
@@ -99,6 +100,17 @@ public class PaymentReconciliationService {
                 && balanceIs(provider, payment.getPaidAmount())) {
             result = payment.getBooking().getStatus() == BookingStatus.CANCELLED
                 ? Result.CANCELLED_BOOKING_CHARGED : Result.PROVIDER_CHARGED_NOT_RECORDED;
+        } else if (identityMatches && payment.getStatus() == PaymentStatus.PAID
+                && payment.getBooking().getStatus() == BookingStatus.CANCELLED
+                && "DONE".equals(provider.status())
+                && balanceIs(provider, payment.getPaidAmount())
+                && refund != null && refund.getAmount() >= 0
+                && refund.getAmount() <= payment.getPaidAmount()) {
+            result = switch (refund.getStatus()) {
+                case REQUESTED, PROCESSING -> Result.REFUND_PENDING;
+                case FAILED -> Result.REFUND_FAILED;
+                default -> Result.REVIEW_REQUIRED;
+            };
         } else {
             result = Result.REVIEW_REQUIRED;
         }
@@ -146,7 +158,7 @@ public class PaymentReconciliationService {
 
     public enum Result {
         MATCHED, PROVIDER_CHARGED_NOT_RECORDED, CANCELLED_BOOKING_CHARGED,
-        REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE
+        REFUND_PENDING, REFUND_FAILED, REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE
     }
 
     public record Report(Long paymentId, Long bookingId, String orderId, BookingStatus bookingStatus,
