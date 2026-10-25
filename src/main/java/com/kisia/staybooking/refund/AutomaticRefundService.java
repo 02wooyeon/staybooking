@@ -107,7 +107,8 @@ public class AutomaticRefundService {
                         || payment.getPaymentKey() == null || payment.getPaymentKey().isBlank()) {
                     throw new ApiException(HttpStatus.CONFLICT, "REFUND_AMOUNT_MISMATCH", "환불 금액이나 결제 키가 올바르지 않습니다.");
                 }
-                return new Work(refundId, refund.getAmount(), refund.getReason(), payment.getPaymentKey(),
+                return new Work(refundId, payment.getPaymentId(), refund.getAmount(),
+                    refund.getReason(), payment.getPaymentKey(),
                     payment.getOrderId(), payment.getPaidAmount(), "DEMO".equals(payment.getPaymentMethod()));
             });
         } catch (ApiException e) {
@@ -133,8 +134,19 @@ public class AutomaticRefundService {
             }
             transaction.executeWithoutResult(status -> {
                 RefundEntity refund = refunds.findByIdForUpdate(refundId).orElseThrow();
-                PaymentEntity payment = payments.findByBookingBookingIdAndStatus(
-                    refund.getBooking().getBookingId(), PaymentStatus.PAID).stream().findFirst().orElseThrow();
+                var paid = payments.findByBookingBookingIdAndStatus(
+                    refund.getBooking().getBookingId(), PaymentStatus.PAID);
+                if (refund.getBooking().getStatus() != BookingStatus.CANCELLED
+                        || refund.getStatus() != RefundStatus.PROCESSING
+                        || refund.getAmount() != work.amount()
+                        || paid.size() != 1 || !paid.getFirst().getPaymentId().equals(work.paymentId())
+                        || !work.paymentKey().equals(paid.getFirst().getPaymentKey())
+                        || !work.orderId().equals(paid.getFirst().getOrderId())
+                        || paid.getFirst().getPaidAmount() != work.paidAmount()) {
+                    throw new ApiException(HttpStatus.CONFLICT, "REFUND_PAYMENT_CHANGED",
+                        "결제 취소 후 내부 결제 정보가 변경됐습니다. 결제대행사 내역을 확인해 주세요.");
+                }
+                PaymentEntity payment = paid.getFirst();
                 payment.refund(refund.getAmount());
                 refund.refunded(LocalDateTime.now(ZoneOffset.UTC));
             });
@@ -158,6 +170,6 @@ public class AutomaticRefundService {
         }
     }
 
-    private record Work(Long refundId, long amount, String reason, String paymentKey,
+    private record Work(Long refundId, Long paymentId, long amount, String reason, String paymentKey,
                         String orderId, long paidAmount, boolean demo) { }
 }
