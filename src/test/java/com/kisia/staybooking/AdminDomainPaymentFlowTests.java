@@ -9,6 +9,8 @@ import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.auth.JwtTokenProvider;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.refund.RefundEntity;
@@ -56,6 +58,9 @@ class AdminDomainPaymentFlowTests {
         BookingEntity booking = bookings.save(new BookingEntity(guest, room,
             LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
             LocalDateTime.now().plusMinutes(10)));
+        booking.cancel(admin, CancellationSource.ADMIN_DIRECT,
+            CancellationReasonType.ACCOMMODATION_FAULT, "예약 취소", LocalDateTime.now());
+        bookings.save(booking);
         PaymentEntity payment = new PaymentEntity(booking, "DEMO-ORDER-" + tag, "DEMO", 100_000);
         payment.complete("DEMO-KEY-" + tag, LocalDateTime.now());
         payments.save(payment);

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
@@ -87,6 +88,10 @@ public class AutomaticRefundService {
             work = transaction.execute(status -> {
                 RefundEntity refund = refunds.findByIdForUpdate(refundId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
+                if (refund.getBooking().getStatus() != BookingStatus.CANCELLED) {
+                    throw new ApiException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLED",
+                        "취소되지 않은 예약은 환불할 수 없습니다.");
+                }
                 try {
                     refund.start(LocalDateTime.now(ZoneOffset.UTC));
                 } catch (IllegalStateException e) {

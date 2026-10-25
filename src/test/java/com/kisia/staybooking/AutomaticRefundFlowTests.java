@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -69,10 +70,10 @@ class AutomaticRefundFlowTests {
         UserEntity guest = fixtures.user("예약자");
         RoomEntity room = fixtures.room(100_000, 2, 3);
         LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
-        BookingEntity missed = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1), BookingStatus.PENDING);
-        BookingEntity stale = fixtures.booking(guest, room, checkIn.plusDays(2), checkIn.plusDays(3), BookingStatus.PENDING);
-        BookingEntity legacy = fixtures.booking(guest, room, checkIn.plusDays(4), checkIn.plusDays(5), BookingStatus.PENDING);
-        BookingEntity active = fixtures.booking(guest, room, checkIn.plusDays(6), checkIn.plusDays(7), BookingStatus.PENDING);
+        BookingEntity missed = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1), BookingStatus.CANCELLED);
+        BookingEntity stale = fixtures.booking(guest, room, checkIn.plusDays(2), checkIn.plusDays(3), BookingStatus.CANCELLED);
+        BookingEntity legacy = fixtures.booking(guest, room, checkIn.plusDays(4), checkIn.plusDays(5), BookingStatus.CANCELLED);
+        BookingEntity active = fixtures.booking(guest, room, checkIn.plusDays(6), checkIn.plusDays(7), BookingStatus.CANCELLED);
 
         for (BookingEntity booking : java.util.List.of(missed, stale, legacy, active)) {
             PaymentEntity payment = new PaymentEntity(booking, "DEMO-ORDER-" + booking.getBookingId(), "DEMO", 100_000);
@@ -154,5 +155,27 @@ class AutomaticRefundFlowTests {
         assertEquals(RefundStatus.FAILED, failed.getStatus());
         assertEquals("PAYMENT_CANCEL_FAILED", failed.getFailureCode());
         assertEquals(PaymentStatus.PAID, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void refusesToRefundAnActiveBookingEvenWhenARefundRowExists() {
+        UserEntity guest = fixtures.user("활성 예약자");
+        UserEntity admin = fixtures.user("활성 관리자", UserRole.ROLE_ADMIN);
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(guest, room, checkIn, checkIn.plusDays(1), BookingStatus.COMPLETED);
+        PaymentEntity payment = new PaymentEntity(booking, "ACTIVE-ORDER-" + System.nanoTime(), "TOSS", 100_000);
+        payment.complete("ACTIVE-KEY-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+        RefundEntity refund = refunds.save(new RefundEntity(booking, 100_000, "잘못 생성된 환불"));
+
+        ApiException error = assertThrows(ApiException.class,
+            () -> settlement.retry(admin.getUserId(), refund.getRefundId()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("BOOKING_NOT_CANCELLED", error.getCode());
+        assertEquals(RefundStatus.FAILED, refunds.findById(refund.getRefundId()).orElseThrow().getStatus());
+        assertEquals(PaymentStatus.PAID, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+        verifyNoInteractions(gateway);
     }
 }
