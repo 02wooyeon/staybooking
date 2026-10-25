@@ -59,8 +59,13 @@ public class AutomaticRefundService {
             throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "관리자 권한이 필요합니다.");
         }
         settle(refundId);
-        return refunds.findById(refundId)
+        RefundEntity refund = refunds.findById(refundId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
+        if (refund.getStatus() != RefundStatus.REFUNDED) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "REFUND_RETRY_FAILED",
+                "환불 처리 결과를 확인하지 못했습니다. 환불 상태와 결제대행사 내역을 확인해 주세요.");
+        }
+        return refund;
     }
 
     void recover(Long refundId) {
