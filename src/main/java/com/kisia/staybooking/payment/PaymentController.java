@@ -99,6 +99,12 @@ public class PaymentController {
         return PaymentResponse.from(payments.completeDemo(me.userId(), request.bookingId()));
     }
 
+    @PostMapping("/free-complete")
+    public PaymentResponse completeFree(@AuthenticationPrincipal AuthenticatedUser me,
+                                        @Valid @RequestBody FreeCompleteRequest request) {
+        return PaymentResponse.from(payments.completeFree(me.userId(), request.bookingId()));
+    }
+
     private void requireDemoEnabled() {
         if (!demoEnabled) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_NOT_CONFIGURED",
@@ -109,6 +115,8 @@ public class PaymentController {
     public record PaymentCapabilities(boolean demoEnabled, boolean tossEnabled, String tossClientKey) { }
 
     public record DemoCompleteRequest(@NotNull @Positive Long bookingId) { }
+
+    public record FreeCompleteRequest(@NotNull @Positive Long bookingId) { }
 
     public record PaymentPrepareRequest(@NotNull @Positive Long bookingId,
                                         @NotBlank @Size(max = 30) String paymentMethod) { }

@@ -27,6 +27,11 @@ public class PaymentService {
     public PaymentEntity prepare(Long userId, Long bookingId, String paymentMethod) {
         BookingEntity booking = ownedBooking(userId, bookingId);
         ensurePaymentPending(booking);
+        long payable = booking.getTotalAmount() - booking.getUsedMileage();
+        if (payable == 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_REQUIRED",
+                "결제 금액이 0원인 예약은 무료 예약 완료 기능을 이용해 주세요.");
+        }
         PaymentEntity ready = payments.findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(
             bookingId, PaymentStatus.READY).orElse(null);
         if (ready != null) {
@@ -35,8 +40,32 @@ public class PaymentService {
             }
             return ready;
         }
-        return payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod,
-            booking.getTotalAmount() - booking.getUsedMileage()));
+        return payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod, payable));
+    }
+
+    /** 0원 예약은 PG 결제 없이 승인 대기로 전환한다. 재요청은 기존 무료 결제를 반환한다. */
+    @Transactional
+    public PaymentEntity completeFree(Long userId, Long bookingId) {
+        BookingEntity booking = ownedBooking(userId, bookingId);
+        if (booking.getTotalAmount() - booking.getUsedMileage() != 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_REQUIRED", "결제가 필요한 예약입니다.");
+        }
+        if (booking.getStatus() == BookingStatus.PENDING || booking.getStatus() == BookingStatus.COMPLETED) {
+            var paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
+            if (paid.size() == 1 && "FREE".equals(paid.getFirst().getPaymentMethod())) {
+                return paid.getFirst();
+            }
+            throw new IllegalStateException("Free booking payment record is inconsistent");
+        }
+        ensurePaymentPending(booking);
+        if (!payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID).isEmpty()) {
+            throw new IllegalStateException("Booking already has a paid payment");
+        }
+        PaymentEntity payment = new PaymentEntity(booking, newOrderId(), "FREE", 0);
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        payment.complete("FREE-" + UUID.randomUUID(), nowUtc);
+        booking.markPaid(nowUtc);
+        return payments.save(payment);
     }
 
     @Transactional
