@@ -112,6 +112,8 @@ class AdminDomainBookingCancellationTests {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("paid-admin-" + tag, "hash", "Admin", null,
             "paid-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        UserEntity otherAdmin = users.save(new UserEntity("other-paid-admin-" + tag, "hash", "Other Admin", null,
+            "other-paid-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
         UserEntity guest = users.save(new UserEntity("paid-guest-" + tag, "hash", "Guest",
             "paid-guest-" + tag + "@example.test"));
         AccommodationEntity accommodation = accommodations.save(new AccommodationEntity(
@@ -132,6 +134,24 @@ class AdminDomainBookingCancellationTests {
             .andExpect(jsonPath("$.status").value("CANCELLED"))
             .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
             .andExpect(jsonPath("$.refundAmount").value(100_000));
+        mvc.perform(patch(path).header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"CANCEL\",\"reasonType\":\"ACCOMMODATION_FAULT\","
+                    + "\"reason\":\"운영자 직접 취소\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"));
+        assertEquals(1, refunds.findByBookingBookingIdIn(java.util.List.of(booking.getBookingId())).size());
+        mvc.perform(patch(path).header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"CANCEL\",\"reasonType\":\"USER_FAULT\","
+                    + "\"reason\":\"다른 사유\"}"))
+            .andExpect(status().isConflict());
+        mvc.perform(patch(path).header("Authorization", "Bearer " + jwt.createAccessToken(otherAdmin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"CANCEL\",\"reasonType\":\"ACCOMMODATION_FAULT\","
+                    + "\"reason\":\"운영자 직접 취소\"}"))
+            .andExpect(status().isConflict());
         mvc.perform(get(path).header("Authorization", token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"));
