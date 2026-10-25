@@ -99,14 +99,16 @@ public class PaymentHistoryService {
 
     public record PaymentHistory(Long paymentId, Long bookingId, String orderId, String paymentMethod,
                                  long amount, PaymentStatus status, LocalDateTime paidAt,
-                                 Long refundId, RefundStatus refundStatus, Long refundAmount) {
+                                 Long refundId, RefundStatus refundStatus, Long refundAmount,
+                                 Long refundedAmount) {
         static PaymentHistory from(PaymentEntity payment, RefundEntity refund) {
             return new PaymentHistory(payment.getPaymentId(), payment.getBooking().getBookingId(),
                 payment.getOrderId(), payment.getPaymentMethod(), payment.getPaidAmount(),
                 payment.getStatus(), payment.getPaidAt(),
                 refund == null ? null : refund.getRefundId(),
                 refund == null ? null : refund.getStatus(),
-                refund == null ? null : refund.getAmount());
+                refund == null ? null : refund.getAmount(),
+                refund == null ? null : refund.getStatus() == RefundStatus.REFUNDED ? refund.getAmount() : 0L);
         }
     }
 }

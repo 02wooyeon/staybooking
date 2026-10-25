@@ -122,12 +122,14 @@ class PaymentHistoryApiTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].bookingId").value(booking.getBookingId()))
             .andExpect(jsonPath("$[0].refundStatus").value("REQUESTED"))
-            .andExpect(jsonPath("$[0].refundAmount").value(50_000));
+            .andExpect(jsonPath("$[0].refundAmount").value(50_000))
+            .andExpect(jsonPath("$[0].refundedAmount").value(0));
         mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.refundStatus").value("REQUESTED"))
-            .andExpect(jsonPath("$.refundAmount").value(50_000));
+            .andExpect(jsonPath("$.refundAmount").value(50_000))
+            .andExpect(jsonPath("$.refundedAmount").value(0));
         mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
                 .header("Authorization", "Bearer " + jwt.createAccessToken(stranger)))
             .andExpect(status().isNotFound());
@@ -139,6 +141,7 @@ class PaymentHistoryApiTests {
             .andExpect(jsonPath("$[0].status").value("PAID"))
             .andExpect(jsonPath("$[0].refundStatus").value("REQUESTED"))
             .andExpect(jsonPath("$[0].refundAmount").value(50_000))
+            .andExpect(jsonPath("$[0].refundedAmount").value(0))
             .andExpect(jsonPath("$[0].paymentKey").doesNotExist());
         mvc.perform(get("/api/v1/payments/me")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(stranger)))
@@ -259,5 +262,15 @@ class PaymentHistoryApiTests {
         mvc.perform(get(refundSearch.replace("&size=1", "&size=0"))
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isBadRequest());
+
+        refund.start(LocalDateTime.now());
+        refund.failed("PAYMENT_CANCEL_FAILED");
+        refunds.save(refund);
+        mvc.perform(get("/api/v1/payments/me")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].refundStatus").value("FAILED"))
+            .andExpect(jsonPath("$[0].refundAmount").value(50_000))
+            .andExpect(jsonPath("$[0].refundedAmount").value(0));
     }
 }

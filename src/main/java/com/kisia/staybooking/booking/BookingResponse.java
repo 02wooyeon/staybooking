@@ -12,7 +12,7 @@ public record BookingResponse(
     Long bookingId, Long accommodationId, String accommodationName, Long roomId, String roomName,
     LocalDate checkIn, LocalDate checkOut, int guests, long totalAmount, BookingStatus status,
     boolean cancellationRequested, LocalDateTime paymentExpiresAt,
-    RefundStatus refundStatus, Long refundAmount
+    RefundStatus refundStatus, Long refundAmount, Long refundedAmount
 ) {
     public static BookingResponse from(BookingEntity booking) {
         return create(booking, false, null, null);
@@ -38,6 +38,7 @@ public record BookingResponse(
             booking.getRoom().getAccommodation().getName(), booking.getRoom().getRoomId(), booking.getRoom().getName(),
             booking.getCheckInDate(), booking.getCheckOutDate(), booking.getGuests(), booking.getTotalAmount(),
             booking.getStatus(), cancellationRequested, booking.getPaymentExpiresAt(),
-            refundStatus, refundAmount);
+            refundStatus, refundAmount, refundStatus == null ? null
+                : refundStatus == RefundStatus.REFUNDED ? refundAmount : 0L);
     }
 }
