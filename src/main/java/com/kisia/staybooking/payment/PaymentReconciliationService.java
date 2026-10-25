@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
@@ -82,8 +83,19 @@ public class PaymentReconciliationService {
                 && approvedRefundOf(refund, payment.getPaidAmount()) && balanceIs(provider, 0);
             case FAILED -> "ABORTED".equals(provider.status()) || "EXPIRED".equals(provider.status());
         };
-        return report(payment, provider, provider.status(),
-            identityMatches && statusMatches ? Result.MATCHED : Result.REVIEW_REQUIRED);
+        Result result;
+        if (identityMatches && statusMatches) {
+            result = Result.MATCHED;
+        } else if (identityMatches && payment.getStatus() == PaymentStatus.READY
+                && "DONE".equals(provider.status())
+                && provider.paymentKey() != null && !provider.paymentKey().isBlank()
+                && balanceIs(provider, payment.getPaidAmount())) {
+            result = payment.getBooking().getStatus() == BookingStatus.CANCELLED
+                ? Result.CANCELLED_BOOKING_CHARGED : Result.PROVIDER_CHARGED_NOT_RECORDED;
+        } else {
+            result = Result.REVIEW_REQUIRED;
+        }
+        return report(payment, provider, provider.status(), result);
     }
 
     private static boolean approvedRefundBetween(RefundEntity refund, long min, long max) {
@@ -107,14 +119,19 @@ public class PaymentReconciliationService {
     private static Report report(PaymentEntity payment, TossPaymentGateway.Confirmation provider,
                                  String providerStatus, Result result) {
         return new Report(payment.getPaymentId(), payment.getBooking().getBookingId(),
-            payment.getOrderId(), payment.getStatus(), providerStatus, payment.getPaidAmount(),
+            payment.getOrderId(), payment.getBooking().getStatus(), payment.getStatus(),
+            providerStatus, payment.getPaidAmount(),
             provider == null ? null : provider.totalAmount(),
             provider == null ? null : provider.balanceAmount(), result, LocalDateTime.now(ZoneOffset.UTC));
     }
 
-    public enum Result { MATCHED, REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE }
+    public enum Result {
+        MATCHED, PROVIDER_CHARGED_NOT_RECORDED, CANCELLED_BOOKING_CHARGED,
+        REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE
+    }
 
-    public record Report(Long paymentId, Long bookingId, String orderId, PaymentStatus localStatus,
+    public record Report(Long paymentId, Long bookingId, String orderId, BookingStatus bookingStatus,
+                         PaymentStatus localStatus,
                          String providerStatus, long localAmount, Long providerAmount,
                          Long providerBalanceAmount, Result result, LocalDateTime checkedAt) { }
 }

@@ -8,6 +8,9 @@ import java.util.Optional;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentReconciliationService;
@@ -46,9 +49,36 @@ class PaymentReconciliationServiceTests {
 
         var report = service.check(7L);
 
-        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, report.result());
+        assertEquals(PaymentReconciliationService.Result.PROVIDER_CHARGED_NOT_RECORDED, report.result());
+        assertEquals(BookingStatus.PAYMENT_PENDING, report.bookingStatus());
         assertEquals("DONE", report.providerStatus());
         assertEquals(PaymentStatus.READY, payment.getStatus());
+    }
+
+    @Test
+    void separatesACancelledBookingChargedByTheProviderFromOtherMismatches() {
+        PaymentEntity payment = payment("TOSS");
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        var report = service.check(7L);
+
+        assertEquals(PaymentReconciliationService.Result.CANCELLED_BOOKING_CHARGED, report.result());
+        assertEquals(BookingStatus.CANCELLED, report.bookingStatus());
+        assertEquals(PaymentStatus.READY, payment.getStatus());
+    }
+
+    @Test
+    void doesNotClassifyAnUnverifiedProviderAmountAsAnUnrecordedCharge() {
+        payment("TOSS");
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 99_000,
+                "DONE", 99_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
     }
 
     @Test
@@ -102,7 +132,7 @@ class PaymentReconciliationServiceTests {
 
         assertEquals(1, page.totalElements());
         assertEquals(1, page.content().size());
-        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED,
+        assertEquals(PaymentReconciliationService.Result.PROVIDER_CHARGED_NOT_RECORDED,
             page.content().getFirst().result());
         assertEquals(PaymentStatus.READY, payment.getStatus());
     }

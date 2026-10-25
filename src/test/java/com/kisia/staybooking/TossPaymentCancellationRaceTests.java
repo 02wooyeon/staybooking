@@ -65,7 +65,8 @@ class TossPaymentCancellationRaceTests {
             bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
         assertEquals(PaymentStatus.READY,
             payments.findById(prepared.getPaymentId()).orElseThrow().getStatus());
-        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED,
-            reconciliation.check(prepared.getPaymentId()).result());
+        var report = reconciliation.check(prepared.getPaymentId());
+        assertEquals(PaymentReconciliationService.Result.CANCELLED_BOOKING_CHARGED, report.result());
+        assertEquals(BookingStatus.CANCELLED, report.bookingStatus());
     }
 }
