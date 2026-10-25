@@ -99,7 +99,6 @@ public class AutomaticRefundService {
                     throw new ApiException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLED",
                         "취소되지 않은 예약은 환불할 수 없습니다.");
                 }
-                boolean providerRecheck = refund.getStatus() != RefundStatus.REQUESTED;
                 try {
                     refund.start(LocalDateTime.now(ZoneOffset.UTC));
                 } catch (IllegalStateException e) {
@@ -117,8 +116,7 @@ public class AutomaticRefundService {
                 }
                 return new Work(refundId, payment.getPaymentId(), refund.getAmount(),
                     refund.getReason(), payment.getPaymentKey(),
-                    payment.getOrderId(), payment.getPaidAmount(), "DEMO".equals(payment.getPaymentMethod()),
-                    providerRecheck);
+                    payment.getOrderId(), payment.getPaidAmount(), "DEMO".equals(payment.getPaymentMethod()));
             });
         } catch (ApiException e) {
             if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) markFailed(refundId, e.getCode());
@@ -127,9 +125,8 @@ public class AutomaticRefundService {
         if (work == null) throw new IllegalStateException("Refund transaction returned no work");
         try {
             if (work.amount() > 0 && !work.demo()) {
-                if (work.providerRecheck()
-                        && reconciliation.check(refundId).result()
-                            != RefundReconciliationService.Result.NO_CANCELLATION_RECORDED) {
+                if (reconciliation.check(refundId).result()
+                        != RefundReconciliationService.Result.NO_CANCELLATION_RECORDED) {
                     throw new ApiException(HttpStatus.CONFLICT, "REFUND_REVIEW_REQUIRED",
                         "PG 취소 내역을 먼저 확인해야 합니다. 환불 대조 결과를 확인해 주세요.");
                 }
@@ -186,5 +183,5 @@ public class AutomaticRefundService {
     }
 
     private record Work(Long refundId, Long paymentId, long amount, String reason, String paymentKey,
-                        String orderId, long paidAmount, boolean demo, boolean providerRecheck) { }
+                        String orderId, long paidAmount, boolean demo) { }
 }
