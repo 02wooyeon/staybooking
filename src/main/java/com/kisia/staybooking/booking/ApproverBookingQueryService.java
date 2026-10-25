@@ -9,6 +9,8 @@ import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationRequestRepository;
 import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.refund.RefundSummary;
+import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -23,12 +25,15 @@ public class ApproverBookingQueryService {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final CancellationRequestRepository cancellationRequests;
+    private final RefundRepository refunds;
 
     public ApproverBookingQueryService(UserRepository users, BookingRepository bookings,
-                                       CancellationRequestRepository cancellationRequests) {
+                                       CancellationRequestRepository cancellationRequests,
+                                       RefundRepository refunds) {
         this.users = users;
         this.bookings = bookings;
         this.cancellationRequests = cancellationRequests;
+        this.refunds = refunds;
     }
 
     @Transactional(readOnly = true)
@@ -41,8 +46,11 @@ public class ApproverBookingQueryService {
             .findByBookingBookingIdInAndStatus(found.stream().map(BookingEntity::getBookingId).toList(),
                 CancellationRequestStatus.REQUESTED)
             .stream().collect(Collectors.toMap(request -> request.getBooking().getBookingId(), Function.identity()));
+        Map<Long, RefundSummary> refundsByBooking = refunds.findSummariesByBookingIdIn(
+            found.stream().map(BookingEntity::getBookingId).toList()).stream()
+            .collect(Collectors.toMap(RefundSummary::bookingId, Function.identity()));
         return found.stream().map(booking -> ApproverBookingResponse.from(booking,
-            pendingByBooking.get(booking.getBookingId()))).toList();
+            pendingByBooking.get(booking.getBookingId()), refundsByBooking.get(booking.getBookingId()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +63,8 @@ public class ApproverBookingQueryService {
         CancellationRequestEntity pending = history.stream()
             .filter(request -> request.getStatus() == CancellationRequestStatus.REQUESTED)
             .findFirst().orElse(null);
-        return new OperatorBookingDetailResponse(ApproverBookingResponse.from(booking, pending),
+        RefundSummary refund = refunds.findSummariesByBookingIdIn(List.of(bookingId)).stream().findFirst().orElse(null);
+        return new OperatorBookingDetailResponse(ApproverBookingResponse.from(booking, pending, refund),
             history.stream().map(OperatorBookingDetailResponse.CancellationRequestDecision::from).toList());
     }
 

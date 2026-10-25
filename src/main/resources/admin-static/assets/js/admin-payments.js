@@ -3,8 +3,8 @@
  *   GET   /api/v1/admin/payments/search?bookingId=&status=&page=&size=
  *   GET   /api/v1/admin/payments/{paymentId}/reconciliation   결제대행사 금액 대조
  *   GET   /api/v1/admin/refunds/search?bookingId=&status=&page=&size=
- *   PATCH /api/v1/admin/refunds/{refundId}   { status: APPROVED | REJECTED }
- * 환불 승인은 서버가 결제대행사에 실제 결제 취소를 요청한다. 금액 검증은 서버가 한다.
+ *   POST /api/v1/admin/refunds/{refundId}/retry (대기·실패 건 재시도)
+ * 예약 취소 확정 후 서버가 자동으로 결제 취소를 요청한다.
  * 탭은 주소로 구분한다: ?tab=payments (기본) / ?tab=refunds
  */
 (function () {
@@ -137,35 +137,31 @@
   }
 
   function refundActions(r) {
-    if (r.status !== 'REQUESTED') {
+    if (r.status !== 'REQUESTED' && r.status !== 'FAILED' && r.status !== 'PROCESSING') {
       var done = document.createElement('small');
       done.className = 'admin-cell-sub';
-      done.textContent = (r.processedBy ? '처리자 #' + r.processedBy + ' · ' : '') + AdminUi.formatDateTime(r.processedAt);
+      done.textContent = r.processedAt ? AdminUi.formatDateTime(r.processedAt) : '-';
       return done;
     }
     return AdminUi.group([
-      AdminUi.actionButton('승인', function (b) { decide(r, 'APPROVED', b); }, 'primary'),
-      AdminUi.actionButton('반려', function (b) { decide(r, 'REJECTED', b); })
+      AdminUi.actionButton('재시도', function (b) { retryRefund(r, b); }, 'primary')
     ]);
   }
 
-  async function decide(r, status, button) {
-    var approve = status === 'APPROVED';
+  async function retryRefund(r, button) {
     var answer = await AdminUi.confirmAction({
-      title: approve ? '환불 승인' : '환불 반려',
-      message: approve
-        ? '환불 #' + r.refundId + ' (예약 #' + r.bookingId + ', ' + AdminUi.formatPrice(r.amount)
-          + ')을(를) 승인합니다. 결제대행사에 실제 결제 취소가 요청되며 되돌릴 수 없습니다.'
-        : '환불 #' + r.refundId + ' (예약 #' + r.bookingId + ')을(를) 반려합니다.',
-      confirmLabel: approve ? '환불 승인' : '반려',
-      danger: approve
+      title: '환불 재시도',
+      message: '환불 #' + r.refundId + '을(를) 같은 환불 번호로 재시도합니다. 처리 중인 건은 잠시 후 다시 시도해 주세요.',
+      confirmLabel: '재시도',
+      danger: true
     });
     if (!answer.confirmed) return;
     button.disabled = true;
     try {
-      await AdminUi.api('PATCH', '/api/v1/admin/refunds/' + encodeURIComponent(r.refundId), { status: status });
+      var result = await AdminUi.api('POST', '/api/v1/admin/refunds/' + encodeURIComponent(r.refundId) + '/retry');
       await filters.reload();
-      AdminUi.showMessage(alertBox, approve ? '환불을 승인했습니다.' : '환불을 반려했습니다.', 'success');
+      AdminUi.showMessage(alertBox, result.status === 'REFUNDED'
+        ? '환불이 완료됐습니다.' : '환불 상태를 다시 확인해 주세요.', result.status === 'REFUNDED' ? 'success' : 'error');
     } catch (e) {
       button.disabled = false;
       AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));

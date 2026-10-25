@@ -5,6 +5,7 @@ import java.util.List;
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationRequestService;
+import com.kisia.staybooking.refund.RefundQuote;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -58,6 +60,13 @@ public class BookingController {
     public BookingResponse detail(@AuthenticationPrincipal AuthenticatedUser me,
                                   @PathVariable @Positive Long bookingId) {
         return queries.mineDetail(me.userId(), bookingId);
+    }
+
+    @GetMapping("/{bookingId}/refund-quote")
+    public RefundQuote refundQuote(@AuthenticationPrincipal AuthenticatedUser me,
+                                   @PathVariable @Positive Long bookingId,
+                                   @RequestParam CancellationReasonType reasonType) {
+        return queries.refundQuote(me.userId(), bookingId, reasonType);
     }
 
     @GetMapping("/{bookingId}/cancellation-requests")

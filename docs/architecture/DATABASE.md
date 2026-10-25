@@ -19,7 +19,7 @@ erDiagram
     rooms ||--o{ bookings : reserved_as_type
     bookings ||--o{ payments : attempts
     bookings ||--o{ booking_cancellation_requests : requests
-    payments ||--o{ refunds : refunds
+    bookings ||--o| refunds : refunded_once
     users ||--o{ mileage_history : changes
     bookings ||--o| reviews : reviewed_once
     users ||--o{ qna : asks
@@ -139,16 +139,21 @@ erDiagram
 | 컬럼 | 타입·제약 | 용도 |
 |---|---|---|
 | `refund_id` | BIGINT PK | 환불 번호 |
-| `payment_id` | BIGINT NN FK → `payments.payment_id` | 원결제 |
-| `booking_id` | BIGINT NN FK → `bookings.booking_id` | 예약; 원결제의 booking_id와 일치 검사 |
-| `reason_type`, `reason_detail` | VARCHAR(30) NN / VARCHAR(255) | `USER_FAULT`, `ACCOMMODATION_FAULT`, `FORCE_MAJEURE` / 설명 |
-| `refund_rate` | TINYINT NN | 실결제분 환불률: 100·50·0 |
-| `refund_amount`, `mileage_refund` | BIGINT NN / BIGINT NN DEFAULT 0 | 실제 환불 원화 / 복원 마일리지 |
-| `status` | VARCHAR(30) NN DEFAULT `REQUESTED` | `REQUESTED`, `PROCESSING`, `REFUNDED`, `FAILED` |
-| `processed_by`, `processed_at` | BIGINT FK → `users.user_id` / DATETIME(6) | 처리자 / 시각 |
-| `created_at` | DATETIME(6) NN | 생성 시각 |
+| `booking_id` | BIGINT NN FK UQ → `bookings.booking_id` | 예약당 환불 기록 1건 |
+| `amount` | BIGINT NN | 정책으로 계산한 실제 원화 환불액 |
+| `reason` | VARCHAR(255) | 취소 사유 |
+| `status` | VARCHAR(30) NN DEFAULT `REQUESTED` | 신규 흐름: `REQUESTED`, `PROCESSING`, `REFUNDED`, `FAILED` |
+| `started_at`, `processed_at` | DATETIME(6) / DATETIME(6) | 마지막 처리 시작 / 환불 완료 시각 |
+| `failure_code` | VARCHAR(80) | 마지막 실패 원인 코드 |
+| `auto_processing` | BOOLEAN | `TRUE`인 신규 자동 환불만 서버 재시작 후 복구 대상. 과거 수동 환불 행은 `NULL` |
+| `processed_by` | BIGINT FK → `users.user_id` | 이전 수동 처리 기록 호환용. 자동 처리에서는 비어 있음 |
+| `created_at`, `updated_at` | DATETIME(6) NN | 생성·수정 시각 |
 
-결제 1건에 환불 기록은 여러 건 가능하며, 합계가 원결제 금액을 넘지 않게 검사합니다.
+기존 DB의 `APPROVED`, `REJECTED` 상태값은 과거 행을 읽기 위해 enum에 남겨 둡니다. 신규 자동 처리에서는 생성하지 않습니다. 원결제는 예약의 유일한 `PAID` 결제를 조회해 검증하며, 환불 재시도에는 같은 `refund_id`를 멱등키로 사용합니다. 마일리지 이력은 아직 구현되지 않았습니다.
+
+MySQL 프로필에서는 1분마다 `auto_processing = TRUE`인 건 중 1분 넘게 `REQUESTED`로 남은 건과 2분 넘게 `PROCESSING`에 머문 건을 최대 25건씩 복구합니다. `FAILED`는 자동 재시도하지 않으며 관리자가 원인을 확인한 뒤 재시도합니다.
+
+2026-10-25 DB01 읽기 전용 확인에서 `status`가 이전 ENUM 형식이고 새 컬럼 3개가 없음을 확인했습니다. 배포 전 [수동 변경 SQL](../sql/2026-10-25-refunds-auto-processing.sql)을 적용해야 합니다. 이전 행의 `auto_processing`은 `NULL`로 두어 자동 복구 대상에서 제외합니다. 로컬 H2 테스트 통과만으로 DB01 스키마 변경을 검증한 것은 아닙니다.
 
 ### `mileage_history`
 
@@ -184,7 +189,7 @@ bookings(room_id, status, check_in_date, check_out_date)
 bookings(user_id, created_at)
 booking_cancellation_requests(booking_id, status)
 payments(booking_id, status)
-refunds(payment_id, status)
+refunds(booking_id UNIQUE, status)
 reviews(accommodation_id, is_deleted, created_at)
 qna(is_secret, is_deleted, created_at)
 ```

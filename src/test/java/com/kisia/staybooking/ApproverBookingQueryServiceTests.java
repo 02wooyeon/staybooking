@@ -70,8 +70,8 @@ class ApproverBookingQueryServiceTests {
         assertNotNull(results.getFirst().cancellationRequest());
         assertEquals("USER_FAULT", results.getFirst().cancellationRequest().reasonType());
         assertNull(results.get(1).cancellationRequest());
-        assertTrue(statistics.getPrepareStatementCount() <= 3,
-            "승인자 목록은 권한, 예약·객실, 취소 요청을 각각 한 번씩 조회해야 합니다.");
+        assertTrue(statistics.getPrepareStatementCount() <= 4,
+            "승인자 목록은 권한, 예약·객실, 취소 요청, 환불을 각각 한 번씩 조회해야 합니다.");
     }
 
     @Test

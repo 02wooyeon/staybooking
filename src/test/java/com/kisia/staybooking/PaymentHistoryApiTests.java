@@ -117,6 +117,21 @@ class PaymentHistoryApiTests {
         payments.save(payment);
         RefundEntity refund = refunds.save(new RefundEntity(booking, 50_000, "취소 요청"));
 
+        mvc.perform(get("/api/v1/bookings/me")
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].bookingId").value(booking.getBookingId()))
+            .andExpect(jsonPath("$[0].refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$[0].refundAmount").value(50_000));
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.refundAmount").value(50_000));
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(stranger)))
+            .andExpect(status().isNotFound());
+
         mvc.perform(get("/api/v1/payments/me")
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isOk())
@@ -198,7 +213,11 @@ class PaymentHistoryApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].result").value("LOOKUP_FAILED"))
-            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()));
+            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()))
+            .andExpect(jsonPath("$.content[0].refundId").value(refund.getRefundId()))
+            .andExpect(jsonPath("$.content[0].refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.content[0].refundAmount").value(50_000))
+            .andExpect(jsonPath("$.content[0].paymentKey").doesNotExist());
         mvc.perform(get(reconciliationSearch)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isForbidden());
