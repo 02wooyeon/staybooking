@@ -1,5 +1,7 @@
 /*
  * 마이페이지(설정 화면): 왼쪽 메뉴로 내 정보 관리 / 내 활동 / 마일리지 / 설정을 전환한다.
+ * 비로그인이면 설정 패널만 볼 수 있다. 내 정보 관리·내 활동·마일리지를 열면 로그인 화면으로 보내고,
+ * 로그인 후 그 패널로 돌아온다.
  * 회원 정보와 현재 마일리지는 API에서 조회하고,
  * 일반 설정은 이 브라우저의 localStorage에만 저장한다.
  */
@@ -17,10 +19,14 @@
 
   var PANELS = ['profile', 'activity', 'mileage', 'preferences'];
   var tabLinks = document.querySelectorAll('.settings-tabs a');
+  var MEMBER_PANELS = ['profile', 'activity', 'mileage']; // 로그인해야 볼 수 있는 패널
   var defaultPanel = 'profile';
+  var signedIn = null; // null: 로그인 확인 중 (그동안은 어떤 패널도 보여 주지 않는다)
+  var shownPanel = null; // 지금 화면에 보이는 패널
 
   function showPanel(name) {
     if (PANELS.indexOf(name) === -1) name = defaultPanel;
+    shownPanel = name;
     PANELS.forEach(function (panel) {
       document.getElementById('panel-' + panel).hidden = panel !== name;
     });
@@ -31,19 +37,40 @@
     });
   }
 
+  // 로그인 후 돌아올 주소(#패널)를 붙여 로그인 화면으로 보낸다.
+  // 처음 들어올 때는 replace 로, 메뉴를 눌렀을 때는 뒤로 가기로 설정 화면에 돌아올 수 있게 이동한다.
+  function goLogin(panel, fromMenu) {
+    var url = '/auth/login.html?next=' + encodeURIComponent(window.location.pathname + '#' + panel);
+    if (fromMenu) {
+      // 로그인 화면에서 뒤로 가면 보던 패널로 돌아오도록, 방금 바뀐 주소를 원래 패널로 되돌려 둔다
+      window.history.replaceState(null, '', window.location.pathname + '#' + (shownPanel || 'preferences'));
+      window.location.href = url;
+    } else {
+      window.location.replace(url);
+    }
+  }
+
+  function route(fromMenu) {
+    var name = window.location.hash.slice(1);
+    if (PANELS.indexOf(name) === -1) name = defaultPanel;
+    if (!signedIn && MEMBER_PANELS.indexOf(name) !== -1) {
+      goLogin(name, fromMenu);
+      return;
+    }
+    showPanel(name);
+  }
+
   window.addEventListener('hashchange', function () {
-    showPanel(window.location.hash.slice(1));
+    if (signedIn !== null) route(true);
   });
 
-  // 주소에 #패널이 없으면 로그인 여부를 확인한 뒤 기본 패널을 연다 (비로그인: 설정)
-  if (PANELS.indexOf(window.location.hash.slice(1)) !== -1) {
-    showPanel(window.location.hash.slice(1));
-  } else {
-    headerReady.then(function (me) {
-      defaultPanel = me ? 'profile' : 'preferences';
-      showPanel(window.location.hash.slice(1));
-    });
+  // 로그인 여부를 먼저 확인한다. 비로그인이면 기본 패널은 설정이고, 회원 전용 패널은 로그인 화면으로 보낸다.
+  function decide(loggedIn) {
+    signedIn = loggedIn;
+    defaultPanel = loggedIn ? 'profile' : 'preferences';
+    route(false);
   }
+  headerReady.then(function (me) { decide(Boolean(me)); }, function () { decide(false); });
 
   /* ---------- 내 정보 관리 ---------- */
 
@@ -202,13 +229,87 @@
     document.getElementById(countId).textContent = '(' + items.length + ')';
   }
 
+  /* 이용 내역: 승인 완료(COMPLETED)이고 체크아웃 날짜가 지난 내 예약 (후기 작성 조건과 같다) */
+
+  // 오늘 날짜(한국 시간) YYYY-MM-DD
+  function todayInKorea() {
+    return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  // 서버가 준 사진 주소는 같은 사이트 경로(/...) 또는 https 만 쓴다
+  function safeImageUrl(url) {
+    var text = String(url || '');
+    return /^\/(?!\/)/.test(text) || /^https:\/\//i.test(text) ? text : null;
+  }
+
+  function stayItem(stay) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.className = 'stay-history-item';
+    a.href = '/accommodation/detail.html?id=' + encodeURIComponent(stay.accommodationId);
+    var thumb = document.createElement('div');
+    thumb.className = 'stay-history-thumb';
+    var placeholder = document.createElement('span');
+    placeholder.textContent = '이미지 준비 중';
+    thumb.append(placeholder);
+    var text = document.createElement('div');
+    text.className = 'stay-history-text';
+    var name = document.createElement('strong');
+    name.textContent = stay.accommodationName || '숙소';
+    var meta = document.createElement('small');
+    meta.className = 'muted';
+    meta.textContent = stay.checkIn + ' ~ ' + stay.checkOut + (stay.roomName ? ' · ' + stay.roomName : '');
+    text.append(name, meta);
+    a.append(thumb, text);
+    li.append(a);
+    return { li: li, thumb: thumb };
+  }
+
+  // 숙소 상세의 첫 번째 사진을 대표 이미지로 쓴다. 사진이 없거나 볼 수 없는 숙소면 "이미지 준비 중"을 둔다.
+  async function fillStayImage(accommodationId, thumbs) {
+    try {
+      var detail = await BookingApi.getAccommodation(accommodationId);
+      var first = (detail.images || [])[0];
+      var src = safeImageUrl(typeof first === 'string' ? first : first && first.url);
+      if (!src) return;
+      thumbs.forEach(function (thumb) {
+        var img = document.createElement('img');
+        img.src = src;
+        img.alt = (detail.name || '숙소') + ' 대표 이미지';
+        img.loading = 'lazy';
+        thumb.textContent = '';
+        thumb.append(img);
+      });
+    } catch (e) { /* 판매 중지된 숙소 등은 상세를 볼 수 없으므로 자리 표시를 그대로 둔다 */ }
+  }
+
+  async function loadStays() {
+    var bookings = await BookingApi.getMyBookings();
+    var today = todayInKorea();
+    var stays = (bookings || []).filter(function (b) {
+      return b.status === 'COMPLETED' && b.checkOut <= today;
+    }).sort(function (x, y) { return x.checkOut < y.checkOut ? 1 : -1; }); // 최근에 이용한 순
+    var thumbsByAccommodation = {};
+    fillList('activity-stays', 'activity-stays-empty', 'activity-stay-count', stays.map(function (stay) {
+      var item = stayItem(stay);
+      (thumbsByAccommodation[stay.accommodationId] = thumbsByAccommodation[stay.accommodationId] || [])
+        .push(item.thumb);
+      return item.li;
+    }));
+    // 같은 숙소는 상세를 한 번만 불러온다
+    Object.keys(thumbsByAccommodation).forEach(function (id) {
+      fillStayImage(id, thumbsByAccommodation[id]);
+    });
+  }
+
   // GET /api/v1/members/me/activities. 제목·내용은 textContent로만 넣어 스크립트가 실행되지 않게 한다.
   async function loadActivities() {
     if (activitiesLoaded) return;
     var activityAlert = document.getElementById('activity-alert');
     Ui.hideAlert(activityAlert);
     try {
-      var data = await BookingApi.getMyActivities();
+      var results = await Promise.all([BookingApi.getMyActivities(), loadStays()]);
+      var data = results[0];
       activitiesLoaded = true;
       fillList('activity-reviews', 'activity-reviews-empty', 'activity-review-count',
         (data.reviews || []).map(function (r) {
@@ -280,11 +381,7 @@
   renderMileageSummary();
 
   headerReady.then(function (me) {
-    if (!me) {
-      Ui.showAlert(profileAlert, '로그인 후 내 정보를 확인할 수 있습니다.');
-      profileSubmit.disabled = true;
-      return;
-    }
+    if (!me) return; // 위에서 로그인 화면으로 보낸다
     renderProfile(me);
     mileage.balance = Number(me.mileageBalance || 0);
     renderMileageSummary();
