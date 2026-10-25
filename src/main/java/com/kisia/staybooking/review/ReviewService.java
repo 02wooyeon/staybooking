@@ -111,6 +111,29 @@ public class ReviewService {
             page, size, result.getTotalElements(), result.getTotalPages());
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<AdminReviewResponse> searchForAdmin(AdminReviewSearchRequest request) {
+        int page = request.page() == null ? 0 : request.page();
+        int size = request.size() == null ? 20 : request.size();
+        if (request.minRating() != null && request.maxRating() != null
+            && request.minRating() > request.maxRating()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_RATING_RANGE",
+                "평점 범위를 올바르게 입력해 주세요.", List.of("minRating", "maxRating"));
+        }
+        String q = request.q() == null || request.q().isBlank() ? null : request.q().trim();
+        Page<ReviewEntity> result = reviews.searchForAdmin(request.reviewId(), request.userId(),
+            request.accommodationId(), request.bookingId(), request.deleted(), request.minRating(),
+            request.maxRating(), q, PageRequest.of(page, size));
+        return new PageResponse<>(result.getContent().stream().map(AdminReviewResponse::from).toList(),
+            page, size, result.getTotalElements(), result.getTotalPages());
+    }
+
+    // 숨긴 후기도 관리자는 사유를 확인해야 하므로 공개 상세(detail)와 달리 걸러내지 않는다.
+    @Transactional(readOnly = true)
+    public AdminReviewDetailResponse detailForAdmin(Long reviewId) {
+        return AdminReviewDetailResponse.from(reviews.findById(reviewId).orElseThrow(ReviewService::notFound));
+    }
+
     // ADM-14: 원본은 남기고 숨김 처리하며 사유를 기록한다.
     @Transactional
     public AdminReviewResponse hideByAdmin(Long reviewId, String reason) {

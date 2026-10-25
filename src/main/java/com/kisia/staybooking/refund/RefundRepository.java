@@ -20,6 +20,10 @@ public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
  @Query("select coalesce(sum(r.amount), 0) from RefundEntity r where r.status = :status")
  long sumAmountByStatus(@Param("status") RefundStatus status);
  @Query("select coalesce(sum(r.amount), 0) from RefundEntity r "
+     + "where r.booking.user.userId = :userId and r.status in :statuses")
+ long sumAmountByUserAndStatusIn(@Param("userId") Long userId,
+     @Param("statuses") List<RefundStatus> statuses);
+ @Query("select coalesce(sum(r.amount), 0) from RefundEntity r "
      + "where r.status = :status and r.processedAt >= :fromUtc and r.processedAt < :toUtc")
  long sumProcessedAmountByStatusAndRange(@Param("status") RefundStatus status,
      @Param("fromUtc") LocalDateTime fromUtc, @Param("toUtc") LocalDateTime toUtc);

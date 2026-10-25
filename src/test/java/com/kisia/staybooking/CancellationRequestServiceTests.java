@@ -17,6 +17,7 @@ import com.kisia.staybooking.cancellation.BookingCancellationService;
 import com.kisia.staybooking.cancellation.CancellationRequestService;
 import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.room.RoomEntity;
+import com.kisia.staybooking.mileage.MileageService;
 import com.kisia.staybooking.refund.RefundRequestService;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.payment.PaymentEntity;
@@ -32,7 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest
 @Import({CancellationRequestService.class, CancellationDecisionService.class,
-    BookingCancellationService.class, BookingQueryService.class, RefundRequestService.class})
+    BookingCancellationService.class, BookingQueryService.class, RefundRequestService.class,
+    MileageService.class})
 class CancellationRequestServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private CancellationRequestService requests;

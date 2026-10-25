@@ -8,6 +8,7 @@ import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.mileage.MileageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentService {
     private final BookingRepository bookings;
     private final PaymentRepository payments;
+    private final MileageService mileage;
 
-    public PaymentService(BookingRepository bookings, PaymentRepository payments) {
+    public PaymentService(BookingRepository bookings, PaymentRepository payments, MileageService mileage) {
         this.bookings = bookings;
         this.payments = payments;
+        this.mileage = mileage;
     }
 
     @Transactional
@@ -66,6 +69,8 @@ public class PaymentService {
         }
         PaymentEntity payment = new PaymentEntity(booking, newOrderId(), "FREE", 0);
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        // 전액 마일리지로 치르는 예약이므로 여기에서 실제 잔액을 차감한다.
+        mileage.useForBooking(booking);
         payment.complete("FREE-" + UUID.randomUUID(), nowUtc);
         booking.markPaid(nowUtc);
         return payments.save(payment);
@@ -94,6 +99,8 @@ public class PaymentService {
         if (payment.getPaidAmount() != amount) {
             throw new IllegalArgumentException("Payment amount does not match");
         }
+        // 남은 금액을 PG로 받았으므로 함께 쓰기로 한 마일리지를 이 시점에 차감한다.
+        mileage.useForBooking(booking);
         payment.complete(paymentKey, LocalDateTime.now(ZoneOffset.UTC));
         booking.markPaid(LocalDateTime.now(ZoneOffset.UTC));
         return payment;
