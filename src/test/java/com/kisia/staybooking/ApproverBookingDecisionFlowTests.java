@@ -85,6 +85,16 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertEquals(approver.getUserId(), bookings.findById(booking.getBookingId())
             .orElseThrow().getApprovedBy().getUserId());
+        LocalDateTime firstApprovalAt = bookings.findById(booking.getBookingId()).orElseThrow().getApprovedAt();
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"ACCEPT\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("COMPLETED"));
+        assertEquals(firstApprovalAt, bookings.findById(booking.getBookingId()).orElseThrow().getApprovedAt());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"action\":\"ACCEPT\"}"))
+            .andExpect(status().isConflict());
         String searchPath = "http://admin.localhost/api/v1/approver/bookings/search";
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .header("Authorization", operatorToken))

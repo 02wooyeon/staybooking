@@ -42,6 +42,15 @@ public class BookingApprovalService {
         }
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        if (booking.getStatus() == BookingStatus.COMPLETED
+                && booking.getApprovedBy() != null
+                && actorId.equals(booking.getApprovedBy().getUserId())
+                && booking.getCompletedBy() != null
+                && actorId.equals(booking.getCompletedBy().getUserId())
+                && booking.getApprovedAt() != null
+                && booking.getApprovedAt().equals(booking.getCompletedAt())) {
+            return booking;
+        }
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new IllegalStateException("Booking is not awaiting approval");
         }
