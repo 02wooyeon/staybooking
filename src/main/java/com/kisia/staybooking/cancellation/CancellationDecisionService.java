@@ -36,18 +36,19 @@ public class CancellationDecisionService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CancellationRequestEntity reject(Long actorId, Long bookingId, Long requestId, String reason) {
-        UserEntity actor = users.findById(actorId)
-            .orElseThrow(() -> new IllegalArgumentException("Actor not found"));
-        if (actor.getStatus() != UserStatus.ACTIVE ||
-                (actor.getRole() != UserRole.ROLE_APPROVER && actor.getRole() != UserRole.ROLE_ADMIN)) {
-            throw new IllegalStateException("Decision permission required");
-        }
-        BookingEntity booking = bookings.findByIdForUpdate(bookingId)
+        UserEntity actor = approver(actorId);
+        bookings.findByIdForUpdate(bookingId)
             .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         CancellationRequestEntity request = requests.findByIdForUpdate(requestId)
             .orElseThrow(() -> new IllegalArgumentException("Cancellation request not found"));
         if (!request.getBooking().getBookingId().equals(bookingId)) {
             throw new IllegalArgumentException("Cancellation request belongs to another booking");
+        }
+        if (request.getStatus() == CancellationRequestStatus.REJECTED
+                && request.getDecidedBy() != null
+                && actorId.equals(request.getDecidedBy().getUserId())
+                && Objects.equals(request.getDecisionReason(), reason)) {
+            return request;
         }
         request.reject(actor, LocalDateTime.now(ZoneOffset.UTC), reason);
         return request;

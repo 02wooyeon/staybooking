@@ -110,6 +110,25 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertEquals(CancellationRequestStatus.REJECTED,
             requests.findById(firstRequestId).orElseThrow().getStatus());
+        LocalDateTime firstDecisionAt = requests.findById(firstRequestId).orElseThrow().getDecidedAt();
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"사유 확인 필요\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("COMPLETED"));
+        assertEquals(firstDecisionAt, requests.findById(firstRequestId).orElseThrow().getDecidedAt());
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"다른 반려 사유\"}"))
+            .andExpect(status().isConflict());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"REJECT_CANCELLATION\",\"cancellationRequestId\":"
+                    + firstRequestId + ",\"reason\":\"사유 확인 필요\"}"))
+            .andExpect(status().isConflict());
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .param("cancellationRequested", "true").header("Authorization", operatorToken))
             .andExpect(status().isOk())
