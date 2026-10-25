@@ -3,6 +3,7 @@ package com.kisia.staybooking.cancellation;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Objects;
 
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
@@ -61,6 +62,16 @@ public class CancellationDecisionService {
             .orElseThrow(() -> new IllegalArgumentException("Cancellation request not found"));
         if (!request.getBooking().getBookingId().equals(bookingId)) {
             throw new IllegalArgumentException("Cancellation request belongs to another booking");
+        }
+        if (request.getStatus() == CancellationRequestStatus.APPROVED
+                && booking.getStatus() == BookingStatus.CANCELLED
+                && booking.getCancelSource() == CancellationSource.USER_REQUEST
+                && request.getDecidedBy() != null
+                && actorId.equals(request.getDecidedBy().getUserId())
+                && booking.getCancelledBy() != null
+                && actorId.equals(booking.getCancelledBy().getUserId())
+                && Objects.equals(request.getDecisionReason(), reason)) {
+            return request;
         }
         requireCancellableBeforeCheckIn(booking);
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);

@@ -134,6 +134,20 @@ class ApproverBookingDecisionFlowTests {
             .andExpect(jsonPath("$.status").value("CANCELLED"))
             .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
             .andExpect(jsonPath("$.refundAmount").value(100_000));
+        mvc.perform(patch("http://admin.localhost" + operatorPath).header("Authorization", operatorToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
+                    + secondRequestId + "}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"));
+        assertEquals(1, refunds.findByBookingBookingIdIn(java.util.List.of(booking.getBookingId())).size());
+        mvc.perform(patch("http://admin.localhost" + operatorPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
+                    + secondRequestId + "}"))
+            .andExpect(status().isConflict());
         assertEquals(BookingStatus.CANCELLED, bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
         assertEquals(CancellationRequestStatus.APPROVED,
             requests.findById(secondRequestId).orElseThrow().getStatus());
