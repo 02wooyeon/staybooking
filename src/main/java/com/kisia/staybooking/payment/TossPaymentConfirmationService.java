@@ -7,9 +7,12 @@ import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.common.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class TossPaymentConfirmationService {
+    private static final Logger log = LoggerFactory.getLogger(TossPaymentConfirmationService.class);
     private final PaymentService payments;
     private final TossPaymentGateway gateway;
 
@@ -41,7 +44,7 @@ public class TossPaymentConfirmationService {
             }
         }
         requireMatchingConfirmation(orderId, prepared, confirmed, paymentKey);
-        return payments.complete(userId, confirmed.orderId(), confirmed.paymentKey(), confirmed.totalAmount());
+        return recordConfirmation(userId, confirmed);
     }
 
     /** 승인 응답이 유실된 본인 주문만 토스에 조회해 로컬 결제 상태를 복구한다. */
@@ -54,7 +57,32 @@ public class TossPaymentConfirmationService {
         requireConfirmable(prepared);
         TossPaymentGateway.Confirmation confirmed = gateway.findByOrderId(orderId);
         requireMatchingConfirmation(orderId, prepared, confirmed, null);
-        return payments.complete(userId, confirmed.orderId(), confirmed.paymentKey(), confirmed.totalAmount());
+        return recordConfirmation(userId, confirmed);
+    }
+
+    private PaymentEntity recordConfirmation(Long userId, TossPaymentGateway.Confirmation confirmed) {
+        try {
+            return payments.complete(userId, confirmed.orderId(), confirmed.paymentKey(), confirmed.totalAmount());
+        } catch (RuntimeException completionFailure) {
+            // 다른 요청이 같은 결제를 먼저 저장했는지 확인한다. PG 승인액이 로컬에 남지 않은 경우에는
+            // 재결제를 유도하지 않고 관리자 대조가 필요한 상태를 명시한다.
+            PaymentService.PaymentAttempt latest;
+            try {
+                latest = payments.attempt(userId, confirmed.orderId());
+            } catch (RuntimeException lookupFailure) {
+                completionFailure.addSuppressed(lookupFailure);
+                throw completionFailure;
+            }
+            if (latest.status() == PaymentStatus.PAID
+                    && confirmed.paymentKey().equals(latest.paymentKey())
+                    && confirmed.totalAmount() == latest.paidAmount()) {
+                return payments.current(userId, confirmed.orderId());
+            }
+            log.error("PG payment confirmed but local completion failed for order {}",
+                confirmed.orderId(), completionFailure);
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_RECONCILIATION_REQUIRED",
+                "결제 승인 후 예약 상태를 확정하지 못했습니다. 다시 결제하지 말고 결제 내역 확인을 요청해 주세요.");
+        }
     }
 
     private static void requireConfirmable(PaymentService.PaymentAttempt payment) {
