@@ -82,9 +82,52 @@ class PaymentReconciliationServiceTests {
     }
 
     @Test
+    void doesNotMatchACancelledPaidBookingWithoutARefundRecord() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void doesNotMatchARefundedPaymentForAnActiveBooking() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().markPaid(LocalDateTime.now());
+        payment.refund(100_000);
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 100_000, "예약 취소");
+        refund.start(LocalDateTime.now());
+        refund.refunded(LocalDateTime.now());
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "CANCELED", 0L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void doesNotMatchAPaidPaymentWhileTheBookingStillAwaitsPayment() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
     void matchesARecordedChargeAndACompletedPartialRefund() {
         PaymentEntity payment = payment("TOSS");
         payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
         RefundEntity refund = new RefundEntity(payment.getBooking(), 50_000, "취소 요청");
         refund.start(LocalDateTime.now());
         refund.refunded(LocalDateTime.now());

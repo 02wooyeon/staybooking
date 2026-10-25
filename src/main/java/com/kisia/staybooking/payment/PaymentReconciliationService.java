@@ -75,11 +75,15 @@ public class PaymentReconciliationService {
             case READY -> "READY".equals(provider.status()) || "IN_PROGRESS".equals(provider.status());
             case PAID -> "DONE".equals(provider.status())
                 && balanceIs(provider, payment.getPaidAmount())
+                && payment.getBooking().getStatus() != BookingStatus.PAYMENT_PENDING
+                && (payment.getBooking().getStatus() != BookingStatus.CANCELLED || refund != null)
                 && (refund == null || !settled(refund) || refund.getAmount() == 0);
             case PARTIALLY_REFUNDED -> "PARTIAL_CANCELED".equals(provider.status())
+                && payment.getBooking().getStatus() == BookingStatus.CANCELLED
                 && approvedRefundBetween(refund, 0, payment.getPaidAmount())
                 && balanceIs(provider, payment.getPaidAmount() - refund.getAmount());
             case REFUNDED -> "CANCELED".equals(provider.status())
+                && payment.getBooking().getStatus() == BookingStatus.CANCELLED
                 && approvedRefundOf(refund, payment.getPaidAmount()) && balanceIs(provider, 0);
             case FAILED -> "ABORTED".equals(provider.status()) || "EXPIRED".equals(provider.status());
         };
