@@ -134,6 +134,21 @@ a:hover { text-decoration: underline; }
 .link-list .link-disabled { color: var(--text-sub); font-weight: 400; }
 .link-list .danger { color: var(--error); }
 
+/* 내 활동 · 이용 내역 */
+.stay-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.stay-history-item {
+  display: flex; align-items: center; gap: 14px; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); color: var(--text);
+}
+.stay-history-item:hover { text-decoration: none; border-color: var(--brand); }
+.stay-history-thumb {
+  flex: none; width: 96px; height: 72px; border-radius: 8px; overflow: hidden;
+  display: grid; place-items: center; background: var(--bg); color: var(--text-sub); font-size: 11px;
+}
+.stay-history-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.stay-history-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.stay-history-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .setting-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 14px 0; border-bottom: 1px solid var(--border);
