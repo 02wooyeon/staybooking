@@ -31,8 +31,11 @@ public class RefundEntity extends AuditedEntity {
   status=RefundStatus.PROCESSING;startedAt=nowUtc;failureCode=null;
  }
  public void refunded(LocalDateTime nowUtc){
+  refunded(nowUtc,null);
+ }
+ public void refunded(LocalDateTime nowUtc,UserEntity actor){
   if(status!=RefundStatus.PROCESSING)throw new IllegalStateException("Refund is not processing");
-  status=RefundStatus.REFUNDED;processedAt=nowUtc;failureCode=null;
+  status=RefundStatus.REFUNDED;processedBy=actor;processedAt=nowUtc;failureCode=null;
  }
  public void failed(String code){
   if(status!=RefundStatus.PROCESSING && status!=RefundStatus.REQUESTED)

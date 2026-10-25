@@ -37,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -136,7 +138,7 @@ class AdminDomainBookingCancellationTests {
     }
 
     @Test
-    void failedProviderCancellationIsVisibleInTheImmediateBookingResponse() throws Exception {
+    void failedProviderCancellationIsVisibleAndCanBeRetriedByAnAdministrator() throws Exception {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("failed-refund-admin-" + tag, "hash", "Admin", null,
             "failed-refund-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
@@ -156,7 +158,10 @@ class AdminDomainBookingCancellationTests {
             .thenReturn(new TossPaymentGateway.Confirmation(payment.getPaymentKey(),
                 payment.getOrderId(), 100_000, "DONE", 100_000L));
         when(gateway.cancel(eq(payment.getPaymentKey()), eq("운영자 직접 취소"), eq(100_000L), anyLong()))
-            .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED", "PG 응답 확인 실패"));
+            .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED", "PG 응답 확인 실패"))
+            .thenReturn(new TossPaymentGateway.Cancellation(payment.getPaymentKey(),
+                payment.getOrderId(), 100_000, 0, "CANCELED",
+                java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE"))));
         String token = "Bearer " + jwt.createAccessToken(admin);
         String path = "http://admin.localhost/api/v1/admin/bookings/" + booking.getBookingId();
 
@@ -177,9 +182,21 @@ class AdminDomainBookingCancellationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.refundStatus").value("FAILED"))
             .andExpect(jsonPath("$.refundedAmount").value(0));
-        assertEquals(RefundStatus.FAILED,
-            refunds.findByBookingBookingIdIn(java.util.List.of(booking.getBookingId())).getFirst().getStatus());
+        var refund = refunds.findByBookingBookingIdIn(java.util.List.of(booking.getBookingId())).getFirst();
+        assertEquals(RefundStatus.FAILED, refund.getStatus());
         assertEquals(PaymentStatus.PAID, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+
+        mvc.perform(post("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId() + "/retry")
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUNDED"))
+            .andExpect(jsonPath("$.processedBy").value(admin.getUserId()));
+        mvc.perform(get(path).header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"));
+        assertEquals(PaymentStatus.REFUNDED, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
+        verify(gateway, times(2)).cancel(eq(payment.getPaymentKey()),
+            eq("운영자 직접 취소"), eq(100_000L), eq(refund.getRefundId()));
     }
 
     @Test

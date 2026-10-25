@@ -129,6 +129,7 @@ class AutomaticRefundFlowTests {
         var retried = settlement.retry(admin.getUserId(), refund.getRefundId());
         assertEquals(RefundStatus.REFUNDED, retried.getStatus());
         assertNotNull(retried.getProcessedAt());
+        assertEquals(admin.getUserId(), retried.getProcessedBy().getUserId());
         assertEquals(PaymentStatus.REFUNDED, payments.findById(payment.getPaymentId()).orElseThrow().getStatus());
         verify(gateway, times(2)).cancel(eq(key), eq("운영자 취소"), eq(100_000L), eq(refund.getRefundId()));
         assertThrows(ApiException.class, () -> settlement.retry(admin.getUserId(), refund.getRefundId()));

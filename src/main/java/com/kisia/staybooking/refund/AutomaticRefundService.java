@@ -49,7 +49,7 @@ public class AutomaticRefundService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRefundCreated(RefundRequestService.RefundCreated event) {
         try {
-            settle(event.refundId());
+            settle(event.refundId(), null);
         } catch (RuntimeException e) {
             // 예약 취소는 이미 커밋됐다. 오류를 숨기지 않고 환불 상태와 로그로 추적한다.
             log.error("Automatic refund could not start for refund {}", event.refundId(), e);
@@ -62,7 +62,7 @@ public class AutomaticRefundService {
         if (admin.getRole() != UserRole.ROLE_ADMIN || admin.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "관리자 권한이 필요합니다.");
         }
-        settle(refundId);
+        settle(refundId, admin.getUserId());
         RefundEntity refund = refunds.findById(refundId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
         if (refund.getStatus() != RefundStatus.REFUNDED) {
@@ -78,7 +78,7 @@ public class AutomaticRefundService {
 
     void recover(Long refundId) {
         try {
-            settle(refundId);
+            settle(refundId, null);
         } catch (ApiException e) {
             // 조회 후 다른 요청이 먼저 처리한 건은 다시 호출하지 않는다.
             if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) {
@@ -89,7 +89,7 @@ public class AutomaticRefundService {
         }
     }
 
-    private void settle(Long refundId) {
+    private void settle(Long refundId, Long processedById) {
         Work work;
         try {
             work = transaction.execute(status -> {
@@ -161,7 +161,8 @@ public class AutomaticRefundService {
                 }
                 PaymentEntity payment = paid.getFirst();
                 payment.refund(refund.getAmount());
-                refund.refunded(LocalDateTime.now(ZoneOffset.UTC));
+                refund.refunded(LocalDateTime.now(ZoneOffset.UTC),
+                    processedById == null ? null : users.getReferenceById(processedById));
             });
         } catch (RuntimeException e) {
             String code = e instanceof ApiException api ? api.getCode() : "REFUND_PROCESSING_FAILED";
