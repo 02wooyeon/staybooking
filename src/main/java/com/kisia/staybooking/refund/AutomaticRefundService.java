@@ -30,15 +30,18 @@ public class AutomaticRefundService {
     private final PaymentRepository payments;
     private final UserRepository users;
     private final TossPaymentGateway gateway;
+    private final RefundReconciliationService reconciliation;
     private final TransactionTemplate transaction;
 
     public AutomaticRefundService(RefundRepository refunds, PaymentRepository payments,
                                   UserRepository users, TossPaymentGateway gateway,
+                                  RefundReconciliationService reconciliation,
                                   PlatformTransactionManager manager) {
         this.refunds = refunds;
         this.payments = payments;
         this.users = users;
         this.gateway = gateway;
+        this.reconciliation = reconciliation;
         this.transaction = new TransactionTemplate(manager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -63,6 +66,10 @@ public class AutomaticRefundService {
         RefundEntity refund = refunds.findById(refundId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND", "환불 건을 찾을 수 없습니다."));
         if (refund.getStatus() != RefundStatus.REFUNDED) {
+            if ("REFUND_REVIEW_REQUIRED".equals(refund.getFailureCode())) {
+                throw new ApiException(HttpStatus.CONFLICT, "REFUND_REVIEW_REQUIRED",
+                    "PG 취소 내역을 먼저 확인해야 합니다. 환불 대조 결과를 확인해 주세요.");
+            }
             throw new ApiException(HttpStatus.BAD_GATEWAY, "REFUND_RETRY_FAILED",
                 "환불 처리 결과를 확인하지 못했습니다. 환불 상태와 결제대행사 내역을 확인해 주세요.");
         }
@@ -92,6 +99,7 @@ public class AutomaticRefundService {
                     throw new ApiException(HttpStatus.CONFLICT, "BOOKING_NOT_CANCELLED",
                         "취소되지 않은 예약은 환불할 수 없습니다.");
                 }
+                boolean providerRecheck = refund.getStatus() != RefundStatus.REQUESTED;
                 try {
                     refund.start(LocalDateTime.now(ZoneOffset.UTC));
                 } catch (IllegalStateException e) {
@@ -109,7 +117,8 @@ public class AutomaticRefundService {
                 }
                 return new Work(refundId, payment.getPaymentId(), refund.getAmount(),
                     refund.getReason(), payment.getPaymentKey(),
-                    payment.getOrderId(), payment.getPaidAmount(), "DEMO".equals(payment.getPaymentMethod()));
+                    payment.getOrderId(), payment.getPaidAmount(), "DEMO".equals(payment.getPaymentMethod()),
+                    providerRecheck);
             });
         } catch (ApiException e) {
             if (!"REFUND_NOT_RETRYABLE".equals(e.getCode())) markFailed(refundId, e.getCode());
@@ -118,6 +127,12 @@ public class AutomaticRefundService {
         if (work == null) throw new IllegalStateException("Refund transaction returned no work");
         try {
             if (work.amount() > 0 && !work.demo()) {
+                if (work.providerRecheck()
+                        && reconciliation.check(refundId).result()
+                            != RefundReconciliationService.Result.NO_CANCELLATION_RECORDED) {
+                    throw new ApiException(HttpStatus.CONFLICT, "REFUND_REVIEW_REQUIRED",
+                        "PG 취소 내역을 먼저 확인해야 합니다. 환불 대조 결과를 확인해 주세요.");
+                }
                 String reason = work.reason() == null || work.reason().isBlank() ? "예약 취소" : work.reason();
                 var result = gateway.cancel(work.paymentKey(),
                     reason.length() > 200 ? reason.substring(0, 200) : reason,
@@ -171,5 +186,5 @@ public class AutomaticRefundService {
     }
 
     private record Work(Long refundId, Long paymentId, long amount, String reason, String paymentKey,
-                        String orderId, long paidAmount, boolean demo) { }
+                        String orderId, long paidAmount, boolean demo, boolean providerRecheck) { }
 }
