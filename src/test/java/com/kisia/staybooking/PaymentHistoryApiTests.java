@@ -13,6 +13,7 @@ import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
+import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.user.UserEntity;
@@ -39,6 +40,45 @@ class PaymentHistoryApiTests {
     @Autowired private BookingRepository bookings;
     @Autowired private PaymentRepository payments;
     @Autowired private RefundRepository refunds;
+
+    @Test
+    void legacyApprovedRefundShowsSettledAmountInBookingAndPaymentHistory() throws Exception {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity owner = users.save(new UserEntity("legacy-refund-owner-" + tag, "hash", "Owner",
+            "legacy-refund-owner-" + tag + "@example.test"));
+        UserEntity admin = users.save(new UserEntity("legacy-refund-admin-" + tag, "hash", "Admin", null,
+            "legacy-refund-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Legacy stay " + tag,
+            "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
+        BookingEntity booking = bookings.save(new BookingEntity(owner, room,
+            LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        PaymentEntity payment = new PaymentEntity(booking, "ORDER-LEGACY-" + tag, "TOSS", 100_000);
+        payment.complete("legacy-payment-key-" + tag, LocalDateTime.now());
+        payment.refund(50_000);
+        payments.save(payment);
+        RefundEntity refund = new RefundEntity(booking, 50_000, "과거 승인 환불");
+        refund.process(admin, RefundStatus.APPROVED, LocalDateTime.now());
+        refunds.save(refund);
+
+        String token = "Bearer " + jwt.createAccessToken(owner);
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.refundStatus").value("APPROVED"))
+            .andExpect(jsonPath("$.refundedAmount").value(50_000));
+        mvc.perform(get("/api/v1/bookings/me")
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].refundedAmount").value(50_000));
+        mvc.perform(get("/api/v1/payments/me/search")
+                .param("bookingId", booking.getBookingId().toString())
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].refundStatus").value("APPROVED"))
+            .andExpect(jsonPath("$.content[0].refundedAmount").value(50_000));
+    }
 
     @Test
     void paginatesOnlyOwnPaymentsAndFiltersByBookingAndStatus() throws Exception {

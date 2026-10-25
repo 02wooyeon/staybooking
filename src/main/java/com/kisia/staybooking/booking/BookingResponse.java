@@ -37,7 +37,7 @@ public record BookingResponse(
         Long amount = refund == null ? null : refund.amount();
         return new BookingResponse(bookingId, accommodationId, accommodationName, roomId, roomName,
             checkIn, checkOut, guests, totalAmount, this.status, cancellationRequested, paymentExpiresAt,
-            status, amount, status == null ? null : status == RefundStatus.REFUNDED ? amount : 0L);
+            status, amount, status == null ? null : status.isSettled() ? amount : 0L);
     }
 
     private static BookingResponse create(BookingEntity booking, boolean cancellationRequested,
@@ -47,6 +47,6 @@ public record BookingResponse(
             booking.getCheckInDate(), booking.getCheckOutDate(), booking.getGuests(), booking.getTotalAmount(),
             booking.getStatus(), cancellationRequested, booking.getPaymentExpiresAt(),
             refundStatus, refundAmount, refundStatus == null ? null
-                : refundStatus == RefundStatus.REFUNDED ? refundAmount : 0L);
+                : refundStatus.isSettled() ? refundAmount : 0L);
     }
 }

@@ -108,7 +108,7 @@ public class PaymentHistoryService {
                 refund == null ? null : refund.getRefundId(),
                 refund == null ? null : refund.getStatus(),
                 refund == null ? null : refund.getAmount(),
-                refund == null ? null : refund.getStatus() == RefundStatus.REFUNDED ? refund.getAmount() : 0L);
+                refund == null ? null : refund.getStatus().isSettled() ? refund.getAmount() : 0L);
         }
     }
 }
