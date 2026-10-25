@@ -122,5 +122,5 @@ public class TossPaymentGateway {
     public record Cancellation(String paymentKey, String orderId, long totalAmount,
                                long balanceAmount, String status, List<Cancel> cancels) { }
 
-    public record Cancel(long cancelAmount) { }
+    public record Cancel(long cancelAmount, String cancelStatus) { }
 }
