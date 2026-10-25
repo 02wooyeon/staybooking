@@ -7,6 +7,8 @@ import java.util.UUID;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.common.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,10 +41,23 @@ public class PaymentService {
 
     @Transactional
     public PaymentEntity complete(Long userId, String orderId, String paymentKey, long amount) {
+        return completeLocked(userId, orderId, paymentKey, amount, null);
+    }
+
+    private PaymentEntity completeLocked(Long userId, String orderId, String paymentKey,
+                                         long amount, String requiredMethod) {
+        Long bookingId = payments.findBookingIdByOrderId(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        BookingEntity booking = ownedBooking(userId, bookingId);
+        ensurePaymentPending(booking);
         PaymentEntity payment = payments.findByOrderIdForUpdate(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        BookingEntity booking = ownedBooking(userId, payment.getBooking().getBookingId());
-        ensurePaymentPending(booking);
+        if (!payment.getBooking().getBookingId().equals(bookingId)) {
+            throw new IllegalStateException("Payment booking changed");
+        }
+        if (requiredMethod != null && !requiredMethod.equals(payment.getPaymentMethod())) {
+            throw new IllegalStateException("Only demo payments can use demo completion");
+        }
         if (payment.getPaidAmount() != amount) {
             throw new IllegalArgumentException("Payment amount does not match");
         }
@@ -60,16 +75,36 @@ public class PaymentService {
     /** 모의 결제 경로에서는 토스 주문을 임의로 결제 완료 처리할 수 없다. */
     @Transactional
     public PaymentEntity completeDemoOrder(Long userId, String orderId, long amount) {
-        PaymentEntity prepared = payments.findByOrderIdForUpdate(orderId)
-            .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        if (!prepared.getBooking().getUser().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("Payment not found");
-        }
-        if (!"DEMO".equals(prepared.getPaymentMethod())) {
-            throw new IllegalStateException("Only demo payments can use demo completion");
-        }
-        return complete(userId, orderId, "DEMO-" + UUID.randomUUID(), amount);
+        return completeLocked(userId, orderId, "DEMO-" + UUID.randomUUID(), amount, "DEMO");
     }
+
+    /** PG 호출 전 읽기 전용 확인. 결제 확정 시에는 예약 상태를 다시 검증한다. */
+    @Transactional(readOnly = true)
+    public PaymentAttempt attempt(Long userId, String orderId) {
+        PaymentEntity payment = ownedPayment(userId, orderId);
+        BookingEntity booking = payment.getBooking();
+        return new PaymentAttempt(payment.getStatus(), payment.getPaymentKey(), payment.getPaidAmount(),
+            payment.getPaymentMethod(), booking.getStatus(), booking.getPaymentExpiresAt());
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentEntity current(Long userId, String orderId) {
+        return ownedPayment(userId, orderId);
+    }
+
+    private PaymentEntity ownedPayment(Long userId, String orderId) {
+        PaymentEntity payment = payments.findByOrderId(orderId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                "결제를 찾을 수 없습니다."));
+        if (!payment.getBooking().getUser().getUserId().equals(userId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다.");
+        }
+        return payment;
+    }
+
+    public record PaymentAttempt(PaymentStatus status, String paymentKey, long paidAmount,
+                                 String paymentMethod, BookingStatus bookingStatus,
+                                 LocalDateTime paymentExpiresAt) { }
 
     private BookingEntity ownedBooking(Long userId, Long bookingId) {
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)

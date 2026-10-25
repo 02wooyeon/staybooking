@@ -58,6 +58,12 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     List<PaymentEntity> findByBookingBookingIdAndStatus(Long bookingId, PaymentStatus status);
     List<PaymentEntity> findByBookingBookingIdAndStatusIn(Long bookingId, List<PaymentStatus> statuses);
 
+    @EntityGraph(attributePaths = "booking")
+    Optional<PaymentEntity> findByOrderId(String orderId);
+
+    @Query("select p.booking.bookingId from PaymentEntity p where p.orderId = :orderId")
+    Optional<Long> findBookingIdByOrderId(@Param("orderId") String orderId);
+
     Optional<PaymentEntity> findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(Long bookingId,
                                                                                         PaymentStatus status);
 

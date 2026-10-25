@@ -10,7 +10,6 @@ import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentService;
 import com.kisia.staybooking.payment.PaymentStatus;
-import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.TossPaymentConfirmationService;
 import com.kisia.staybooking.payment.TossPaymentGateway;
 import com.kisia.staybooking.common.ApiException;
@@ -37,7 +36,6 @@ import org.springframework.http.HttpStatus;
 class PaymentServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private PaymentService payments;
-    @Autowired private PaymentRepository paymentRepository;
 
     @Test
     void completesOnlyOneMatchingPaymentAndMakesBookingApprovable() {
@@ -104,8 +102,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
 
         assertThrows(ApiException.class, () -> confirmations.confirm(owner.getUserId(),
             prepared.getOrderId(), "payment-key", 1));
@@ -143,8 +140,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
         when(gateway.confirm("payment-key", prepared.getOrderId(), 120_000))
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CONFIRM_FAILED", "응답 없음"));
         when(gateway.findByOrderId(prepared.getOrderId()))
@@ -175,8 +171,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
 
         assertThrows(ApiException.class, () -> confirmations.recover(other.getUserId(), prepared.getOrderId()));
         verifyNoInteractions(gateway);
