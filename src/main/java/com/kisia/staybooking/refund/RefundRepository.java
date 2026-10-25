@@ -50,6 +50,9 @@ public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
      Long bookingId, RefundStatus status, Pageable pageable);
  boolean existsByBookingBookingId(Long bookingId);
  List<RefundEntity> findByBookingBookingIdIn(Collection<Long> bookingIds);
+ @Query("select new com.kisia.staybooking.refund.RefundSummary(r.booking.bookingId, r.status, r.amount) "
+     + "from RefundEntity r where r.booking.bookingId in :bookingIds")
+ List<RefundSummary> findSummariesByBookingIdIn(@Param("bookingIds") Collection<Long> bookingIds);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select r from RefundEntity r where r.refundId = :id")
  Optional<RefundEntity> findByIdForUpdate(@Param("id") Long id);

@@ -3,6 +3,7 @@ package com.kisia.staybooking.booking;
 import java.time.LocalDateTime;
 
 import com.kisia.staybooking.cancellation.CancellationRequestEntity;
+import com.kisia.staybooking.refund.RefundSummary;
 import com.kisia.staybooking.user.UserEntity;
 
 /** 승인 화면에서 예약 처리 대상과 대기 중인 취소 요청을 함께 보여주는 응답 모델. */
@@ -11,8 +12,9 @@ public record ApproverBookingResponse(
     PendingCancellationRequest cancellationRequest,
     DecisionHistory decisionHistory
 ) {
-    static ApproverBookingResponse from(BookingEntity booking, CancellationRequestEntity request) {
-        return new ApproverBookingResponse(BookingResponse.from(booking, request != null),
+    static ApproverBookingResponse from(BookingEntity booking, CancellationRequestEntity request,
+                                        RefundSummary refund) {
+        return new ApproverBookingResponse(BookingResponse.from(booking, request != null, refund),
             request == null ? null : PendingCancellationRequest.from(request),
             DecisionHistory.from(booking));
     }

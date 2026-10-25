@@ -15,6 +15,7 @@
 5. 결제 요청에는 브라우저가 토스 SDK에 접근할 수 있어야 하고, WAS에서는 `https://api.tosspayments.com`으로 나가는 HTTPS 연결이 필요하다. 성공·실패 URL은 사용자가 실제 접속하는 같은 사이트 주소를 사용한다.
 
 로그인한 사용자는 `GET /api/v1/payments/me`로 자신의 결제 시도와 환불 처리 상태를 조회할 수 있다. 각 항목에는 `paymentId`, `bookingId`, `orderId`, `paymentMethod`, `amount`, `status`, `paidAt`, `refundId`, `refundStatus`, `refundAmount`가 들어간다. 환불 요청이 없으면 환불 필드는 `null`이다. 이 조회 API는 토스 `paymentKey`와 시크릿 키를 응답에 포함하지 않는다. 내 예약 조회에도 `refundStatus`와 `refundAmount`가 포함되어 자동 환불의 처리 중·완료·실패 상태를 표시할 수 있다.
+승인자·관리자의 예약 조회와 예약 처리 PATCH 응답도 같은 `refundStatus`, `refundAmount`를 담는다. 취소 처리 후 응답은 커밋된 환불 기록을 다시 읽어 반환하므로, 결제 취소 결과가 확인됐으면 즉시 `REFUNDED`가 표시된다.
 
 관리자는 `GET /api/v1/admin/payments/search`에서 `bookingId`, `status`, `page`, `size`로 결제·환불 상태를 함께 검색할 수 있다. `page`는 0부터, `size`는 1~100이며 기본값은 각각 0과 20이다. 응답은 `content`, `page`, `size`, `totalElements`, `totalPages` 형태다. 기존 `GET /api/v1/admin/payments`의 목록 응답은 유지한다.
 

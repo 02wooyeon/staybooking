@@ -68,15 +68,16 @@ public class ApproverBookingController {
     public BookingResponse process(@AuthenticationPrincipal AuthenticatedUser me,
                                    @PathVariable @Positive Long bookingId,
                                    @Valid @RequestBody ApproverBookingActionRequest request) {
-        return switch (request.action()) {
-            case ACCEPT -> BookingResponse.from(approvals.accept(me.userId(), bookingId));
-            case CANCEL -> BookingResponse.from(directCancellations.cancel(me.userId(), bookingId,
-                required(request.reasonType(), "reasonType"), requiredText(request.reason(), "reason")));
-            case APPROVE_CANCELLATION -> BookingResponse.from(approveRequest(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason()));
-            case REJECT_CANCELLATION -> BookingResponse.from(rejectRequest(me.userId(), bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), requiredText(request.reason(), "reason")));
-        };
+        switch (request.action()) {
+            case ACCEPT -> approvals.accept(me.userId(), bookingId);
+            case CANCEL -> directCancellations.cancel(me.userId(), bookingId,
+                required(request.reasonType(), "reasonType"), requiredText(request.reason(), "reason"));
+            case APPROVE_CANCELLATION -> approveRequest(me.userId(), bookingId,
+                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason());
+            case REJECT_CANCELLATION -> rejectRequest(me.userId(), bookingId,
+                required(request.cancellationRequestId(), "cancellationRequestId"), requiredText(request.reason(), "reason"));
+        }
+        return queries.detail(me.userId(), bookingId).summary().booking();
     }
 
     private BookingEntity approveRequest(Long actorId, Long bookingId, Long requestId, String reason) {

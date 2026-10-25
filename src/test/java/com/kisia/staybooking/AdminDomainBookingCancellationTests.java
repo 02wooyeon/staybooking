@@ -91,4 +91,34 @@ class AdminDomainBookingCancellationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].booking.status").value("CANCELLED"));
     }
+
+    @Test
+    void paidBookingCancellationReturnsFinalRefundStateImmediately() throws Exception {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("paid-admin-" + tag, "hash", "Admin", null,
+            "paid-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        UserEntity guest = users.save(new UserEntity("paid-guest-" + tag, "hash", "Guest",
+            "paid-guest-" + tag + "@example.test"));
+        AccommodationEntity accommodation = accommodations.save(new AccommodationEntity(
+            "Paid stay " + tag, "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(accommodation, "Standard", 100_000, 2, 1));
+        BookingEntity booking = bookings.save(new BookingEntity(guest, room,
+            LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        paymentService.completeDemo(guest.getUserId(), booking.getBookingId());
+        String token = "Bearer " + jwt.createAccessToken(admin);
+        String path = "http://admin.localhost/api/v1/admin/bookings/" + booking.getBookingId();
+
+        mvc.perform(patch(path).header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"CANCEL\",\"reasonType\":\"ACCOMMODATION_FAULT\","
+                    + "\"reason\":\"운영자 직접 취소\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$.refundAmount").value(100_000));
+        mvc.perform(get(path).header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"));
+    }
 }
