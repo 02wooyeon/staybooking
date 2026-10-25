@@ -2,6 +2,7 @@ package com.kisia.staybooking.cancellation;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Objects;
 
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
@@ -53,7 +54,13 @@ public class CancellationRequestService {
         if (!LocalDateTime.now(KOREA).isBefore(checkIn)) {
             throw new IllegalStateException("Cancellation after check-in is unavailable");
         }
-        if (requests.existsByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED)) {
+        var pending = requests.findByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED);
+        if (pending.isPresent()) {
+            CancellationRequestEntity existing = pending.get();
+            if (existing.getReasonType() == reasonType
+                    && Objects.equals(existing.getReasonDetail(), reasonDetail)) {
+                return existing;
+            }
             throw new IllegalStateException("A cancellation request is already pending");
         }
         return requests.save(new CancellationRequestEntity(booking, user, reasonType, reasonDetail));

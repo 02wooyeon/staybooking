@@ -72,6 +72,10 @@ class CancellationRequestServiceTests {
         assertEquals(BookingStatus.PENDING, request.getBooking().getStatus());
         assertEquals(true, bookingQueries.mine(owner.getUserId()).getFirst().cancellationRequested());
         assertEquals(true, bookingQueries.mineDetail(owner.getUserId(), booking.getBookingId()).cancellationRequested());
+        CancellationRequestEntity repeated = requests.request(owner.getUserId(), booking.getBookingId(),
+            CancellationReasonType.USER_FAULT, "Change of plans");
+        assertEquals(request.getCancellationRequestId(), repeated.getCancellationRequestId());
+        assertEquals(1, bookingQueries.mineCancellationRequests(owner.getUserId(), booking.getBookingId()).size());
         assertThrows(IllegalStateException.class, () -> requests.request(owner.getUserId(),
             booking.getBookingId(), CancellationReasonType.USER_FAULT, "Again"));
 
