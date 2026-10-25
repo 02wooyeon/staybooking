@@ -2,7 +2,10 @@
  * 숙소·객실 관리 (ADMIN_001, ADMIN_002)
  *   GET   /api/v1/admin/accommodations/search?keyword=&page=&size=
  *   GET   /api/v1/admin/accommodations/{id}          숙소 + 객실 목록
- *   POST  /api/v1/admin/accommodations               { name, address, checkInTime, checkOutTime, description, status }
+ *   POST  /api/v1/admin/accommodations               { name, address, checkInTime, checkOutTime, description, status,
+ *                                                       amenities: [편의시설], rules: [이용 규칙] }
+ *         amenities 는 체크박스 값 목록(서버도 같은 목록만 받는다), rules 는 한 줄에 하나(20줄, 100자 이하).
+ *         저장한 값은 사용자 숙소 상세(static/accommodation/detail.html)의 편의시설·이용 규칙에 나온다.
  *   PATCH /api/v1/admin/accommodations/{id}          (같은 형식)
  *   POST  /api/v1/admin/accommodations/{id}/rooms    { name, price, capacity, totalQuantity, description, status }
  *   PATCH /api/v1/admin/accommodations/{id}/rooms/{roomId}
@@ -11,7 +14,10 @@
  * 숙소 이미지 (아래 IMAGE_API 참고. 백엔드 API가 생기면 IMAGE_API.ready 를 true 로 바꾼다)
  *
  * 주소에 따라 화면이 바뀐다: 목록(기본) / ?mode=new 등록 / ?id={숙소 ID} 상세·수정
- * 숙소·객실 삭제 API는 아직 없다 (판매 상태를 "판매 중지"로 바꿔 운영한다).
+ * 등록·상세 화면 모두 저장 버튼은 맨 아래 하나다. 객실 추가·수정은 화면에만 담아 두고,
+ * "저장"을 누르면 숙소·객실 필수값을 모두 확인한 뒤 숙소 → 객실 순서로 한 번에 저장한다.
+ * 목록은 숙소명·주소 검색과 판매 상태(판매 중/판매 중지) 필터로 조회한다.
+ * 객실 삭제 API는 아직 없다 (판매 상태를 "판매 중지"로 바꿔 운영한다).
  */
 (function () {
   'use strict';
@@ -24,7 +30,11 @@
 
   var accForm = document.getElementById('acc-form');
   var roomForm = document.getElementById('room-form');
-  var editingRoomId = null;
+  // 화면의 객실 목록. 서버에 있는 객실은 roomId 가 있고, 고친 객실은 changed 가 true 다.
+  var rooms = [];
+  var editingRoom = null; // 객실 입력 칸에서 고치는 중인 객실 (새 객실이면 null)
+  var MAX_RULES = 20;
+  var MAX_RULE_LENGTH = 100;
 
   AdminUi.init({ page: 'accommodations', roles: ['ROLE_ADMIN'] }).then(function (me) {
     if (!me) return;
@@ -44,18 +54,20 @@
   /* ---------- 목록 ---------- */
 
   var filters = null;
+  var listNotice = null; // 등록·수정 후 목록으로 돌아왔을 때 보여 줄 안내
 
   function showList() {
     document.getElementById('list-view').hidden = false;
     filters = AdminUi.bindFilters(document.getElementById('filter-form'),
-      { keyword: '', page: 0 }, loadList);
+      { status: '', keyword: '', page: 0 }, loadList);
   }
 
   async function loadList(query) {
     AdminUi.hideMessage(alertBox);
     try {
+      // status 가 비어 있으면 전체, ACTIVE 판매 중, INACTIVE 판매 중지
       var page = await AdminUi.api('GET', API + '/search' + AdminUi.buildQuery({
-        keyword: query.keyword, page: query.page, size: AdminUi.DEFAULT_PAGE_SIZE
+        status: query.status, keyword: query.keyword, page: query.page, size: AdminUi.DEFAULT_PAGE_SIZE
       }));
       AdminUi.renderTable(document.getElementById('list-body'), page.content || [], [
         { label: '숙소 ID', render: function (a) { return a.accommodationId; } },
@@ -71,6 +83,10 @@
         } }
       ], '조건에 맞는 숙소가 없습니다.');
       AdminUi.renderPagination(document.getElementById('pagination'), page, filters.go);
+      if (listNotice) {
+        AdminUi.showMessage(alertBox, listNotice, 'success');
+        listNotice = null;
+      }
     } catch (e) {
       AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
     }
@@ -80,13 +96,14 @@
 
   function showCreate() {
     document.getElementById('edit-view').hidden = false;
+    document.getElementById('rooms-card').hidden = false;
     document.getElementById('edit-crumb').textContent = '숙소 등록';
     document.getElementById('edit-title').textContent = '숙소 등록';
-    document.getElementById('edit-sub').textContent = '숙소를 먼저 등록한 뒤 상세 화면에서 객실을 추가합니다.';
+    document.getElementById('edit-sub').textContent =
+      '숙소 정보와 객실을 입력한 뒤 맨 아래 "저장"을 누르면 함께 저장됩니다.';
     accForm.elements.checkInTime.value = '15:00';
     accForm.elements.checkOutTime.value = '11:00';
-    document.getElementById('acc-submit').textContent = '숙소 등록';
-    document.getElementById('images-after-create').hidden = false;
+    renderRooms();
   }
 
   async function showDetail() {
@@ -109,7 +126,20 @@
       accForm.elements.checkOutTime.value = (detail.checkOutTime || '').slice(0, 5);
       accForm.elements.description.value = detail.description || '';
       accForm.elements.status.value = a.status;
-      renderRooms(detail.rooms || []);
+      // 저장된 편의시설은 체크하고, 이용 규칙은 한 줄에 하나씩 채운다
+      var amenities = detail.amenities || [];
+      accForm.querySelectorAll('input[name="amenities"]').forEach(function (box) {
+        box.checked = amenities.indexOf(box.value) !== -1;
+      });
+      accForm.elements.rules.value = (detail.rules || []).join('\n');
+      rooms = (detail.rooms || []).map(function (r) {
+        return {
+          roomId: r.roomId, name: r.name, price: r.price, capacity: r.capacity,
+          totalQuantity: r.totalQuantity, description: r.description || null, status: r.status, changed: false
+        };
+      });
+      closeRoomForm();
+      renderRooms();
       // 상세 응답에 images 가 오면 그대로 보여 준다 (API 연동 전에는 빈 목록)
       renderImages(detail.images || []);
       return true;
@@ -119,16 +149,32 @@
     }
   }
 
-  function renderRooms(rooms) {
+  function renderRooms() {
     AdminUi.renderTable(document.getElementById('room-body'), rooms, [
-      { label: '객실 ID', render: function (r) { return r.roomId; } },
-      { label: '객실명', render: function (r) { return r.name; } },
+      { label: '객실 ID', render: function (r) { return r.roomId || '-'; } },
+      { label: '객실명', render: function (r) {
+        if (r.roomId && !r.changed) return r.name;
+        // 아직 저장하지 않은 객실은 표시해 둔다
+        return AdminUi.group([
+          document.createTextNode(r.name),
+          AdminUi.statusBadge('UNSAVED', { UNSAVED: r.roomId ? '수정됨' : '새 객실' }, { UNSAVED: 'warn' })
+        ], 'admin-badges');
+      } },
       { label: '1박 가격', render: function (r) { return AdminUi.formatPrice(r.price); } },
       { label: '정원', render: function (r) { return r.capacity + '명'; } },
       { label: '판매 수량', render: function (r) { return r.totalQuantity + '실'; } },
       { label: '상태', render: function (r) { return AdminUi.badge('openStatus', r.status); } },
       { label: '관리', render: function (r) {
-        return AdminUi.actionButton('수정', function () { openRoomForm(r); });
+        var buttons = [AdminUi.actionButton('수정', function () { openRoomForm(r); })];
+        // 서버 삭제 API가 없어 저장 전 객실만 뺄 수 있다
+        if (!r.roomId) {
+          buttons.push(AdminUi.actionButton('빼기', function () {
+            if (editingRoom === r) closeRoomForm();
+            rooms.splice(rooms.indexOf(r), 1);
+            renderRooms();
+          }));
+        }
+        return AdminUi.group(buttons);
       } }
     ], '등록된 객실이 없습니다. "객실 추가"로 등록해 주세요.');
   }
@@ -139,60 +185,157 @@
     el.hidden = !message;
   }
 
-  accForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    AdminUi.hideMessage(alertBox);
+  function readAccommodation() {
     var f = accForm.elements;
-    var body = {
+    return {
       name: f.name.value.trim(),
       address: f.address.value.trim(),
       checkInTime: f.checkInTime.value,
       checkOutTime: f.checkOutTime.value,
       description: f.description.value.trim() || null,
-      status: f.status.value
+      status: f.status.value,
+      amenities: Array.prototype.map.call(
+        accForm.querySelectorAll('input[name="amenities"]:checked'),
+        function (box) { return box.value; }),
+      // 한 줄에 규칙 하나, 빈 줄은 뺀다
+      rules: f.rules.value.split('\n')
+        .map(function (line) { return line.trim(); })
+        .filter(function (line) { return line; })
     };
+  }
+
+  function accommodationProblem(body) {
     if (!body.name || !body.address || !body.checkInTime || !body.checkOutTime) {
-      formError('acc-form-error', '숙소명, 주소, 체크인·체크아웃 시각을 입력해 주세요.');
+      return '숙소명, 주소, 체크인·체크아웃 시각을 입력해 주세요.';
+    }
+    if (body.rules.length > MAX_RULES || body.rules.some(function (rule) { return rule.length > MAX_RULE_LENGTH; })) {
+      return '이용 규칙은 ' + MAX_RULES + '줄까지, 한 줄에 ' + MAX_RULE_LENGTH + '자까지 입력해 주세요.';
+    }
+    return '';
+  }
+
+  // 맨 아래 "저장": 숙소·객실 필수값을 모두 확인한 뒤 한 번에 저장한다
+  accForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    AdminUi.hideMessage(alertBox);
+    var body = readAccommodation();
+    var problem = accommodationProblem(body);
+    if (problem) {
+      formError('acc-form-error', problem);
+      accForm.elements.name.focus();
+      return;
+    }
+    // 객실 입력 칸에 적어 둔 내용도 확인해서 목록에 넣는다
+    if (!roomForm.hidden && !applyRoomForm()) {
+      formError('acc-form-error', '객실 정보의 필수 항목을 확인해 주세요.');
+      return;
+    }
+    if (!rooms.length) {
+      formError('acc-form-error', '객실을 1개 이상 추가해 주세요.');
+      document.getElementById('room-add').focus();
       return;
     }
     formError('acc-form-error', '');
 
     var submit = document.getElementById('acc-submit');
     submit.disabled = true;
+    submit.textContent = '저장 중...';
     try {
+      var id = accommodationId;
       if (isNew) {
         var created = await AdminUi.api('POST', API, body);
-        // 등록되면 상세 화면에서 객실을 추가한다
-        window.location.href = created && created.accommodationId
-          ? '/accommodations.html?id=' + encodeURIComponent(created.accommodationId) + '&created=1'
-          : '/accommodations.html';
+        id = created && created.accommodationId;
+        if (!id) {
+          window.location.replace('/accommodations.html');
+          return;
+        }
+      } else {
+        await AdminUi.api('PATCH', API + '/' + encodeURIComponent(id), body);
+      }
+
+      // 숙소가 저장된 뒤 새 객실은 추가하고, 고친 객실은 수정한다
+      var base = API + '/' + encodeURIComponent(id) + '/rooms';
+      var saved = 0;
+      var failed = 0;
+      for (var i = 0; i < rooms.length; i++) {
+        var r = rooms[i];
+        if (r.roomId && !r.changed) continue;
+        var roomBody = {
+          name: r.name, price: r.price, capacity: r.capacity, totalQuantity: r.totalQuantity,
+          description: r.description, status: r.status
+        };
+        try {
+          if (r.roomId) await AdminUi.api('PATCH', base + '/' + encodeURIComponent(r.roomId), roomBody);
+          else await AdminUi.api('POST', base, roomBody);
+          saved++;
+        } catch (roomError) {
+          failed++;
+        }
+      }
+
+      // replace: 등록·수정 화면을 방문 기록에서 지워, 뒤로 가기로 돌아와 같은 내용을 또 저장하지 않게 한다
+      if (failed) {
+        // 일부 객실을 저장하지 못했으면 목록으로 가지 않고 상세 화면에서 다시 고칠 수 있게 한다
+        if (isNew) {
+          window.location.replace('/accommodations.html' + AdminUi.buildQuery({
+            id: id, created: 1, rooms: saved || null, roomFailed: failed
+          }));
+          return;
+        }
+        await loadDetail();
+        AdminUi.showMessage(alertBox, '숙소 정보를 저장했습니다.'
+          + (saved ? ' 객실 ' + saved + '개를 함께 저장했습니다.' : '')
+          + ' 객실 ' + failed + '개는 저장하지 못했습니다. 다시 수정한 뒤 저장해 주세요.', 'warning');
         return;
       }
-      await AdminUi.api('PATCH', API + '/' + encodeURIComponent(accommodationId), body);
-      await loadDetail();
-      AdminUi.showMessage(alertBox, '숙소 정보를 저장했습니다.', 'success');
+      // 모두 저장했으면 숙소 목록으로 돌아가 결과를 알린다
+      window.location.replace('/accommodations.html' + AdminUi.buildQuery({
+        saved: isNew ? 'created' : 'updated', rooms: saved || null
+      }));
+      return;
     } catch (e) {
       AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
     } finally {
       submit.disabled = false;
+      submit.textContent = '저장';
     }
   });
 
+  // 등록·수정을 마치고 목록으로 돌아온 경우 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
+  var savedKind = params.get('saved');
+  if (savedKind === 'created' || savedKind === 'updated') {
+    var savedRoomCount = Number(params.get('rooms'));
+    listNotice = (savedKind === 'created' ? '숙소를 등록했습니다.' : '숙소 정보를 저장했습니다.')
+      + (Number.isInteger(savedRoomCount) && savedRoomCount > 0
+        ? ' 객실 ' + savedRoomCount + '개를 함께 저장했습니다.' : '');
+    window.history.replaceState(null, '', '/accommodations.html');
+  }
+
   if (params.get('created') === '1') {
-    // 등록 직후 안내 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
-    params.delete('created');
+    // 등록은 됐지만 일부 객실을 저장하지 못해 상세 화면으로 온 경우 안내 (주소에서 표시를 지워 새로고침 때 다시 뜨지 않게)
+    var count = function (key) {
+      var n = Number(params.get(key));
+      return Number.isInteger(n) && n > 0 ? n : 0;
+    };
+    var savedRooms = count('rooms');
+    var failedRooms = count('roomFailed');
+    ['created', 'rooms', 'roomFailed'].forEach(function (key) { params.delete(key); });
     window.history.replaceState(null, '', '/accommodations.html?' + params.toString());
+    var message = '숙소를 등록했습니다.';
+    if (savedRooms) message += ' 객실 ' + savedRooms + '개를 함께 저장했습니다.';
+    if (failedRooms) message += ' 객실 ' + failedRooms + '개는 저장하지 못했습니다. 아래 "객실 추가"로 다시 넣고 저장해 주세요.';
     setTimeout(function () {
-      AdminUi.showMessage(alertBox, '숙소를 등록했습니다. 이제 객실을 추가해 주세요.', 'success');
+      AdminUi.showMessage(alertBox, message, failedRooms ? 'warning' : 'success');
     });
   }
 
-  /* ---------- 객실 추가 · 수정 ---------- */
+  /* ---------- 객실 추가 · 수정 (화면에만 담아 두고 맨 아래 "저장"에서 서버에 보낸다) ---------- */
 
   function openRoomForm(room) {
-    editingRoomId = room ? room.roomId : null;
+    editingRoom = room || null;
     var f = roomForm.elements;
-    document.getElementById('room-form-title').textContent = room ? '객실 수정 (ID ' + room.roomId + ')' : '객실 추가';
+    document.getElementById('room-form-title').textContent = !room ? '객실 추가'
+      : room.roomId ? '객실 수정 (ID ' + room.roomId + ')' : '객실 수정';
     f.name.value = room ? room.name : '';
     f.price.value = room ? room.price : '';
     f.capacity.value = room ? room.capacity : '2';
@@ -206,7 +349,8 @@
 
   function closeRoomForm() {
     roomForm.hidden = true;
-    editingRoomId = null;
+    editingRoom = null;
+    formError('room-form-error', '');
   }
 
   document.getElementById('room-add').addEventListener('click', function () { openRoomForm(null); });
@@ -217,9 +361,8 @@
     return value !== '' && Number.isInteger(n) && n >= min ? n : null;
   }
 
-  roomForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    AdminUi.hideMessage(alertBox);
+  // 객실 입력 칸 값을 확인해 목록에 넣는다. 빠진 값이 있으면 false
+  function applyRoomForm() {
     var f = roomForm.elements;
     var body = {
       name: f.name.value.trim(),
@@ -229,32 +372,37 @@
       description: f.description.value.trim() || null,
       status: f.status.value
     };
-    if (!body.name || body.price === null || body.capacity === null || body.totalQuantity === null) {
+    var missing = !body.name ? f.name
+      : body.price === null ? f.price
+      : body.capacity === null ? f.capacity
+      : body.totalQuantity === null ? f.totalQuantity : null;
+    if (missing) {
       formError('room-form-error', '객실명을 입력하고, 가격은 0 이상, 정원·판매 수량은 1 이상의 정수로 입력해 주세요.');
-      return;
+      missing.focus();
+      return false;
     }
-    formError('room-form-error', '');
+    // 같은 숙소 안에서 객실명은 겹칠 수 없다 (서버 규칙)
+    if (rooms.some(function (r) { return r !== editingRoom && r.name === body.name; })) {
+      formError('room-form-error', '같은 이름의 객실이 이미 있습니다.');
+      f.name.focus();
+      return false;
+    }
+    if (editingRoom) {
+      Object.assign(editingRoom, body, { changed: true });
+    } else {
+      body.roomId = null;
+      body.changed = true;
+      rooms.push(body);
+    }
+    closeRoomForm();
+    renderRooms();
+    return true;
+  }
 
-    var submit = document.getElementById('room-submit');
-    submit.disabled = true;
-    var base = API + '/' + encodeURIComponent(accommodationId) + '/rooms';
-    try {
-      if (editingRoomId) {
-        await AdminUi.api('PATCH', base + '/' + encodeURIComponent(editingRoomId), body);
-      } else {
-        await AdminUi.api('POST', base, body);
-      }
-      var message = editingRoomId ? '객실을 수정했습니다.' : '객실을 추가했습니다.';
-      closeRoomForm();
-      await loadDetail();
-      AdminUi.showMessage(alertBox, message, 'success');
-    } catch (e) {
-      AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
-      // 응답이 실패해도 저장됐을 수 있으므로 목록을 다시 확인한다
-      loadDetail();
-    } finally {
-      submit.disabled = false;
-    }
+  roomForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    AdminUi.hideMessage(alertBox);
+    applyRoomForm();
   });
 
   /* ---------- 숙소 이미지 ----------

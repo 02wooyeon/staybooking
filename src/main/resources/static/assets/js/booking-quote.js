@@ -4,10 +4,12 @@
  * BOOKING_001
  * BOOKING_002
  *
- * POST /api/v1/bookings
- *
- * 현재는 백엔드 연동 전이므로
- * mock 데이터로 화면 동작만 확인한다.
+ * GET  /api/v1/accommodations/{id}   객실 정보
+ * POST /api/v1/bookings/quote         서버 예상 금액 (로그인 시)
+ * POST /api/v1/bookings               예약 생성
+ * 예약이 만들어지면 토스 결제 화면(/payment/checkout.html)으로 이동한다.
+ * 마일리지·결제수단 입력은 화면에만 반영된다. 서버 예약 API가 받지 않아
+ * 실제 금액은 서버가 계산하고, 결제수단은 토스 결제창에서 다시 고른다.
  */
 
 (function () {
@@ -15,9 +17,9 @@
 
 
   /*
-   * 실제 예약 API가 완성되면 false
+   * true 로 바꾸면 서버 없이 아래 mock 데이터로 화면만 확인한다.
    */
-  var USE_MOCK_DATA = true;
+  var USE_MOCK_DATA = false;
 
 
   /*
@@ -362,17 +364,22 @@
 
 
   var room =
-    MOCK_ROOMS[
-      Number(roomId)
-    ];
+    USE_MOCK_DATA
+      ? MOCK_ROOMS[
+          Number(roomId)
+        ]
+      : null;
 
 
   if (
-    !room ||
-    room.accommodationId !==
-      Number(
-        accommodationId
-      )
+    USE_MOCK_DATA &&
+    (
+      !room ||
+      room.accommodationId !==
+        Number(
+          accommodationId
+        )
+    )
   ) {
 
     showError(
@@ -387,10 +394,16 @@
 
   /*
    * 선택한 객실 표시
+   * (실제 연동은 날짜를 채운 뒤 loadRoom()에서 서버 값으로 그린다)
    */
-  renderRoom(
-    room
-  );
+  if (
+    USE_MOCK_DATA
+  ) {
+
+    renderRoom(
+      room
+    );
+  }
 
 
   /*
@@ -753,18 +766,15 @@
       ) {
 
         /*
-         * 연동 전: 서버 대신 예약을 만들어 이 탭에 저장하고 결제 단계로 넘어간다.
+         * 연동 전: 서버 대신 예약을 만들어 이 탭에 저장하고 내 예약으로 넘어간다.
          * (카드 번호 등 카드 정보는 저장하지 않는다)
          */
-        var mockBooking =
-          createMockBooking(
-            requestBody
-          );
+        createMockBooking(
+          requestBody
+        );
 
         window.location.href =
-          mockBooking.status === 'PAYMENT_PENDING'
-            ? '/booking/payment/pay.html?bookingId=' + encodeURIComponent(mockBooking.bookingId)
-            : '/booking/payment/complete.html?bookingId=' + encodeURIComponent(mockBooking.bookingId);
+          '/booking/my.html';
 
         return;
       }
@@ -773,134 +783,82 @@
       /*
        * 실제 BOOK-01
        * POST /api/v1/bookings
+       * 금액·재고는 서버가 DB 값으로 다시 계산하므로 객실·일정·인원만 보낸다.
        */
+      setSubmitting(
+        true
+      );
+
       try {
 
-        setSubmitting(
-          true
+        var booking =
+          await BookingApi.createBooking({
+            roomId:
+              requestBody.roomId,
+            checkIn:
+              requestBody.checkIn,
+            checkOut:
+              requestBody.checkOut,
+            guests:
+              requestBody.guests
+          });
+
+
+        // 결제를 쓸 수 없으면 내 예약으로 보낸다 (예약은 이미 만들어졌다)
+        var destination =
+          '/booking/my.html?created=' +
+          encodeURIComponent(
+            booking.bookingId
+          );
+
+        try {
+
+          var capabilities =
+            await BookingApi.getPaymentCapabilities();
+
+          if (
+            capabilities.tossEnabled &&
+            capabilities.tossClientKey &&
+            booking.status === 'PAYMENT_PENDING'
+          ) {
+
+            destination =
+              '/payment/checkout.html?bookingId=' +
+              encodeURIComponent(
+                booking.bookingId
+              );
+          }
+
+        } catch (capabilityError) {
+          // 결제 설정 조회 실패로 예약을 다시 만들지 않도록 내 예약으로 이동한다.
+        }
+
+
+        // 뒤로 가기로 예약 화면에 돌아와 같은 예약을 또 만들지 않도록 replace
+        window.location.replace(
+          destination
         );
-
-
-        var response =
-          await fetch(
-            '/api/v1/bookings',
-            {
-              method:
-                'POST',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-
-                Accept:
-                  'application/json'
-              },
-
-              credentials:
-                'same-origin',
-
-              body:
-                JSON.stringify(
-                  requestBody
-                )
-            }
-          );
-
-
-        if (
-          response.status ===
-          401
-        ) {
-
-          showError(
-            '로그인이 필요합니다.'
-          );
-
-          return;
-        }
-
-
-        if (
-          response.status ===
-          400
-        ) {
-
-          showError(
-            '예약 정보를 다시 확인해 주세요.'
-          );
-
-          return;
-        }
-
-
-        if (
-          response.status ===
-          409
-        ) {
-
-          showError(
-            '해당 일정에 예약 가능한 객실이 없습니다.'
-          );
-
-          return;
-        }
-
-
-        if (
-          !response.ok
-        ) {
-
-          throw new Error(
-            '예약 생성 실패'
-          );
-        }
-
-
-        var data =
-          await response.json();
-
-
-        if (
-          data &&
-          data.data
-        ) {
-
-          data =
-            data.data;
-        }
-
-
-        /*
-         * 응답에 bookingId가 있다고 가정.
-         * 실제 백엔드 응답 DTO가 정해지면
-         * 여기만 맞추면 된다.
-         */
-        if (
-          data &&
-          data.bookingId
-        ) {
-
-          window.location.href =
-            '/booking/my.html';
-
-        } else {
-
-          window.location.href =
-            '/booking/my.html';
-        }
-
 
       } catch (error) {
 
-        console.error(
-          error
-        );
+        if (
+          error.status === 401
+        ) {
+
+          window.location.href =
+            '/auth/login.html?next=' +
+            encodeURIComponent(
+              window.location.pathname +
+              window.location.search
+            );
+
+          return;
+        }
 
         showError(
+          error.message ||
           '예약 처리 중 오류가 발생했습니다.'
         );
-
-      } finally {
 
         setSubmitting(
           false
@@ -911,7 +869,188 @@
   );
 
 
-  updatePrice();
+  if (
+    USE_MOCK_DATA
+  ) {
+
+    updatePrice();
+
+  } else {
+
+    loadRoom();
+  }
+
+
+  /*
+   * 실제 연동: 숙소 상세 API에서 선택한 객실을 찾는다.
+   * 일정이 있으면 그 일정의 남은 객실 수로 받는다.
+   */
+  async function loadRoom() {
+
+    try {
+
+      var stay =
+        new URLSearchParams();
+
+      if (
+        checkIn.value &&
+        checkOut.value
+      ) {
+
+        stay.set(
+          'checkIn',
+          checkIn.value
+        );
+
+        stay.set(
+          'checkOut',
+          checkOut.value
+        );
+      }
+
+      var accommodation =
+        await BookingApi.getAccommodation(
+          accommodationId,
+          stay
+        );
+
+      var found =
+        (accommodation.rooms || []).filter(
+          function (candidate) {
+            return candidate.roomId === Number(roomId);
+          }
+        )[0];
+
+      if (
+        !found
+      ) {
+
+        showError(
+          '선택한 객실 정보를 찾을 수 없습니다.'
+        );
+
+        disableForm();
+
+        return;
+      }
+
+      room = {
+        accommodationName:
+          accommodation.name,
+        roomName:
+          found.name,
+        address:
+          accommodation.address,
+        maxGuests:
+          found.maxGuests,
+        price:
+          found.price,
+        image:
+          found.image
+      };
+
+      renderRoom(
+        room
+      );
+
+      updatePrice();
+
+    } catch (error) {
+
+      showError(
+        error.message ||
+        '객실 정보를 불러오지 못했습니다.'
+      );
+
+      disableForm();
+    }
+  }
+
+
+  /*
+   * 실제 연동: 로그인 상태면 서버 견적(POST /api/v1/bookings/quote)으로 금액을 바꾼다.
+   * 로그인 전이면 화면 계산값을 그대로 두고, 예약할 때 서버가 다시 검사한다.
+   */
+  var quoteSeq = 0;
+
+  async function refreshQuote() {
+
+    var seq =
+      ++quoteSeq;
+
+    var guestValue =
+      Number(
+        guests.value
+      );
+
+    if (
+      !Number.isInteger(guestValue) ||
+      guestValue < 1 ||
+      guestValue > room.maxGuests
+    ) {
+      return;
+    }
+
+    try {
+
+      var quote =
+        await BookingApi.quoteBooking({
+          roomId:
+            Number(roomId),
+          checkIn:
+            checkIn.value,
+          checkOut:
+            checkOut.value,
+          guests:
+            guestValue
+        });
+
+      // 그사이 날짜·인원을 바꿨으면 늦게 온 응답은 버린다
+      if (
+        seq !== quoteSeq
+      ) {
+        return;
+      }
+
+      totalPriceEl.textContent =
+        formatPrice(
+          quote.roomTotal
+        ) +
+        '원';
+
+      finalPriceEl.textContent =
+        formatPrice(
+          Math.max(
+            quote.totalAmount - getUsedMileage(),
+            0
+          )
+        ) +
+        '원';
+
+      submitButton.disabled =
+        !quote.available;
+
+      if (
+        !quote.available
+      ) {
+
+        showError(
+          '선택한 날짜에 남은 객실이 없습니다. 다른 날짜를 선택해 주세요.'
+        );
+      }
+
+    } catch (error) {
+
+      // 로그인 전이거나 일정이 맞지 않으면 화면 계산값을 그대로 둔다
+      if (
+        seq === quoteSeq
+      ) {
+
+        submitButton.disabled =
+          false;
+      }
+    }
+  }
 
 
   function renderRoom(
@@ -1115,9 +1254,10 @@
     }
 
 
-    /* 결제수단 (마일리지로 전액 결제하면 생략) */
+    /* 결제수단 (마일리지로 전액 결제하거나 실제 연동이면 생략: 토스 결제창에서 고른다) */
 
     if (
+      !USE_MOCK_DATA ||
       getFinalAmount() === 0
     ) {
       return true;
@@ -1208,6 +1348,7 @@
   function updatePrice() {
 
     if (
+      !room ||
       !checkIn.value ||
       !checkOut.value ||
       checkOut.value <=
@@ -1246,6 +1387,13 @@
       '원';
 
     updateMileage();
+
+    if (
+      !USE_MOCK_DATA
+    ) {
+
+      refreshQuote();
+    }
   }
 
 
@@ -1255,6 +1403,7 @@
   function getStayAmount() {
 
     if (
+      !room ||
       !checkIn.value ||
       !checkOut.value ||
       checkOut.value <=
@@ -1410,7 +1559,7 @@
 
 
   /*
-   * 연동 전 mock 예약 (결제 화면 payment.js가 읽는다)
+   * 연동 전 mock 예약 (화면 확인용으로 이 탭의 sessionStorage 에만 남긴다)
    * 실제로는 POST /api/v1/bookings 응답과 서버가 만든 값을 쓴다.
    */
   function createMockBooking(

@@ -90,7 +90,8 @@ public class AccommodationService {
         return new AccommodationDetail(accommodation.getAccommodationId(), accommodation.getName(),
             accommodation.getAddress(), accommodation.getDescription(), accommodation.getCheckInTime(),
             accommodation.getCheckOutTime(), accommodation.getLatitude(), accommodation.getLongitude(),
-            accommodation.getStatus(), List.of(), List.of(), List.of(), roomSummaries);
+            accommodation.getStatus(), accommodation.getAmenities(), accommodation.getRules(), List.of(),
+            roomSummaries);
     }
 
     // stay가 있으면 그 기간에 예약 가능한 객실이 있는 숙소만 남기고, 최저가도 예약 가능한 객실 기준으로 계산한다.

@@ -104,6 +104,20 @@
     nav.append(name, button);
   }
 
+  // 왼쪽 위 로고 옆 표시, 왼쪽 메뉴 제목, 탭 제목을 로그인한 역할(관리자/승인자)에 맞춘다.
+  // 승인자는 대시보드를 쓸 수 없으므로 로고를 누르면 예약 승인 화면으로 간다.
+  function renderRoleLabels(role) {
+    var label = ROLE_LABELS[role] || '관리자';
+    document.querySelectorAll('.admin-logo-tag, .admin-side-title').forEach(function (el) {
+      el.textContent = label;
+    });
+    var sideNav = document.querySelector('.admin-side nav');
+    if (sideNav) sideNav.setAttribute('aria-label', label + ' 메뉴');
+    document.title = document.title.replace(/(관리자|승인자)$/, label);
+    var logo = document.querySelector('.site-header .logo');
+    if (logo) logo.href = role === 'ROLE_APPROVER' ? '/approver-bookings.html' : '/index.html';
+  }
+
   function renderNav(page, role) {
     var list = $('admin-nav');
     list.textContent = '';
@@ -150,6 +164,7 @@
       return null;
     }
     renderHeader(me);
+    renderRoleLabels(me.role);
 
     if (options.roles.indexOf(me.role) === -1) {
       showDenied('이 화면은 ' + options.roles.map(function (r) { return ROLE_LABELS[r] || r; }).join('·')
