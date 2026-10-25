@@ -69,6 +69,43 @@ class RefundReconciliationServiceTests {
     }
 
     @Test
+    void flagsACompletedLocalRefundWithNoProviderCancellationAsInconsistent() {
+        Fixture fixture = setup("TOSS", 40_000);
+        fixture.refund().start(LocalDateTime.now());
+        fixture.refund().refunded(LocalDateTime.now());
+        fixture.payment().refund(40_000);
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100",
+                100_000, "DONE", 100_000L));
+
+        assertEquals(RefundReconciliationService.Result.REVIEW_REQUIRED, service.check(9L).result());
+    }
+
+    @Test
+    void distinguishesACompletedZeroAmountRefundFromMissingProviderCancellation() {
+        Fixture fixture = setup("TOSS", 0);
+        fixture.refund().start(LocalDateTime.now());
+        fixture.refund().refunded(LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100",
+                100_000, "DONE", 100_000L));
+
+        assertEquals(RefundReconciliationService.Result.NO_REFUND_DUE, service.check(9L).result());
+        assertEquals(PaymentStatus.PAID, fixture.payment().getStatus());
+    }
+
+    @Test
+    void flagsLocalPaymentAndRefundStatesThatDisagreeEvenWhenProviderBalanceMatches() {
+        Fixture fixture = setup("TOSS", 40_000);
+        fixture.payment().refund(40_000);
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100",
+                100_000, "PARTIAL_CANCELED", 60_000L));
+
+        assertEquals(RefundReconciliationService.Result.REVIEW_REQUIRED, service.check(9L).result());
+    }
+
+    @Test
     void exposesLookupFailureWithoutChangingTheRefund() {
         RefundEntity refund = setup("TOSS", 40_000).refund();
         when(gateway.findByOrderId("ORDER-100"))

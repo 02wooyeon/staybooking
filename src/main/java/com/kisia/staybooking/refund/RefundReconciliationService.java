@@ -68,13 +68,16 @@ public class RefundReconciliationService {
         if (!payment.getOrderId().equals(provider.orderId())
                 || !payment.getPaymentKey().equals(provider.paymentKey())
                 || payment.getPaidAmount() != provider.totalAmount()
-                || provider.balanceAmount() == null) {
+                || provider.balanceAmount() == null
+                || !localStatesConsistent(refund, payment)) {
             return report(refund, payment, provider, Result.REVIEW_REQUIRED);
         }
         long balance = provider.balanceAmount();
         Result result;
         if ("DONE".equals(provider.status()) && balance == payment.getPaidAmount()) {
-            result = Result.NO_CANCELLATION_RECORDED;
+            result = refund.getAmount() == 0 && settled(refund)
+                ? Result.NO_REFUND_DUE
+                : settled(refund) ? Result.REVIEW_REQUIRED : Result.NO_CANCELLATION_RECORDED;
         } else if (("CANCELED".equals(provider.status()) || "PARTIAL_CANCELED".equals(provider.status()))
                 && balance == payment.getPaidAmount() - refund.getAmount()) {
             // 금액만 일치한다. 외부에서 별도로 취소한 건과 구별할 수 없어 자동 확정하지 않는다.
@@ -83,6 +86,20 @@ public class RefundReconciliationService {
             result = Result.REVIEW_REQUIRED;
         }
         return report(refund, payment, provider, result);
+    }
+
+    private static boolean localStatesConsistent(RefundEntity refund, PaymentEntity payment) {
+        if (settled(refund)) {
+            PaymentStatus expected = refund.getAmount() == 0 ? PaymentStatus.PAID
+                : refund.getAmount() == payment.getPaidAmount()
+                    ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
+            return payment.getStatus() == expected;
+        }
+        return refund.getStatus() != RefundStatus.REJECTED && payment.getStatus() == PaymentStatus.PAID;
+    }
+
+    private static boolean settled(RefundEntity refund) {
+        return refund.getStatus() == RefundStatus.REFUNDED || refund.getStatus() == RefundStatus.APPROVED;
     }
 
     private static Report report(RefundEntity refund, PaymentEntity payment,
@@ -96,7 +113,7 @@ public class RefundReconciliationService {
     }
 
     public enum Result {
-        NO_CANCELLATION_RECORDED, PROVIDER_BALANCE_MATCHES,
+        NO_REFUND_DUE, NO_CANCELLATION_RECORDED, PROVIDER_BALANCE_MATCHES,
         REVIEW_REQUIRED, LOOKUP_FAILED, NOT_APPLICABLE
     }
 
