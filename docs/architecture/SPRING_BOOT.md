@@ -67,6 +67,8 @@ RefundReasonType          USER_FAULT, ACCOMMODATION_FAULT, FORCE_MAJEURE
 MileageType               EARN, USE, REFUND
 ```
 
+기존 환불 행을 읽기 위해 Java enum에는 이전 상태 `APPROVED`, `REJECTED`도 남겨 둡니다. 신규 자동 환불은 이 상태를 생성하지 않습니다. 관리자 환불 API는 승인·반려 PATCH 대신 대기·실패 건과 오래 처리 중인 건의 재시도 `POST /api/v1/admin/refunds/{refundId}/retry`를 사용합니다.
+
 ## 구현 순서
 
 1. 2026-10-15에 기존 연동 검증용 DB를 백업 후 제거했다. 새 Entity 구현 전에 새 `staybooking` DB를 생성한다. 이전 `reservations`/`host_id` 구조를 재사용하지 않는다.

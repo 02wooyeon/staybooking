@@ -10,7 +10,6 @@ import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentService;
 import com.kisia.staybooking.payment.PaymentStatus;
-import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.TossPaymentConfirmationService;
 import com.kisia.staybooking.payment.TossPaymentGateway;
 import com.kisia.staybooking.common.ApiException;
@@ -37,7 +36,6 @@ import org.springframework.http.HttpStatus;
 class PaymentServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private PaymentService payments;
-    @Autowired private PaymentRepository paymentRepository;
 
     @Test
     void completesOnlyOneMatchingPaymentAndMakesBookingApprovable() {
@@ -104,8 +102,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
 
         assertThrows(ApiException.class, () -> confirmations.confirm(owner.getUserId(),
             prepared.getOrderId(), "payment-key", 1));
@@ -143,8 +140,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
         when(gateway.confirm("payment-key", prepared.getOrderId(), 120_000))
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CONFIRM_FAILED", "응답 없음"));
         when(gateway.findByOrderId(prepared.getOrderId()))
@@ -175,8 +171,7 @@ class PaymentServiceTests {
         entityManager.flush();
         PaymentEntity prepared = payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS");
         TossPaymentGateway gateway = mock(TossPaymentGateway.class);
-        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(
-            paymentRepository, payments, gateway);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
 
         assertThrows(ApiException.class, () -> confirmations.recover(other.getUserId(), prepared.getOrderId()));
         verifyNoInteractions(gateway);
@@ -200,5 +195,41 @@ class PaymentServiceTests {
         PaymentEntity card = payments.prepare(owner.getUserId(), otherBooking.getBookingId(), "CARD");
         assertThrows(ApiException.class, () -> confirmations.recover(owner.getUserId(), card.getOrderId()));
         verify(gateway, times(2)).findByOrderId(prepared.getOrderId());
+    }
+
+    @Test
+    void rejectsAStoredPaymentAmountThatDiffersFromTheBookingBeforeCallingPg() {
+        UserEntity owner = new UserEntity("amount-owner", "hash", "Owner", "amount-owner@example.test");
+        AccommodationEntity accommodation = new AccommodationEntity(
+            "Stay", "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0));
+        RoomEntity room = new RoomEntity(accommodation, "Standard", 120_000, 2, 1);
+        entityManager.persist(owner);
+        entityManager.persist(accommodation);
+        entityManager.persist(room);
+        BookingEntity booking = new BookingEntity(owner, room, LocalDate.now().plusDays(3),
+            LocalDate.now().plusDays(4), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
+        entityManager.persist(booking);
+        PaymentEntity undercharged = new PaymentEntity(booking, "UNDERCHARGED-ORDER", "TOSS", 1);
+        entityManager.persist(undercharged);
+        entityManager.flush();
+        TossPaymentGateway gateway = mock(TossPaymentGateway.class);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
+
+        ApiException preparedError = assertThrows(ApiException.class,
+            () -> payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS"));
+        ApiException confirmedError = assertThrows(ApiException.class,
+            () -> confirmations.confirm(owner.getUserId(), undercharged.getOrderId(), "key", 1));
+        ApiException recoveredError = assertThrows(ApiException.class,
+            () -> confirmations.recover(owner.getUserId(), undercharged.getOrderId()));
+        ApiException completedError = assertThrows(ApiException.class,
+            () -> payments.complete(owner.getUserId(), undercharged.getOrderId(), "key", 1));
+
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", preparedError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", confirmedError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", recoveredError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", completedError.getCode());
+        assertEquals(PaymentStatus.READY, undercharged.getStatus());
+        assertEquals(BookingStatus.PAYMENT_PENDING, booking.getStatus());
+        verifyNoInteractions(gateway);
     }
 }

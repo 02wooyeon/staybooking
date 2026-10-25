@@ -46,4 +46,4 @@ bookings.approved_by → 승인한 사람을 가리키는 FK (users.user_id 참�
 
 ## 현재 프로젝트와의 관계
 
-이 문서는 **목표 설계**입니다. 2026-10-15에 기존 연동 검증용 `staybooking` DB를 제거했습니다. Entity와 일부 Service는 구현했지만 DB01에는 아직 연결하지 않았습니다. 연결할 때 새 DB를 생성해야 합니다. `spring.jpa.hibernate.ddl-auto=update`는 이름 변경을 안전하게 수행하지 않습니다. Flyway는 현재 사용하지 않습니다.
+이 문서는 **목표 설계**입니다. 2026-10-25 읽기 전용 확인에서 DB01의 `staybooking` DB와 테이블을 확인했습니다. 새 DB를 다시 생성하지 않습니다. 현재 `refunds`는 이전 상태 ENUM 형식이므로 자동 환불 코드 적용 전 [수동 스키마 변경](DB_CONNECTION.md#자동-환불-스키마-변경-준비)이 필요합니다. `spring.jpa.hibernate.ddl-auto=update`에 기존 컬럼 타입 변경을 맡기지 않습니다. Flyway는 현재 사용하지 않습니다.

@@ -17,7 +17,6 @@ import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentService;
 import com.kisia.staybooking.payment.PaymentStatus;
-import com.kisia.staybooking.refund.AdminRefundController;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
@@ -39,7 +38,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class AdminMutationPersistenceTests {
     @Autowired private AdminMemberController members;
     @Autowired private AdminAccommodationController accommodationsAdmin;
-    @Autowired private AdminRefundController refundsAdmin;
     @Autowired private UserRepository users;
     @Autowired private AccommodationRepository accommodations;
     @Autowired private RoomRepository rooms;
@@ -116,7 +114,7 @@ class AdminMutationPersistenceTests {
     }
 
     @Test
-    void refundDecisionPersistsAndRequestCannotBeReprocessed() {
+    void refundAutomaticallySettlesAfterBookingCancellation() {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("refundadmin" + tag, "hash", "Admin", null,
             "refundadmin" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
@@ -132,20 +130,10 @@ class AdminMutationPersistenceTests {
         cancellations.cancel(admin.getUserId(), booking.getBookingId(),
             CancellationReasonType.ACCOMMODATION_FAULT, "Test refund");
         RefundEntity refund = refunds.findAllByOrderByCreatedAtDesc().getFirst();
-        AuthenticatedUser actor = new AuthenticatedUser(admin.getUserId(), UserRole.ROLE_ADMIN);
-
-        assertThrows(ApiException.class, () -> refundsAdmin.process(actor,
-            refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REQUESTED)));
-        assertEquals(RefundStatus.REQUESTED, refunds.findById(refund.getRefundId()).orElseThrow().getStatus());
-        refundsAdmin.process(actor, refund.getRefundId(),
-            new AdminRefundController.ProcessRequest(RefundStatus.APPROVED));
         RefundEntity saved = refunds.findById(refund.getRefundId()).orElseThrow();
-        assertEquals(RefundStatus.APPROVED, saved.getStatus());
-        assertEquals(admin.getUserId(), saved.getProcessedBy().getUserId());
+        assertEquals(RefundStatus.REFUNDED, saved.getStatus());
         assertNotNull(saved.getProcessedAt());
         assertEquals(PaymentStatus.REFUNDED, payments.findByBookingBookingIdAndStatus(
             booking.getBookingId(), PaymentStatus.REFUNDED).getFirst().getStatus());
-        assertThrows(ApiException.class, () -> refundsAdmin.process(actor,
-            refund.getRefundId(), new AdminRefundController.ProcessRequest(RefundStatus.REJECTED)));
     }
 }

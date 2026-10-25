@@ -49,7 +49,8 @@
   var LABELS = {
     bookingStatus: { PAYMENT_PENDING: '결제 대기', PENDING: '승인 대기', COMPLETED: '예약 완료', CANCELLED: '취소됨' },
     paymentStatus: { READY: '결제 준비', PAID: '결제 완료', PARTIALLY_REFUNDED: '부분 환불', REFUNDED: '환불 완료', FAILED: '결제 실패' },
-    refundStatus: { REQUESTED: '환불 요청', APPROVED: '환불 승인', REJECTED: '환불 반려' },
+    refundStatus: { REQUESTED: '환불 대기', PROCESSING: '환불 처리 중', REFUNDED: '환불 완료',
+      FAILED: '환불 실패', APPROVED: '이전 환불 승인', REJECTED: '이전 환불 반려' },
     userStatus: { ACTIVE: '정상', SUSPENDED: '정지', WITHDRAWN: '탈퇴' },
     role: { ROLE_USER: '일반 회원', ROLE_APPROVER: '승인자', ROLE_ADMIN: '관리자' },
     openStatus: { ACTIVE: '판매 중', INACTIVE: '판매 중지' },
@@ -59,7 +60,8 @@
   var TONES = {
     bookingStatus: { PAYMENT_PENDING: 'muted', PENDING: 'warn', COMPLETED: 'ok', CANCELLED: 'error' },
     paymentStatus: { READY: 'muted', PAID: 'ok', PARTIALLY_REFUNDED: 'warn', REFUNDED: 'muted', FAILED: 'error' },
-    refundStatus: { REQUESTED: 'warn', APPROVED: 'ok', REJECTED: 'muted' },
+    refundStatus: { REQUESTED: 'warn', PROCESSING: 'warn', REFUNDED: 'ok', FAILED: 'error',
+      APPROVED: 'ok', REJECTED: 'muted' },
     userStatus: { ACTIVE: 'ok', SUSPENDED: 'error', WITHDRAWN: 'muted' },
     role: { ROLE_USER: 'muted', ROLE_APPROVER: 'warn', ROLE_ADMIN: 'error' },
     openStatus: { ACTIVE: 'ok', INACTIVE: 'muted' },
@@ -102,6 +104,20 @@
       logout();
     });
     nav.append(name, button);
+  }
+
+  // 왼쪽 위 로고 옆 표시, 왼쪽 메뉴 제목, 탭 제목을 로그인한 역할(관리자/승인자)에 맞춘다.
+  // 승인자는 대시보드를 쓸 수 없으므로 로고를 누르면 예약 승인 화면으로 간다.
+  function renderRoleLabels(role) {
+    var label = ROLE_LABELS[role] || '관리자';
+    document.querySelectorAll('.admin-logo-tag, .admin-side-title').forEach(function (el) {
+      el.textContent = label;
+    });
+    var sideNav = document.querySelector('.admin-side nav');
+    if (sideNav) sideNav.setAttribute('aria-label', label + ' 메뉴');
+    document.title = document.title.replace(/(관리자|승인자)$/, label);
+    var logo = document.querySelector('.site-header .logo');
+    if (logo) logo.href = role === 'ROLE_APPROVER' ? '/approver-bookings.html' : '/index.html';
   }
 
   function renderNav(page, role) {
@@ -150,6 +166,7 @@
       return null;
     }
     renderHeader(me);
+    renderRoleLabels(me.role);
 
     if (options.roles.indexOf(me.role) === -1) {
       showDenied('이 화면은 ' + options.roles.map(function (r) { return ROLE_LABELS[r] || r; }).join('·')

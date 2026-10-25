@@ -70,8 +70,7 @@ public class BookingService {
     }
 
     private static void validateStay(LocalDate checkIn, LocalDate checkOut) {
-        if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)
-                || checkIn.isBefore(LocalDate.now(KOREA))) {
+        if (!StayDatePolicy.isValid(checkIn, checkOut, LocalDate.now(KOREA))) {
             throw new IllegalArgumentException("Invalid stay dates");
         }
     }

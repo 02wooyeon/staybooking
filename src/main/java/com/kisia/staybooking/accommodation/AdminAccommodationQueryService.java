@@ -44,7 +44,8 @@ public class AdminAccommodationQueryService {
         List<RoomSummary> roomSummaries = rooms.findByAccommodationAccommodationIdOrderByRoomIdAsc(accommodationId)
             .stream().map(RoomSummary::from).toList();
         return new Detail(Summary.from(accommodation), accommodation.getDescription(),
-            accommodation.getCheckInTime(), accommodation.getCheckOutTime(), roomSummaries);
+            accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
+            accommodation.getAmenities(), accommodation.getRules(), roomSummaries);
     }
 
     public record Summary(Long accommodationId, String name, String address, AccommodationStatus status) {
@@ -55,7 +56,8 @@ public class AdminAccommodationQueryService {
     }
 
     public record Detail(Summary accommodation, String description, LocalTime checkInTime,
-                         LocalTime checkOutTime, List<RoomSummary> rooms) { }
+                         LocalTime checkOutTime, List<String> amenities, List<String> rules,
+                         List<RoomSummary> rooms) { }
 
     public record RoomSummary(Long roomId, String name, String description, long price,
                               int capacity, int totalQuantity, RoomStatus status) {

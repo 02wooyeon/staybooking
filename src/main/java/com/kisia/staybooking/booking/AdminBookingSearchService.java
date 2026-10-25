@@ -9,6 +9,8 @@ import com.kisia.staybooking.cancellation.CancellationRequestEntity;
 import com.kisia.staybooking.cancellation.CancellationRequestRepository;
 import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.refund.RefundSummary;
+import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
 import com.kisia.staybooking.user.UserStatus;
@@ -22,12 +24,14 @@ public class AdminBookingSearchService {
     private final UserRepository users;
     private final BookingRepository bookings;
     private final CancellationRequestRepository requests;
+    private final RefundRepository refunds;
 
     public AdminBookingSearchService(UserRepository users, BookingRepository bookings,
-                                     CancellationRequestRepository requests) {
+                                     CancellationRequestRepository requests, RefundRepository refunds) {
         this.users = users;
         this.bookings = bookings;
         this.requests = requests;
+        this.refunds = refunds;
     }
 
     @Transactional(readOnly = true)
@@ -77,8 +81,11 @@ public class AdminBookingSearchService {
         Map<Long, CancellationRequestEntity> pendingByBooking = requests.findByBookingBookingIdInAndStatus(
             found.stream().map(BookingEntity::getBookingId).toList(), CancellationRequestStatus.REQUESTED)
             .stream().collect(Collectors.toMap(r -> r.getBooking().getBookingId(), Function.identity()));
+        Map<Long, RefundSummary> refundsByBooking = refunds.findSummariesByBookingIdIn(
+            found.stream().map(BookingEntity::getBookingId).toList()).stream()
+            .collect(Collectors.toMap(RefundSummary::bookingId, Function.identity()));
         return new PageResponse<>(found.stream().map(booking -> ApproverBookingResponse.from(booking,
-            pendingByBooking.get(booking.getBookingId()))).toList(), page, size,
+            pendingByBooking.get(booking.getBookingId()), refundsByBooking.get(booking.getBookingId()))).toList(), page, size,
             result.getTotalElements(), result.getTotalPages());
     }
 }

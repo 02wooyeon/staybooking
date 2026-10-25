@@ -2,6 +2,7 @@ package com.kisia.staybooking.accommodation;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Objects;
 
 import com.kisia.staybooking.common.AuditedEntity;
@@ -46,6 +47,13 @@ public class AccommodationEntity extends AuditedEntity {
     @Column(name = "check_out_time", nullable = false)
     private LocalTime checkOutTime;
 
+    // 편의시설·이용 규칙은 한 줄에 하나씩 저장한다. 값 안의 줄바꿈은 요청 검증에서 막는다.
+    @Column(name = "amenities", columnDefinition = "TEXT")
+    private String amenities;
+
+    @Column(name = "rules", columnDefinition = "TEXT")
+    private String rules;
+
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "status", nullable = false, length = 20)
@@ -71,6 +79,21 @@ public class AccommodationEntity extends AuditedEntity {
     public LocalTime getCheckInTime() { return checkInTime; }
     public LocalTime getCheckOutTime() { return checkOutTime; }
     public AccommodationStatus getStatus() { return status; }
+    public List<String> getAmenities() { return lines(amenities); }
+    public List<String> getRules() { return lines(rules); }
+
+    public void updateAmenitiesAndRules(List<String> amenities, List<String> rules) {
+        this.amenities = join(amenities);
+        this.rules = join(rules);
+    }
+
+    private static List<String> lines(String value) {
+        return value == null || value.isEmpty() ? List.of() : List.of(value.split("\n"));
+    }
+
+    private static String join(List<String> values) {
+        return values == null || values.isEmpty() ? null : String.join("\n", values);
+    }
 
     public void update(String name, String address, LocalTime checkInTime, LocalTime checkOutTime,
                        String description, AccommodationStatus status) {

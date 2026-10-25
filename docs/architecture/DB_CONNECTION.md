@@ -2,7 +2,7 @@
 
 [← 가이드 홈](README.md) · [DB 스키마](DATABASE.md)
 
-현재 코드의 `mysql` 프로필은 DB 접속 정보를 **환경변수**에서 읽습니다. 저장소에 비밀번호를 넣지 않습니다. 2026-10-15에 DB01의 `staybooking` DB와 전용 계정을 생성했고, WAS01을 경유한 실제 로그인과 권한 조회에 성공했습니다. Spring Boot 애플리케이션 자체는 아직 DB01에 연결하지 않았습니다.
+현재 코드의 `mysql` 프로필은 DB 접속 정보를 **환경변수**에서 읽습니다. 저장소에 비밀번호를 넣지 않습니다. 2026-10-25 읽기 전용 확인에서 DB01의 `staybooking` DB와 14개 테이블을 확인했습니다. Spring Boot 애플리케이션의 현재 DB01 연결 상태는 이 확인만으로 판단할 수 없습니다.
 
 ## 팀원 개발 접속
 
@@ -31,6 +31,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
 ```
 
 초기 개발 중에는 Hibernate가 누락된 테이블을 만들 수 있도록 `ddl-auto=update`를 사용합니다. 테이블과 FK를 검토해 확정하면 `STAYBOOKING_DDL_AUTO=validate`로 바꿉니다. 기존 컬럼 삭제나 데이터 이관은 `update`가 대신 처리하지 않으므로, 변경 시 SQL과 백업 계획을 별도로 검토합니다.
+
+### 자동 환불 스키마 변경 준비
+
+2026-10-25 DB01에서 `refunds.status`는 `enum('APPROVED','REJECTED','REQUESTED')`였고, `started_at`, `failure_code`, `auto_processing`은 없었습니다. `refunds` 행은 0건이었습니다. 새 자동 환불 코드를 DB01에 배포하기 전에 [수동 변경 SQL](../sql/2026-10-25-refunds-auto-processing.sql)을 적용해야 합니다. 이 SQL은 저장소에 **준비만** 했으며 DB01에서는 아직 실행하지 않았습니다.
+
+적용 직전에 `SHOW CREATE TABLE refunds;`와 `SELECT COUNT(*) FROM refunds;`로 상태를 다시 확인하고 DB를 백업합니다. 다른 팀원이 그사이에 스키마를 변경했다면 SQL을 그대로 실행하지 말고 변경 내용을 먼저 비교합니다. 적용 후 SQL 하단의 컬럼 조회 결과에서 `status`가 `varchar(30)`이고 새 컬럼 3개가 보여야 합니다. MySQL DDL은 트랜잭션 취소로 되돌릴 수 없으므로 백업 파일을 별도로 보관합니다.
+이 SQL은 `refunds` 테이블만 다룹니다. 전체 애플리케이션 배포 전에는 다른 테이블과 FK도 현재 Entity 기준으로 별도 검증해야 합니다.
 
 ## WAS01 실행 설정
 
