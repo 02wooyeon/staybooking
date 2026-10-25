@@ -8,6 +8,9 @@ import java.util.Optional;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
@@ -106,6 +109,20 @@ class RefundReconciliationServiceTests {
     }
 
     @Test
+    void flagsARefundForAnActiveBookingEvenWhenProviderBalanceMatches() {
+        Fixture fixture = setup("TOSS", 40_000);
+        ReflectionTestUtils.setField(fixture.refund().getBooking(), "status", BookingStatus.PENDING);
+        fixture.refund().start(LocalDateTime.now());
+        fixture.refund().refunded(LocalDateTime.now());
+        fixture.payment().refund(40_000);
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100",
+                100_000, "PARTIAL_CANCELED", 60_000L));
+
+        assertEquals(RefundReconciliationService.Result.REVIEW_REQUIRED, service.check(9L).result());
+    }
+
+    @Test
     void exposesLookupFailureWithoutChangingTheRefund() {
         RefundEntity refund = setup("TOSS", 40_000).refund();
         when(gateway.findByOrderId("ORDER-100"))
@@ -133,6 +150,8 @@ class RefundReconciliationServiceTests {
         BookingEntity booking = new BookingEntity(guest, room, LocalDate.now().plusDays(2),
             LocalDate.now().plusDays(3), 1, 100_000, 0, LocalDateTime.now().plusMinutes(10));
         ReflectionTestUtils.setField(booking, "bookingId", 3L);
+        booking.cancel(guest, CancellationSource.SYSTEM, CancellationReasonType.ACCOMMODATION_FAULT,
+            "예약 취소", LocalDateTime.now());
         RefundEntity refund = new RefundEntity(booking, refundAmount, "예약 취소");
         ReflectionTestUtils.setField(refund, "refundId", 9L);
         PaymentEntity payment = new PaymentEntity(booking, "ORDER-100", method, 100_000);
