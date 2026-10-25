@@ -35,6 +35,7 @@ public class PaymentService {
         PaymentEntity ready = payments.findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(
             bookingId, PaymentStatus.READY).orElse(null);
         if (ready != null) {
+            requireBookingAmount(booking, ready);
             if (!ready.getPaymentMethod().equals(paymentMethod)) {
                 throw new IllegalStateException("A different payment method is already prepared");
             }
@@ -52,7 +53,8 @@ public class PaymentService {
         }
         if (booking.getStatus() == BookingStatus.PENDING || booking.getStatus() == BookingStatus.COMPLETED) {
             var paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
-            if (paid.size() == 1 && "FREE".equals(paid.getFirst().getPaymentMethod())) {
+            if (paid.size() == 1 && "FREE".equals(paid.getFirst().getPaymentMethod())
+                    && paid.getFirst().getPaidAmount() == 0) {
                 return paid.getFirst();
             }
             throw new IllegalStateException("Free booking payment record is inconsistent");
@@ -84,6 +86,7 @@ public class PaymentService {
         if (!payment.getBooking().getBookingId().equals(bookingId)) {
             throw new IllegalStateException("Payment booking changed");
         }
+        requireBookingAmount(booking, payment);
         if (requiredMethod != null && !requiredMethod.equals(payment.getPaymentMethod())) {
             throw new IllegalStateException("Only demo payments can use demo completion");
         }
@@ -112,6 +115,7 @@ public class PaymentService {
     public PaymentAttempt attempt(Long userId, String orderId) {
         PaymentEntity payment = ownedPayment(userId, orderId);
         BookingEntity booking = payment.getBooking();
+        requireBookingAmount(booking, payment);
         return new PaymentAttempt(payment.getStatus(), payment.getPaymentKey(), payment.getPaidAmount(),
             payment.getPaymentMethod(), booking.getStatus(), booking.getPaymentExpiresAt());
     }
@@ -148,6 +152,13 @@ public class PaymentService {
         if (booking.getStatus() != BookingStatus.PAYMENT_PENDING
                 || !LocalDateTime.now(ZoneOffset.UTC).isBefore(booking.getPaymentExpiresAt())) {
             throw new IllegalStateException("Payment is unavailable");
+        }
+    }
+
+    private static void requireBookingAmount(BookingEntity booking, PaymentEntity payment) {
+        if (payment.getPaidAmount() != booking.getTotalAmount() - booking.getUsedMileage()) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_AMOUNT_MISMATCH",
+                "결제 기록 금액이 예약 금액과 일치하지 않습니다.");
         }
     }
 

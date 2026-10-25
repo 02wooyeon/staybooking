@@ -196,4 +196,40 @@ class PaymentServiceTests {
         assertThrows(ApiException.class, () -> confirmations.recover(owner.getUserId(), card.getOrderId()));
         verify(gateway, times(2)).findByOrderId(prepared.getOrderId());
     }
+
+    @Test
+    void rejectsAStoredPaymentAmountThatDiffersFromTheBookingBeforeCallingPg() {
+        UserEntity owner = new UserEntity("amount-owner", "hash", "Owner", "amount-owner@example.test");
+        AccommodationEntity accommodation = new AccommodationEntity(
+            "Stay", "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0));
+        RoomEntity room = new RoomEntity(accommodation, "Standard", 120_000, 2, 1);
+        entityManager.persist(owner);
+        entityManager.persist(accommodation);
+        entityManager.persist(room);
+        BookingEntity booking = new BookingEntity(owner, room, LocalDate.now().plusDays(3),
+            LocalDate.now().plusDays(4), 2, 120_000, 0, LocalDateTime.now().plusMinutes(10));
+        entityManager.persist(booking);
+        PaymentEntity undercharged = new PaymentEntity(booking, "UNDERCHARGED-ORDER", "TOSS", 1);
+        entityManager.persist(undercharged);
+        entityManager.flush();
+        TossPaymentGateway gateway = mock(TossPaymentGateway.class);
+        TossPaymentConfirmationService confirmations = new TossPaymentConfirmationService(payments, gateway);
+
+        ApiException preparedError = assertThrows(ApiException.class,
+            () -> payments.prepare(owner.getUserId(), booking.getBookingId(), "TOSS"));
+        ApiException confirmedError = assertThrows(ApiException.class,
+            () -> confirmations.confirm(owner.getUserId(), undercharged.getOrderId(), "key", 1));
+        ApiException recoveredError = assertThrows(ApiException.class,
+            () -> confirmations.recover(owner.getUserId(), undercharged.getOrderId()));
+        ApiException completedError = assertThrows(ApiException.class,
+            () -> payments.complete(owner.getUserId(), undercharged.getOrderId(), "key", 1));
+
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", preparedError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", confirmedError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", recoveredError.getCode());
+        assertEquals("PAYMENT_AMOUNT_MISMATCH", completedError.getCode());
+        assertEquals(PaymentStatus.READY, undercharged.getStatus());
+        assertEquals(BookingStatus.PAYMENT_PENDING, booking.getStatus());
+        verifyNoInteractions(gateway);
+    }
 }
