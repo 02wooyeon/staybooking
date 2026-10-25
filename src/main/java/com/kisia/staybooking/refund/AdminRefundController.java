@@ -1,6 +1,7 @@
 package com.kisia.staybooking.refund;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import com.kisia.staybooking.auth.AuthenticatedUser;
@@ -71,12 +72,13 @@ public class AdminRefundController {
 
     public record Summary(Long refundId, Long bookingId, long amount, RefundStatus status,
                           String reason, Long processedBy, LocalDateTime processedAt,
-                          LocalDateTime startedAt, String failureCode) {
+                          LocalDateTime startedAt, String failureCode, boolean retryable) {
         static Summary from(RefundEntity refund) {
             return new Summary(refund.getRefundId(), refund.getBooking().getBookingId(),
                 refund.getAmount(), refund.getStatus(), refund.getReason(),
                 refund.getProcessedBy() == null ? null : refund.getProcessedBy().getUserId(),
-                refund.getProcessedAt(), refund.getStartedAt(), refund.getFailureCode());
+                refund.getProcessedAt(), refund.getStartedAt(), refund.getFailureCode(),
+                refund.canRetry(LocalDateTime.now(ZoneOffset.UTC)));
         }
     }
 }

@@ -75,7 +75,8 @@ class AdminDomainPaymentFlowTests {
         mvc.perform(get("http://admin.localhost" + refundPath).header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].refundId").value(refund.getRefundId()))
-            .andExpect(jsonPath("$.content[0].status").value("REQUESTED"));
+            .andExpect(jsonPath("$.content[0].status").value("REQUESTED"))
+            .andExpect(jsonPath("$.content[0].retryable").value(true));
 
         refund.start(LocalDateTime.now().minusMinutes(1));
         refund.failed("PAYMENT_CANCEL_FAILED");
@@ -92,6 +93,7 @@ class AdminDomainPaymentFlowTests {
         mvc.perform(get("http://admin.localhost" + refundPath).header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].status").value("REFUNDED"))
+            .andExpect(jsonPath("$.content[0].retryable").value(false))
             .andExpect(jsonPath("$.content[0].processedAt").isNotEmpty());
         mvc.perform(get("http://localhost/api/v1/bookings/" + booking.getBookingId())
                 .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))

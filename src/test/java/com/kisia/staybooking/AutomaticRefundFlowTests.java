@@ -14,6 +14,7 @@ import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
 import com.kisia.staybooking.payment.TossPaymentGateway;
 import com.kisia.staybooking.refund.AutomaticRefundService;
+import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundRepository;
 import com.kisia.staybooking.refund.RefundStatus;
 import com.kisia.staybooking.room.RoomEntity;
@@ -29,6 +30,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -44,6 +47,18 @@ class AutomaticRefundFlowTests {
     @Autowired private RefundRepository refunds;
     @Autowired private PaymentRepository payments;
     @MockitoBean private TossPaymentGateway gateway;
+
+    @Test
+    void processingRefundBecomesRetryableOnlyAfterTimeout() {
+        LocalDateTime started = LocalDateTime.now(ZoneOffset.UTC);
+        RefundEntity refund = new RefundEntity(null, 1_000, "예약 취소");
+        assertTrue(refund.canRetry(started));
+        refund.start(started);
+        assertFalse(refund.canRetry(started.plusSeconds(30)));
+        assertTrue(refund.canRetry(started.plusSeconds(31)));
+        refund.refunded(started.plusSeconds(31));
+        assertFalse(refund.canRetry(started.plusSeconds(60)));
+    }
 
     @Test
     void failedProviderCallLeavesBookingCancelledAndRetryUsesSameRefundId() {

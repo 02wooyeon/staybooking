@@ -19,6 +19,7 @@
 관리자는 `GET /api/v1/admin/payments/search`에서 `bookingId`, `status`, `page`, `size`로 결제·환불 상태를 함께 검색할 수 있다. `page`는 0부터, `size`는 1~100이며 기본값은 각각 0과 20이다. 응답은 `content`, `page`, `size`, `totalElements`, `totalPages` 형태다. 기존 `GET /api/v1/admin/payments`의 목록 응답은 유지한다.
 
 자동 환불 목록은 `GET /api/v1/admin/refunds/search`에서 `bookingId`, `status`(`REQUESTED`, `PROCESSING`, `REFUNDED`, `FAILED`), `page`, `size`로 조회한다. 기존 `APPROVED`, `REJECTED`는 과거 데이터 조회용이다. 대기·실패 건 또는 30초 이상 처리 중인 건은 결제대행사 내역을 확인한 뒤 `POST /api/v1/admin/refunds/{id}/retry`로 같은 환불 번호를 재시도할 수 있다. 기존 수동 승인·반려 PATCH는 제거됐다.
+환불 조회 응답의 `retryable`은 현재 시점에 재시도할 수 있는지, `failureCode`는 마지막 실패 원인을 나타낸다. 처리 중인 건은 시작 후 30초가 지나야 재시도 가능해진다.
 
 토스 테스트 키가 설정된 환경에서 관리자는 `GET /api/v1/admin/payments/{paymentId}/reconciliation`으로 로컬 결제·환불 상태와 토스 주문번호 조회 결과를 비교할 수 있다. `result`가 `MATCHED`면 조회 시점의 두 기록이 일치하고, `REVIEW_REQUIRED`면 결제·환불 내역과 객실 재고를 직접 확인해야 한다. 로컬 모의 결제는 `NOT_APPLICABLE`이다. 이 API는 조회만 수행하며 토스 결제 키를 반환하거나 결제·예약·환불 상태를 자동으로 바꾸지 않는다. 토스 조회가 실패하면 성공으로 간주하지 않고 오류를 반환한다.
 

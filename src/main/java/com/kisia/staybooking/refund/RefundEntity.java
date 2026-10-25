@@ -20,9 +20,12 @@ public class RefundEntity extends AuditedEntity {
  protected RefundEntity(){}
  public RefundEntity(BookingEntity booking,long amount,String reason){this.booking=booking;this.amount=amount;this.reason=reason;}
  public Long getRefundId(){return refundId;} public BookingEntity getBooking(){return booking;} public long getAmount(){return amount;} public RefundStatus getStatus(){return status;} public UserEntity getProcessedBy(){return processedBy;} public LocalDateTime getProcessedAt(){return processedAt;} public String getReason(){return reason;} public LocalDateTime getStartedAt(){return startedAt;} public String getFailureCode(){return failureCode;}
+ public boolean canRetry(LocalDateTime nowUtc){
+  return status==RefundStatus.REQUESTED || status==RefundStatus.FAILED
+      || (status==RefundStatus.PROCESSING && startedAt!=null && startedAt.isBefore(nowUtc.minusSeconds(30)));
+ }
  public void start(LocalDateTime nowUtc){
-  if(status!=RefundStatus.REQUESTED && status!=RefundStatus.FAILED
-      && !(status==RefundStatus.PROCESSING && startedAt!=null && startedAt.isBefore(nowUtc.minusSeconds(30))))
+  if(!canRetry(nowUtc))
    throw new IllegalStateException("Refund is not ready for processing");
   status=RefundStatus.PROCESSING;startedAt=nowUtc;failureCode=null;
  }
