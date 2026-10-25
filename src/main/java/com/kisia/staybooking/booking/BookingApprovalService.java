@@ -9,6 +9,7 @@ import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
+import com.kisia.staybooking.payment.PaymentVerification;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -48,9 +49,7 @@ public class BookingApprovalService {
             throw new IllegalStateException("Pending cancellation request must be decided before approval");
         }
         List<PaymentEntity> paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
-        if (paid.size() != 1 || paid.getFirst().getPaidAt() == null ||
-                Math.addExact(paid.getFirst().getPaidAmount(), booking.getUsedMileage())
-                    != booking.getTotalAmount()) {
+        if (paid.size() != 1 || !PaymentVerification.matches(booking, paid.getFirst())) {
             throw new IllegalStateException("Exactly one matching verified payment is required");
         }
         booking.accept(actor, LocalDateTime.now(ZoneOffset.UTC));

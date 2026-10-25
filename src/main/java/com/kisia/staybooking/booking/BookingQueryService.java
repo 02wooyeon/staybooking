@@ -13,6 +13,7 @@ import com.kisia.staybooking.cancellation.CancellationRequestStatus;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
+import com.kisia.staybooking.payment.PaymentVerification;
 import com.kisia.staybooking.refund.RefundEntity;
 import com.kisia.staybooking.refund.RefundPolicy;
 import com.kisia.staybooking.refund.RefundQuote;
@@ -74,7 +75,7 @@ public class BookingQueryService {
             throw new ApiException(HttpStatus.CONFLICT, "CANCELLATION_CLOSED", "체크인 이후에는 취소할 수 없습니다.");
         }
         var paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
-        if (paid.size() != 1 || paid.getFirst().getPaidAt() == null) {
+        if (paid.size() != 1 || !PaymentVerification.matches(booking, paid.getFirst())) {
             throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_VERIFIED", "결제 내역을 확인할 수 없습니다.");
         }
         return RefundPolicy.quote(reasonType, booking.getCheckInDate(), now.toLocalDate(),

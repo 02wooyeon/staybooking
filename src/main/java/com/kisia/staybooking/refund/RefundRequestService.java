@@ -7,6 +7,7 @@ import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.payment.PaymentStatus;
+import com.kisia.staybooking.payment.PaymentVerification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +34,9 @@ public class RefundRequestService {
             throw new IllegalStateException("Refund request already exists");
         }
         var paid = payments.findByBookingBookingIdAndStatus(booking.getBookingId(), PaymentStatus.PAID);
-        if (paid.size() != 1) throw new IllegalStateException("Expected exactly one paid payment");
+        if (paid.size() != 1 || !PaymentVerification.matches(booking, paid.getFirst())) {
+            throw new IllegalStateException("Expected exactly one matching verified payment");
+        }
         PaymentEntity payment = paid.getFirst();
         LocalDate cancellationDate = booking.getCancelledAt().atZone(ZoneId.of("UTC"))
             .withZoneSameInstant(KOREA).toLocalDate();

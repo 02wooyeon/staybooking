@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +50,7 @@ class AdminDomainBookingCancellationTests {
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentRepository payments;
     @Autowired private RefundRepository refunds;
+    @Autowired private JdbcTemplate jdbc;
 
     @Test
     void administratorCanCancelUnpaidBookingWithoutCreatingRefund() throws Exception {
@@ -120,5 +122,32 @@ class AdminDomainBookingCancellationTests {
         mvc.perform(get(path).header("Authorization", token))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"));
+    }
+
+    @Test
+    void mismatchedPaidAmountCannotCancelOrCreateRefund() throws Exception {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity admin = users.save(new UserEntity("mismatch-admin-" + tag, "hash", "Admin", null,
+            "mismatch-admin-" + tag + "@example.test", null, UserRole.ROLE_ADMIN));
+        UserEntity guest = users.save(new UserEntity("mismatch-guest-" + tag, "hash", "Guest",
+            "mismatch-guest-" + tag + "@example.test"));
+        AccommodationEntity accommodation = accommodations.save(new AccommodationEntity(
+            "Mismatch stay " + tag, "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(accommodation, "Standard", 100_000, 2, 1));
+        BookingEntity booking = bookings.save(new BookingEntity(guest, room,
+            LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
+            LocalDateTime.now().plusMinutes(10)));
+        var payment = paymentService.completeDemo(guest.getUserId(), booking.getBookingId());
+        jdbc.update("update payments set paid_amount = ? where payment_id = ?", 90_000,
+            payment.getPaymentId());
+
+        mvc.perform(patch("http://admin.localhost/api/v1/admin/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"action\":\"CANCEL\",\"reasonType\":\"ACCOMMODATION_FAULT\","
+                    + "\"reason\":\"운영자 직접 취소\"}"))
+            .andExpect(status().isConflict());
+        assertEquals(BookingStatus.PENDING, bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
+        assertFalse(refunds.existsByBookingBookingId(booking.getBookingId()));
     }
 }

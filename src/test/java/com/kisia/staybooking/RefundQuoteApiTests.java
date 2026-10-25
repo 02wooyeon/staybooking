@@ -86,4 +86,21 @@ class RefundQuoteApiTests {
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("CANCELLATION_CLOSED"));
     }
+
+    @Test
+    void rejectsQuoteWhenPaidAmountDoesNotMatchBooking() throws Exception {
+        UserEntity owner = fixtures.user("예약자");
+        RoomEntity room = fixtures.room(100_000, 2, 1);
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(5);
+        BookingEntity booking = fixtures.booking(owner, room, checkIn, checkIn.plusDays(1), BookingStatus.PENDING);
+        PaymentEntity payment = new PaymentEntity(booking, "QUOTE-MISMATCH-" + System.nanoTime(), "DEMO", 90_000);
+        payment.complete("DEMO-MISMATCH-" + System.nanoTime(), LocalDateTime.now(ZoneOffset.UTC));
+        payments.save(payment);
+
+        mvc.perform(get("/api/v1/bookings/" + booking.getBookingId() + "/refund-quote")
+                .param("reasonType", "USER_FAULT")
+                .header("Authorization", fixtures.bearer(owner)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("PAYMENT_NOT_VERIFIED"));
+    }
 }
