@@ -37,11 +37,11 @@ public class PaymentReconciliationService {
             "TOSS", PageRequest.of(page, size));
         List<Report> reports = candidates.getContent().stream().map(payment -> {
             try {
-                return check(payment.getPaymentId());
+                return checkPayment(payment);
             } catch (ApiException e) {
                 if (!"PAYMENT_LOOKUP_FAILED".equals(e.getCode())
                         && !"PAYMENT_NOT_CONFIGURED".equals(e.getCode())) throw e;
-                return report(payment, null, "LOOKUP_FAILED", Result.LOOKUP_FAILED);
+                return report(payment, refundFor(payment), null, "LOOKUP_FAILED", Result.LOOKUP_FAILED);
             }
         }).toList();
         return new PageResponse<>(reports, page, size, candidates.getTotalElements(),
@@ -52,8 +52,13 @@ public class PaymentReconciliationService {
     public Report check(Long paymentId) {
         PaymentEntity payment = payments.findById(paymentId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."));
+        return checkPayment(payment);
+    }
+
+    private Report checkPayment(PaymentEntity payment) {
+        RefundEntity refund = refundFor(payment);
         if (!"TOSS".equals(payment.getPaymentMethod())) {
-            return report(payment, null, "NOT_APPLICABLE", Result.NOT_APPLICABLE);
+            return report(payment, refund, null, "NOT_APPLICABLE", Result.NOT_APPLICABLE);
         }
 
         TossPaymentGateway.Confirmation provider;
@@ -61,7 +66,7 @@ public class PaymentReconciliationService {
             provider = gateway.findByOrderId(payment.getOrderId());
         } catch (ApiException e) {
             if (!"PROVIDER_PAYMENT_NOT_FOUND".equals(e.getCode())) throw e;
-            return report(payment, null, "NOT_FOUND",
+            return report(payment, refund, null, "NOT_FOUND",
                 payment.getStatus() == PaymentStatus.READY ? Result.MATCHED : Result.REVIEW_REQUIRED);
         }
 
@@ -69,8 +74,6 @@ public class PaymentReconciliationService {
             && payment.getPaidAmount() == provider.totalAmount()
             && (payment.getStatus() == PaymentStatus.READY
                 || payment.getPaymentKey() != null && payment.getPaymentKey().equals(provider.paymentKey()));
-        RefundEntity refund = refunds.findByBookingBookingIdIn(
-            List.of(payment.getBooking().getBookingId())).stream().findFirst().orElse(null);
         boolean statusMatches = switch (payment.getStatus()) {
             case READY -> "READY".equals(provider.status()) || "IN_PROGRESS".equals(provider.status());
             case PAID -> "DONE".equals(provider.status())
@@ -99,7 +102,15 @@ public class PaymentReconciliationService {
         } else {
             result = Result.REVIEW_REQUIRED;
         }
-        return report(payment, provider, provider.status(), result);
+        return report(payment, refund, provider, provider.status(), result);
+    }
+
+    private RefundEntity refundFor(PaymentEntity payment) {
+        if (payment.getStatus() == PaymentStatus.READY || payment.getStatus() == PaymentStatus.FAILED) {
+            return null;
+        }
+        return refunds.findByBookingBookingIdIn(List.of(payment.getBooking().getBookingId()))
+            .stream().findFirst().orElse(null);
     }
 
     private static boolean approvedRefundBetween(RefundEntity refund, long min, long max) {
@@ -120,13 +131,17 @@ public class PaymentReconciliationService {
         return provider.balanceAmount() != null && provider.balanceAmount() == expected;
     }
 
-    private static Report report(PaymentEntity payment, TossPaymentGateway.Confirmation provider,
+    private static Report report(PaymentEntity payment, RefundEntity refund,
+                                 TossPaymentGateway.Confirmation provider,
                                  String providerStatus, Result result) {
         return new Report(payment.getPaymentId(), payment.getBooking().getBookingId(),
             payment.getOrderId(), payment.getBooking().getStatus(), payment.getStatus(),
             providerStatus, payment.getPaidAmount(),
             provider == null ? null : provider.totalAmount(),
-            provider == null ? null : provider.balanceAmount(), result, LocalDateTime.now(ZoneOffset.UTC));
+            provider == null ? null : provider.balanceAmount(),
+            refund == null ? null : refund.getRefundId(),
+            refund == null ? null : refund.getStatus(),
+            refund == null ? null : refund.getAmount(), result, LocalDateTime.now(ZoneOffset.UTC));
     }
 
     public enum Result {
@@ -137,5 +152,6 @@ public class PaymentReconciliationService {
     public record Report(Long paymentId, Long bookingId, String orderId, BookingStatus bookingStatus,
                          PaymentStatus localStatus,
                          String providerStatus, long localAmount, Long providerAmount,
-                         Long providerBalanceAmount, Result result, LocalDateTime checkedAt) { }
+                         Long providerBalanceAmount, Long refundId, RefundStatus refundStatus,
+                         Long refundAmount, Result result, LocalDateTime checkedAt) { }
 }

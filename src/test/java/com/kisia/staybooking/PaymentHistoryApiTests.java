@@ -213,7 +213,11 @@ class PaymentHistoryApiTests {
                 .header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].result").value("LOOKUP_FAILED"))
-            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()));
+            .andExpect(jsonPath("$.content[0].orderId").value(payment.getOrderId()))
+            .andExpect(jsonPath("$.content[0].refundId").value(refund.getRefundId()))
+            .andExpect(jsonPath("$.content[0].refundStatus").value("REQUESTED"))
+            .andExpect(jsonPath("$.content[0].refundAmount").value(50_000))
+            .andExpect(jsonPath("$.content[0].paymentKey").doesNotExist());
         mvc.perform(get(reconciliationSearch)
                 .header("Authorization", "Bearer " + jwt.createAccessToken(owner)))
             .andExpect(status().isForbidden());

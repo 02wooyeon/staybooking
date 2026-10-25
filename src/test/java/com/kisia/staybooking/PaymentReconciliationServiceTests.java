@@ -29,7 +29,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -129,6 +132,7 @@ class PaymentReconciliationServiceTests {
         payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
             CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
         RefundEntity refund = new RefundEntity(payment.getBooking(), 50_000, "취소 요청");
+        ReflectionTestUtils.setField(refund, "refundId", 9L);
         refund.start(LocalDateTime.now());
         refund.refunded(LocalDateTime.now());
         when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
@@ -140,7 +144,11 @@ class PaymentReconciliationServiceTests {
 
         assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
         payment.refund(50_000);
-        assertEquals(PaymentReconciliationService.Result.MATCHED, service.check(7L).result());
+        var report = service.check(7L);
+        assertEquals(PaymentReconciliationService.Result.MATCHED, report.result());
+        assertEquals(9L, report.refundId());
+        assertEquals(RefundStatus.REFUNDED, report.refundStatus());
+        assertEquals(50_000L, report.refundAmount());
         assertEquals(PaymentStatus.PARTIALLY_REFUNDED, payment.getStatus());
     }
 
@@ -177,12 +185,18 @@ class PaymentReconciliationServiceTests {
         assertEquals(1, page.content().size());
         assertEquals(PaymentReconciliationService.Result.PROVIDER_CHARGED_NOT_RECORDED,
             page.content().getFirst().result());
+        assertNull(page.content().getFirst().refundId());
         assertEquals(PaymentStatus.READY, payment.getStatus());
+        verify(payments, never()).findById(7L);
     }
 
     @Test
     void keepsAProviderLookupFailureVisibleInTheScan() {
         PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 50_000, "취소 요청");
+        ReflectionTestUtils.setField(refund, "refundId", 9L);
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
         when(payments.findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc("TOSS", PageRequest.of(0, 10)))
             .thenReturn(new PageImpl<>(List.of(payment), PageRequest.of(0, 10), 1));
         when(gateway.findByOrderId("ORDER-100"))
@@ -193,7 +207,10 @@ class PaymentReconciliationServiceTests {
         assertEquals(PaymentReconciliationService.Result.LOOKUP_FAILED,
             page.content().getFirst().result());
         assertEquals("LOOKUP_FAILED", page.content().getFirst().providerStatus());
-        assertEquals(PaymentStatus.READY, payment.getStatus());
+        assertEquals(9L, page.content().getFirst().refundId());
+        assertEquals(RefundStatus.REQUESTED, page.content().getFirst().refundStatus());
+        assertEquals(50_000L, page.content().getFirst().refundAmount());
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
     }
 
     private PaymentEntity payment(String method) {
