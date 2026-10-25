@@ -26,10 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminRefundController {
     private final RefundRepository refunds;
     private final AutomaticRefundService service;
+    private final RefundReconciliationService reconciliation;
 
-    public AdminRefundController(RefundRepository refunds, AutomaticRefundService service) {
+    public AdminRefundController(RefundRepository refunds, AutomaticRefundService service,
+                                 RefundReconciliationService reconciliation) {
         this.refunds = refunds;
         this.service = service;
+        this.reconciliation = reconciliation;
     }
 
     @GetMapping
@@ -43,6 +46,11 @@ public class AdminRefundController {
         return Summary.from(refunds.findById(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "REFUND_NOT_FOUND",
                 "환불 요청을 찾을 수 없습니다.")));
+    }
+
+    @GetMapping("/{id}/reconciliation")
+    public RefundReconciliationService.Report reconciliation(@PathVariable @Positive Long id) {
+        return reconciliation.check(id);
     }
 
     @GetMapping("/search")

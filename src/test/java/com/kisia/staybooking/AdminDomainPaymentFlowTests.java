@@ -77,6 +77,17 @@ class AdminDomainPaymentFlowTests {
             .andExpect(jsonPath("$.content[0].refundId").value(refund.getRefundId()))
             .andExpect(jsonPath("$.content[0].status").value("REQUESTED"))
             .andExpect(jsonPath("$.content[0].retryable").value(true));
+        String reconciliationPath = "/api/v1/admin/refunds/" + refund.getRefundId() + "/reconciliation";
+        mvc.perform(get("http://localhost" + reconciliationPath).header("Authorization", authorization))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("http://admin.localhost" + reconciliationPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("http://admin.localhost" + reconciliationPath)
+                .header("Authorization", authorization))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result").value("NOT_APPLICABLE"))
+            .andExpect(jsonPath("$.paymentKey").doesNotExist());
 
         refund.start(LocalDateTime.now().minusMinutes(1));
         refund.failed("PAYMENT_CANCEL_FAILED");
