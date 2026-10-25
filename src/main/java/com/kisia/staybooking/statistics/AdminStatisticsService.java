@@ -54,7 +54,7 @@ public class AdminStatisticsService {
         return new AdminOverview(
             users.countByStatus(UserStatus.ACTIVE),
             accommodations.countByStatus(AccommodationStatus.ACTIVE),
-            rooms.countByStatus(RoomStatus.ACTIVE),
+            rooms.countByStatusAndAccommodationStatus(RoomStatus.ACTIVE, AccommodationStatus.ACTIVE),
             bookings.countByStatus(BookingStatus.PAYMENT_PENDING),
             bookings.countByStatus(BookingStatus.PENDING),
             bookings.countByStatus(BookingStatus.COMPLETED),

@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
+import com.kisia.staybooking.accommodation.AccommodationStatus;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.CancellationReasonType;
 import com.kisia.staybooking.booking.CancellationSource;
@@ -46,6 +47,12 @@ class AdminStatisticsServiceTests {
         em.persist(stay);
         RoomEntity room = new RoomEntity(stay, "Standard", 100_000, 2, 1);
         em.persist(room);
+        AccommodationEntity inactiveStay = new AccommodationEntity("Inactive Stay", "Busan",
+            LocalTime.of(15, 0), LocalTime.of(11, 0));
+        inactiveStay.update("Inactive Stay", "Busan", LocalTime.of(15, 0), LocalTime.of(11, 0),
+            null, AccommodationStatus.INACTIVE);
+        em.persist(inactiveStay);
+        em.persist(new RoomEntity(inactiveStay, "Still Active Room", 100_000, 2, 1));
         BookingEntity waitingForPayment = new BookingEntity(admin, room,
             LocalDate.now().plusDays(2), LocalDate.now().plusDays(3), 1, 100_000, 0,
             LocalDateTime.now().plusDays(1));
