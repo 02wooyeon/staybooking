@@ -7,39 +7,53 @@ import com.kisia.staybooking.cancellation.CancellationDecisionService;
 import com.kisia.staybooking.common.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
-/** 관리자와 승인자의 예약 처리 및 응답 생성을 하나의 트랜잭션에서 완료한다. */
+/**
+ * 관리자와 승인자의 예약 처리. 처리는 한 트랜잭션에서 끝내고, 응답은 커밋 뒤 새 트랜잭션에서 다시 조회한다.
+ * 자동 환불(AutomaticRefundService)은 커밋 뒤(AFTER_COMMIT)에 실행되므로, 그 결과(환불 완료 등)까지 응답에 담기 위해서다.
+ */
 @Service
 public class OperatorBookingActionService {
     private final BookingApprovalService approvals;
     private final BookingCancellationService directCancellations;
     private final CancellationDecisionService cancellationDecisions;
+    private final ApproverBookingQueryService queries;
+    private final TransactionTemplate transaction;
 
     public OperatorBookingActionService(BookingApprovalService approvals,
                                         BookingCancellationService directCancellations,
-                                        CancellationDecisionService cancellationDecisions) {
+                                        CancellationDecisionService cancellationDecisions,
+                                        ApproverBookingQueryService queries,
+                                        PlatformTransactionManager manager) {
         this.approvals = approvals;
         this.directCancellations = directCancellations;
         this.cancellationDecisions = cancellationDecisions;
+        this.queries = queries;
+        this.transaction = new TransactionTemplate(manager);
+        this.transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public BookingResponse process(Long actorId, Long bookingId,
                                    ApproverBookingController.ApproverBookingActionRequest request) {
-        BookingEntity booking = switch (request.action()) {
+        transaction.executeWithoutResult(status -> apply(actorId, bookingId, request));
+        // 커밋과 자동 환불이 끝난 뒤의 예약·취소 신청·환불 상태를 새로 읽어 응답한다.
+        return queries.detail(actorId, bookingId).summary().booking();
+    }
+
+    private void apply(Long actorId, Long bookingId, ApproverBookingController.ApproverBookingActionRequest request) {
+        switch (request.action()) {
             case ACCEPT -> approvals.accept(actorId, bookingId);
             case CANCEL -> directCancellations.cancel(actorId, bookingId,
                 required(request.reasonType(), "reasonType"), requiredText(request.reason(), "reason"));
             case APPROVE_CANCELLATION -> cancellationDecisions.approve(actorId, bookingId,
-                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason()).getBooking();
+                required(request.cancellationRequestId(), "cancellationRequestId"), request.reason());
             case REJECT_CANCELLATION -> cancellationDecisions.reject(actorId, bookingId,
                 required(request.cancellationRequestId(), "cancellationRequestId"),
-                requiredText(request.reason(), "reason")).getBooking();
-        };
-        // room/accommodation은 LAZY 관계이므로 트랜잭션이 끝나기 전에 응답으로 변환한다.
-        return BookingResponse.from(booking);
+                requiredText(request.reason(), "reason"));
+        }
     }
 
     private static <T> T required(T value, String field) {

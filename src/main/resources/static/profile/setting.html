@@ -168,9 +168,15 @@
       <!-- ---------- 내 활동 ---------- -->
       <section id="panel-activity" class="settings-panel" aria-labelledby="activity-title" hidden>
         <h1 id="activity-title">내 활동</h1>
-        <p class="page-sub">내가 쓴 후기와 문의를 모아 봅니다.</p>
+        <p class="page-sub">이용 내역과 내가 쓴 후기·문의를 모아 봅니다.</p>
 
         <div id="activity-alert" class="alert" role="alert" hidden></div>
+
+        <div class="info-card">
+          <h2>이용 내역 <span id="activity-stay-count" class="muted"></span></h2>
+          <ul id="activity-stays" class="stay-history"></ul>
+          <p id="activity-stays-empty" class="muted" hidden>아직 이용 내역이 없습니다.</p>
+        </div>
 
         <div class="info-card">
           <h2>내 후기 <span id="activity-review-count" class="muted"></span></h2>
