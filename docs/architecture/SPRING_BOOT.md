@@ -48,6 +48,7 @@ src/main/java/com/kisia/staybooking/
 | 취소 신청 판단 | `PATCH /api/v1/approver/bookings/{bookingId}/cancellation-requests/{requestId}` | APPROVER, ADMIN | `decision=APPROVE` 또는 `REJECT` |
 | 직접 취소 | `POST /api/v1/approver/bookings/{bookingId}/cancel` | APPROVER, ADMIN | 사유·상태·환불액·처리자 기록 |
 | 관리자 전체 예약 | `GET /api/v1/admin/bookings`, `PATCH /api/v1/admin/bookings/{bookingId}` | ADMIN | 조회·승인·취소; 같은 서비스 호출 |
+| 관리자 후기 검색·상세 | `GET /api/v1/admin/reviews/search`, `GET /api/v1/admin/reviews/{reviewId}` | ADMIN | 숙소·작성자·평점·숨김 여부 필터; 상세는 숨긴 후기도 사유와 함께 노출 |
 
 관리자 PATCH에서 취소는 `action=CANCEL`과 사유를 받되, 내부에서는 직접 취소 서비스를 호출합니다. 사용자 취소는 기존 시트의 즉시 취소 경로 대신 **신청** 경로로 바꿉니다. DTO에 임의의 `status` 값을 받지 말고 허용된 `action`을 enum으로 받습니다.
 

@@ -1,6 +1,7 @@
 package com.kisia.staybooking.review;
 
 import com.kisia.staybooking.common.PageResponse;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +29,16 @@ public class AdminReviewController {
     public PageResponse<AdminReviewResponse> list(@RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
                                                   @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return reviews.allForAdmin(page, size);
+    }
+
+    @GetMapping("/search")
+    public PageResponse<AdminReviewResponse> search(@Valid @ModelAttribute AdminReviewSearchRequest request) {
+        return reviews.searchForAdmin(request);
+    }
+
+    @GetMapping("/{reviewId}")
+    public AdminReviewDetailResponse detail(@PathVariable @Positive Long reviewId) {
+        return reviews.detailForAdmin(reviewId);
     }
 
     // 부적절한 후기 강제 삭제(ADM-14). 실제로 지우지 않고 숨기며 사유를 남긴다.
