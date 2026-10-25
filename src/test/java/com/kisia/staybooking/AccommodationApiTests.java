@@ -144,6 +144,10 @@ class AccommodationApiTests {
                 .param("checkIn", checkIn.toString()).param("checkOut", checkIn.toString()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+        mvc.perform(get("/api/v1/accommodations/search")
+                .param("checkIn", checkIn.toString()).param("checkOut", checkIn.plusDays(31).toString()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
         mvc.perform(get("/api/v1/accommodations/search").param("checkIn", checkIn.toString()))
             .andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/accommodations/search")
