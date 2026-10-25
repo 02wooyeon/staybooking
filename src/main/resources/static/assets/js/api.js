@@ -120,6 +120,32 @@
   }
 
   /**
+   * 업로드한 사진을 Blob 으로 받는다. <img src> 는 Authorization 헤더를 붙이지 못해
+   * 비밀 문의 사진처럼 본인만 볼 수 있는 사진을 받을 수 없으므로, 토큰을 붙여 직접 받는다.
+   * 로그인 전이면 토큰 없이 요청한다 (공개 사진만 받을 수 있다).
+   */
+  async function fetchImage(url) {
+    var token = await ensureToken();
+    var res;
+    try {
+      res = await fetch(url, {
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+    } catch (e) {
+      throw new ApiError(0, 'NETWORK_ERROR', '서버에 연결할 수 없습니다. 네트워크 상태를 확인해 주세요.');
+    }
+    if (!res.ok) throw new ApiError(res.status, 'IMAGE_UNAVAILABLE', '사진을 불러올 수 없습니다.');
+    var blob = await res.blob();
+    // 사진이 아닌 응답은 쓰지 않는다
+    if (!/^image\/(jpeg|png|webp)$/.test(blob.type)) {
+      throw new ApiError(res.status, 'IMAGE_UNAVAILABLE', '사진을 불러올 수 없습니다.');
+    }
+    return blob;
+  }
+
+  /**
    * 로그인 후 돌아갈 주소. 같은 사이트의 상대 경로만 허용해
    * ?next=https://evil.example 같은 오픈 리다이렉트를 막는다.
    */
@@ -296,6 +322,9 @@
       form.append('file', file);
       return authed('POST', '/api/v1/uploads/Images', form);
     },
+
+    /** 업로드한 사진 받기 (Blob). 본인만 볼 수 있는 사진도 로그인 상태면 받는다. */
+    getImage: fetchImage,
 
     /** 닉네임·연락처 수정 (비밀번호 변경 시 currentPassword, newPassword를 함께 보낸다) */
     updateMe: function (form) {

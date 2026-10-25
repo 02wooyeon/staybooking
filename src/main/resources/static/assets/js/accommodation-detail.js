@@ -158,7 +158,7 @@
             bookingParams.set('checkOut', params.get('checkOut'));
           }
           if (params.get('guests')) bookingParams.set('guests', params.get('guests'));
-          window.location.href = '/booking/create.html?' + bookingParams.toString();
+          window.location.href = '/booking/quote.html?' + bookingParams.toString();
         });
       }
       right.append(label, price, button);
