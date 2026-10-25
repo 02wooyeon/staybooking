@@ -146,8 +146,10 @@ public class AutomaticRefundService {
                         || result.totalAmount() != work.paidAmount()
                         || result.balanceAmount() != work.paidAmount() - work.amount()
                         || !expected.equals(result.status()) || result.cancels() == null
+                        || result.lastTransactionKey() == null || result.lastTransactionKey().isBlank()
                         || result.cancels().stream().noneMatch(c -> c != null
-                            && c.cancelAmount() == work.amount() && "DONE".equals(c.cancelStatus()))) {
+                            && c.cancelAmount() == work.amount() && "DONE".equals(c.cancelStatus())
+                            && result.lastTransactionKey().equals(c.transactionKey()))) {
                     throw new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_MISMATCH",
                         "토스 결제 취소 결과가 환불 요청과 일치하지 않습니다.");
                 }

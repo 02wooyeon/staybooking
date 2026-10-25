@@ -181,7 +181,8 @@ class AdminDomainBookingCancellationTests {
             .thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "PAYMENT_CANCEL_FAILED", "PG 응답 확인 실패"))
             .thenReturn(new TossPaymentGateway.Cancellation(payment.getPaymentKey(),
                 payment.getOrderId(), 100_000, 0, "CANCELED",
-                java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE"))));
+                java.util.List.of(new TossPaymentGateway.Cancel(100_000, "DONE", "cancel-transaction")),
+                "cancel-transaction"));
         String token = "Bearer " + jwt.createAccessToken(admin);
         String path = "http://admin.localhost/api/v1/admin/bookings/" + booking.getBookingId();
 
