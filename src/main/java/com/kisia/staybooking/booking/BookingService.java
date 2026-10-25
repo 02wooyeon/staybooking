@@ -5,8 +5,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
@@ -14,6 +16,7 @@ import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
 import com.kisia.staybooking.user.UserStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +39,7 @@ public class BookingService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public BookingEntity create(Long userId, Long roomId, LocalDate checkIn, LocalDate checkOut,
-                                int guests) {
+                                int guests, long usedMileage) {
         validateStay(checkIn, checkOut);
         UserEntity user = bookingUser(userId);
         RoomEntity room = rooms.findByIdForUpdate(roomId)
@@ -44,10 +47,11 @@ public class BookingService {
         validateRoom(room, guests);
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         long total = totalAmount(room, nights);
+        validateMileage(user, usedMileage, total);
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
         inventory.requireAvailability(room, checkIn, checkOut, nowUtc);
         BookingEntity booking = new BookingEntity(user, room, checkIn, checkOut, guests,
-            total, 0, nowUtc.plusMinutes(15));
+            total, usedMileage, nowUtc.plusMinutes(15));
         return bookings.save(booking);
     }
 
@@ -55,18 +59,33 @@ public class BookingService {
     // 금액은 클라이언트 값을 받지 않고 서버의 객실 가격으로만 계산한다. 잠금 없이 조회만 한다.
     @Transactional(readOnly = true)
     public BookingQuoteResponse quote(Long userId, Long roomId, LocalDate checkIn, LocalDate checkOut,
-                                      int guests) {
+                                      int guests, long usedMileage) {
         validateStay(checkIn, checkOut);
-        bookingUser(userId);
+        UserEntity user = bookingUser(userId);
         RoomEntity room = rooms.findById(roomId)
             .orElseThrow(() -> new IllegalArgumentException("Room not found"));
         validateRoom(room, guests);
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         long roomTotal = totalAmount(room, nights);
+        validateMileage(user, usedMileage, roomTotal);
         int availableCount = inventory.remainingUnits(room, checkIn, checkOut, LocalDateTime.now(ZoneOffset.UTC));
         return new BookingQuoteResponse(room.getAccommodation().getAccommodationId(),
             room.getAccommodation().getName(), room.getRoomId(), room.getName(), checkIn, checkOut, nights,
-            guests, room.getPrice(), roomTotal, 0, roomTotal, availableCount, availableCount > 0);
+            guests, room.getPrice(), roomTotal, 0, roomTotal, availableCount, availableCount > 0,
+            usedMileage, roomTotal - usedMileage, user.getMileageBalance(),
+            Math.min(user.getMileageBalance(), roomTotal));
+    }
+
+    // 결제 확정 시점에 잔액을 다시 확인하므로 여기서는 미리 알려 주기 위한 검사다.
+    private static void validateMileage(UserEntity user, long usedMileage, long totalAmount) {
+        if (usedMileage < 0 || usedMileage > totalAmount) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MILEAGE",
+                "사용 마일리지는 0 이상 결제 총액 이하만 가능합니다.", List.of("usedMileage"));
+        }
+        if (usedMileage > user.getMileageBalance()) {
+            throw new ApiException(HttpStatus.CONFLICT, "MILEAGE_BALANCE_SHORT",
+                "보유 마일리지가 부족합니다.", List.of("usedMileage"));
+        }
     }
 
     private static void validateStay(LocalDate checkIn, LocalDate checkOut) {

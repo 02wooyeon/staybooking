@@ -10,6 +10,7 @@ import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.booking.CancellationReasonType;
 import com.kisia.staybooking.booking.CancellationSource;
+import com.kisia.staybooking.mileage.MileageService;
 import com.kisia.staybooking.refund.RefundRequestService;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
@@ -28,13 +29,16 @@ public class BookingCancellationService {
     private final BookingRepository bookings;
     private final CancellationRequestRepository requests;
     private final RefundRequestService refunds;
+    private final MileageService mileage;
 
     public BookingCancellationService(UserRepository users, BookingRepository bookings,
-                                      CancellationRequestRepository requests, RefundRequestService refunds) {
+                                      CancellationRequestRepository requests, RefundRequestService refunds,
+                                      MileageService mileage) {
         this.users = users;
         this.bookings = bookings;
         this.requests = requests;
         this.refunds = refunds;
+        this.mileage = mileage;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -74,6 +78,8 @@ public class BookingCancellationService {
         // 예약 잠금 아래에서 미처리 신청도 함께 마무리해 사용자 화면에 대기로 남지 않게 한다.
         requests.findByBookingBookingIdAndStatus(bookingId, CancellationRequestStatus.REQUESTED)
             .ifPresent(request -> request.approve(actor, nowUtc, "운영자 직접 취소로 처리됨"));
+        // 결제 전 취소라면 아직 차감된 적이 없어 아무 일도 일어나지 않는다.
+        mileage.restoreForBooking(booking);
         if (paymentCompleted) {
             refunds.record(booking);
         }

@@ -10,8 +10,8 @@ import com.kisia.staybooking.refund.RefundSummary;
 /** 화면과 API가 엔티티를 직접 노출하지 않도록 만드는 예약 응답 모델. */
 public record BookingResponse(
     Long bookingId, Long accommodationId, String accommodationName, Long roomId, String roomName,
-    LocalDate checkIn, LocalDate checkOut, int guests, long totalAmount, BookingStatus status,
-    boolean cancellationRequested, LocalDateTime paymentExpiresAt,
+    LocalDate checkIn, LocalDate checkOut, int guests, long totalAmount, long usedMileage,
+    BookingStatus status, boolean cancellationRequested, LocalDateTime paymentExpiresAt,
     RefundStatus refundStatus, Long refundAmount, Long refundedAmount
 ) {
     public static BookingResponse from(BookingEntity booking) {
@@ -36,8 +36,8 @@ public record BookingResponse(
         RefundStatus status = refund == null ? null : refund.status();
         Long amount = refund == null ? null : refund.amount();
         return new BookingResponse(bookingId, accommodationId, accommodationName, roomId, roomName,
-            checkIn, checkOut, guests, totalAmount, this.status, cancellationRequested, paymentExpiresAt,
-            status, amount, status == null ? null : status.isSettled() ? amount : 0L);
+            checkIn, checkOut, guests, totalAmount, usedMileage, this.status, cancellationRequested,
+            paymentExpiresAt, status, amount, status == null ? null : status.isSettled() ? amount : 0L);
     }
 
     private static BookingResponse create(BookingEntity booking, boolean cancellationRequested,
@@ -45,7 +45,7 @@ public record BookingResponse(
         return new BookingResponse(booking.getBookingId(), booking.getRoom().getAccommodation().getAccommodationId(),
             booking.getRoom().getAccommodation().getName(), booking.getRoom().getRoomId(), booking.getRoom().getName(),
             booking.getCheckInDate(), booking.getCheckOutDate(), booking.getGuests(), booking.getTotalAmount(),
-            booking.getStatus(), cancellationRequested, booking.getPaymentExpiresAt(),
+            booking.getUsedMileage(), booking.getStatus(), cancellationRequested, booking.getPaymentExpiresAt(),
             refundStatus, refundAmount, refundStatus == null ? null
                 : refundStatus.isSettled() ? refundAmount : 0L);
     }

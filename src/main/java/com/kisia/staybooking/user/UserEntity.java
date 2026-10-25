@@ -107,6 +107,19 @@ public class UserEntity extends AuditedEntity {
             tokenVersion++;
         }
     }
+    /**
+     * 마일리지 잔액을 더한다. 차감은 음수를 넣는다. 잔액은 0 미만이 될 수 없다(users 테이블 CHECK와 같은 규칙).
+     * 이력(mileage_history)과 함께 같은 트랜잭션에서 바꾸도록 MileageService 에서만 호출한다.
+     *
+     * @return 변경 후 잔액
+     */
+    public long addMileage(long amount) {
+        long next = Math.addExact(mileageBalance, amount);
+        if (next < 0) throw new IllegalStateException("Mileage balance cannot be negative");
+        mileageBalance = next;
+        return next;
+    }
+
     // PROFILE_002. 이름·이메일은 본인 확인 정보라 바꾸지 않는다.
     public void updateProfile(String nickname, String phone) {
         this.nickname = nickname;

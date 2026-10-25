@@ -40,7 +40,7 @@ public class BookingController {
     public BookingResponse create(@AuthenticationPrincipal AuthenticatedUser me,
                                   @Valid @RequestBody BookingCreateRequest request) {
         return BookingResponse.from(bookings.create(me.userId(), request.roomId(), request.checkIn(),
-            request.checkOut(), request.guests()));
+            request.checkOut(), request.guests(), request.usedMileageOrZero()));
     }
 
     // PAYMENT_006 예약 예상 요금. 요청에 금액 필드는 없다. (BookingCreateRequest와 같은 입력)
@@ -48,7 +48,7 @@ public class BookingController {
     public BookingQuoteResponse quote(@AuthenticationPrincipal AuthenticatedUser me,
                                       @Valid @RequestBody BookingCreateRequest request) {
         return bookings.quote(me.userId(), request.roomId(), request.checkIn(), request.checkOut(),
-            request.guests());
+            request.guests(), request.usedMileageOrZero());
     }
 
     @GetMapping("/me")

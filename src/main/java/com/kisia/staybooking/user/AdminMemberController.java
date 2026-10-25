@@ -7,9 +7,15 @@ import java.util.List;
 import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.auth.RefreshTokenRepository;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.mileage.MileageHistoryResponse;
+import com.kisia.staybooking.mileage.MileageService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +23,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,12 +35,14 @@ public class AdminMemberController {
     private final UserRepository users;
     private final RefreshTokenRepository refreshTokens;
     private final AdminMemberQueryService queries;
+    private final MileageService mileage;
 
     public AdminMemberController(UserRepository users, RefreshTokenRepository refreshTokens,
-                                 AdminMemberQueryService queries) {
+                                 AdminMemberQueryService queries, MileageService mileage) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.queries = queries;
+        this.mileage = mileage;
     }
 
     @GetMapping
@@ -55,6 +65,20 @@ public class AdminMemberController {
     @GetMapping("/{userId}")
     public AdminMemberDetail detail(@PathVariable @Positive Long userId) {
         return queries.detail(userId);
+    }
+
+    @GetMapping("/{userId}/mileage")
+    public PageResponse<MileageHistoryResponse> mileageHistory(@PathVariable @Positive Long userId,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return mileage.historyOf(userId, page, size);
+    }
+
+    // 보상·회수 같은 운영 처리. 양수는 적립, 음수는 차감으로 기록한다.
+    @PostMapping("/{userId}/mileage")
+    public MileageHistoryResponse adjustMileage(@PathVariable @Positive Long userId,
+                                                @Valid @RequestBody MileageAdjustRequest request) {
+        return mileage.adjust(userId, request.amount(), request.description().trim());
     }
 
     @Transactional
@@ -90,6 +114,8 @@ public class AdminMemberController {
         refreshTokens.revokeAllByUserId(userId, LocalDateTime.now(ZoneOffset.UTC));
     }
 
+    public record MileageAdjustRequest(@NotNull Long amount,
+                                       @NotBlank @Size(max = 255) String description) { }
     public record StatusRequest(@NotNull UserStatus status) { }
     public record RoleRequest(@NotNull UserRole role) { }
     public record MemberSummary(Long userId, String loginId, String name, String nickname,

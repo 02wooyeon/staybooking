@@ -48,21 +48,21 @@ class BookingServiceTests {
 
     @Test
     void allowsTwoUnitsButRejectsThirdOnTheSameNight() {
-        BookingEntity first = service.create(userId, roomId, firstNight, firstNight.plusDays(2), 2);
-        service.create(userId, roomId, firstNight.plusDays(1), firstNight.plusDays(3), 1);
+        BookingEntity first = service.create(userId, roomId, firstNight, firstNight.plusDays(2), 2, 0);
+        service.create(userId, roomId, firstNight.plusDays(1), firstNight.plusDays(3), 1, 0);
 
         assertEquals(BookingStatus.PAYMENT_PENDING, first.getStatus());
         assertEquals(200_000, first.getTotalAmount());
         assertThrows(IllegalStateException.class,
-            () -> service.create(userId, roomId, firstNight.plusDays(1), firstNight.plusDays(2), 1));
+            () -> service.create(userId, roomId, firstNight.plusDays(1), firstNight.plusDays(2), 1, 0));
 
         // 첫날에는 한 객실만 점유 중이므로 추가 예약이 가능하다.
-        service.create(userId, roomId, firstNight, firstNight.plusDays(1), 1);
+        service.create(userId, roomId, firstNight, firstNight.plusDays(1), 1, 0);
     }
 
     @Test
     void rejectsOverCapacity() {
         assertThrows(IllegalArgumentException.class,
-            () -> service.create(userId, roomId, firstNight, firstNight.plusDays(1), 3));
+            () -> service.create(userId, roomId, firstNight, firstNight.plusDays(1), 3, 0));
     }
 }

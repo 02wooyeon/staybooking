@@ -8,6 +8,7 @@ import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingStatus;
 import com.kisia.staybooking.payment.PaymentEntity;
+import com.kisia.staybooking.mileage.MileageService;
 import com.kisia.staybooking.payment.PaymentService;
 import com.kisia.staybooking.payment.PaymentStatus;
 import com.kisia.staybooking.payment.TossPaymentConfirmationService;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
 import org.springframework.http.HttpStatus;
 
 @DataJpaTest
-@Import(PaymentService.class)
+@Import({PaymentService.class, MileageService.class})
 class PaymentServiceTests {
     @Autowired private EntityManager entityManager;
     @Autowired private PaymentService payments;
