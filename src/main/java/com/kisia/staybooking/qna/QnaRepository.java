@@ -14,6 +14,10 @@ public interface QnaRepository extends JpaRepository<QnaEntity, Long> {
     @Query("select count(q) from QnaEntity q where q.deleted = false and not exists "
         + "(select a from QnaAnswerEntity a where a.qna = q)")
     long countVisibleUnanswered();
+    long countByUserUserId(Long userId);
+    @Query("select count(q) from QnaEntity q where q.user.userId = :userId and q.deleted = false "
+        + "and not exists (select a from QnaAnswerEntity a where a.qna = q)")
+    long countVisibleUnansweredByUser(@Param("userId") Long userId);
     List<QnaEntity> findByUserUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId);
     List<QnaEntity> findBySecretFalseAndDeletedFalseOrderByCreatedAtDesc();
     List<QnaEntity> findAllByOrderByCreatedAtDesc();

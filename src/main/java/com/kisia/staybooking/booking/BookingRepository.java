@@ -17,6 +17,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     long countByStatus(BookingStatus status);
+    long countByUserUserIdAndStatus(Long userId, BookingStatus status);
     @Query("select b.createdAt from BookingEntity b "
         + "where b.createdAt >= :fromUtc and b.createdAt < :toUtc")
     List<LocalDateTime> findCreatedTimesInRange(@Param("fromUtc") LocalDateTime fromUtc,

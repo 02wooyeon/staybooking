@@ -18,6 +18,11 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     long countByStatus(PaymentStatus status);
     @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p where p.status in :statuses")
     long sumPaidAmountByStatusIn(@Param("statuses") List<PaymentStatus> statuses);
+    long countByBookingUserUserIdAndStatus(Long userId, PaymentStatus status);
+    @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p "
+        + "where p.booking.user.userId = :userId and p.status in :statuses")
+    long sumPaidAmountByUserAndStatusIn(@Param("userId") Long userId,
+                                        @Param("statuses") List<PaymentStatus> statuses);
     @Query("select coalesce(sum(p.paidAmount), 0) from PaymentEntity p "
         + "where p.status in :statuses and p.paidAt >= :fromUtc and p.paidAt < :toUtc")
     long sumPaidAmountByStatusInAndPaidAtRange(@Param("statuses") List<PaymentStatus> statuses,

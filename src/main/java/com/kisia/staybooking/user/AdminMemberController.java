@@ -9,6 +9,7 @@ import com.kisia.staybooking.auth.RefreshTokenRepository;
 import com.kisia.staybooking.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminMemberController {
     private final UserRepository users;
     private final RefreshTokenRepository refreshTokens;
+    private final AdminMemberQueryService queries;
 
-    public AdminMemberController(UserRepository users, RefreshTokenRepository refreshTokens) {
+    public AdminMemberController(UserRepository users, RefreshTokenRepository refreshTokens,
+                                 AdminMemberQueryService queries) {
         this.users = users;
         this.refreshTokens = refreshTokens;
+        this.queries = queries;
     }
 
     @GetMapping
@@ -45,6 +49,12 @@ public class AdminMemberController {
             PageRequest.of(page, size));
         return new PageResponse<>(result.getContent().stream().map(MemberSummary::from).toList(),
             page, size, result.getTotalElements(), result.getTotalPages());
+    }
+
+    // 회원 한 명의 예약·결제·활동 집계. 목록 요약(MemberSummary)에 없는 운영 판단 근거를 제공한다.
+    @GetMapping("/{userId}")
+    public AdminMemberDetail detail(@PathVariable @Positive Long userId) {
+        return queries.detail(userId);
     }
 
     @Transactional

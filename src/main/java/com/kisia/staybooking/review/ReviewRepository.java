@@ -32,6 +32,10 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
     List<ReviewEntity> findByUserUserIdAndDeletedFalseOrderByCreatedAtDesc(Long userId);
 
+    long countByUserUserId(Long userId);
+
+    long countByUserUserIdAndDeletedTrue(Long userId);
+
     Page<ReviewEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     // 관리자 후기 검색. 숨긴 후기도 조회 대상이므로 deleted 조건을 따로 받는다.
