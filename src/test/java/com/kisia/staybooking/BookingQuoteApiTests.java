@@ -65,9 +65,26 @@ class BookingQuoteApiTests {
 
         quote(guest, body(room, checkIn, checkIn, 1)).andExpect(status().isBadRequest());
         quote(guest, body(room, checkIn, checkIn.plusDays(1), 3)).andExpect(status().isBadRequest());
+        quote(guest, body(room, checkIn, checkIn.plusDays(31), 1)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/bookings").header("Authorization", fixtures.bearer(guest))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body(room, checkIn, checkIn.plusDays(31), 1)))
+            .andExpect(status().isBadRequest());
         mvc.perform(post("/api/v1/bookings/quote").contentType(MediaType.APPLICATION_JSON)
                 .content(body(room, checkIn, checkIn.plusDays(1), 1)))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void acceptsTheThirtyNightBoundary() throws Exception {
+        RoomEntity room = fixtures.room(10_000, 2, 1);
+        UserEntity guest = fixtures.user("장기 예약자");
+        LocalDate checkIn = LocalDate.now(TestFixtures.KOREA).plusDays(10);
+
+        quote(guest, body(room, checkIn, checkIn.plusDays(30), 1))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nights").value(30))
+            .andExpect(jsonPath("$.totalAmount").value(300_000));
     }
 
     private ResultActions quote(UserEntity user, String body) throws Exception {

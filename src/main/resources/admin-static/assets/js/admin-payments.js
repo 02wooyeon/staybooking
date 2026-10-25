@@ -3,9 +3,8 @@
  *   GET   /api/v1/admin/payments/search?bookingId=&status=&page=&size=
  *   GET   /api/v1/admin/payments/{paymentId}/reconciliation   결제대행사 금액 대조
  *   GET   /api/v1/admin/refunds/search?bookingId=&status=&page=&size=
- *   GET   /api/v1/admin/refunds/search?bookingId=&status=&page=&size=
- * 환불은 예약 취소 시 서버에서 자동 처리되며,
- * 관리자 화면에서는 환불 내역과 처리 상태를 조회한다.
+ *   POST /api/v1/admin/refunds/{refundId}/retry (대기·실패 건 재시도)
+ * 예약 취소 확정 후 서버가 자동으로 결제 취소를 요청한다.
  * 탭은 주소로 구분한다: ?tab=payments (기본) / ?tab=refunds
  */
 (function () {
@@ -138,18 +137,34 @@
   }
 
   function refundActions(r) {
-  var info = document.createElement('small');
-  info.className = 'admin-cell-sub';
-
-  if (r.processedAt) {
-    info.textContent =
-      (r.processedBy ? '처리자 #' + r.processedBy + ' · ' : '') +
-      AdminUi.formatDateTime(r.processedAt);
-  } else {
-    info.textContent = '처리 정보 없음';
+    if (r.status !== 'REQUESTED' && r.status !== 'FAILED' && r.status !== 'PROCESSING') {
+      var done = document.createElement('small');
+      done.className = 'admin-cell-sub';
+      done.textContent = r.processedAt ? AdminUi.formatDateTime(r.processedAt) : '-';
+      return done;
+    }
+    return AdminUi.group([
+      AdminUi.actionButton('재시도', function (b) { retryRefund(r, b); }, 'primary')
+    ]);
   }
 
-  return info;
-}
-
+  async function retryRefund(r, button) {
+    var answer = await AdminUi.confirmAction({
+      title: '환불 재시도',
+      message: '환불 #' + r.refundId + '을(를) 같은 환불 번호로 재시도합니다. 처리 중인 건은 잠시 후 다시 시도해 주세요.',
+      confirmLabel: '재시도',
+      danger: true
+    });
+    if (!answer.confirmed) return;
+    button.disabled = true;
+    try {
+      var result = await AdminUi.api('POST', '/api/v1/admin/refunds/' + encodeURIComponent(r.refundId) + '/retry');
+      await filters.reload();
+      AdminUi.showMessage(alertBox, result.status === 'REFUNDED'
+        ? '환불이 완료됐습니다.' : '환불 상태를 다시 확인해 주세요.', result.status === 'REFUNDED' ? 'success' : 'error');
+    } catch (e) {
+      button.disabled = false;
+      AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
+    }
+  }
 })();

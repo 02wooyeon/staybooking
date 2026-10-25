@@ -4,13 +4,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.kisia.staybooking.booking.BookingInventoryService;
+import com.kisia.staybooking.booking.StayDatePolicy;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.room.RoomEntity;
@@ -26,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccommodationService {
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
     private static final int DEFAULT_PAGE_SIZE = 20;
-    private static final int MAX_NIGHTS = 30;
     // 날짜 조건이 있으면 빈 객실 확인을 위해 후보를 메모리로 가져오므로 개수를 제한한다.
     private static final int MAX_DATE_SEARCH_CANDIDATES = 300;
 
@@ -90,7 +89,8 @@ public class AccommodationService {
         return new AccommodationDetail(accommodation.getAccommodationId(), accommodation.getName(),
             accommodation.getAddress(), accommodation.getDescription(), accommodation.getCheckInTime(),
             accommodation.getCheckOutTime(), accommodation.getLatitude(), accommodation.getLongitude(),
-            accommodation.getStatus(), List.of(), List.of(), List.of(), roomSummaries);
+            accommodation.getStatus(), accommodation.getAmenities(), accommodation.getRules(), List.of(),
+            roomSummaries);
     }
 
     // stay가 있으면 그 기간에 예약 가능한 객실이 있는 숙소만 남기고, 최저가도 예약 가능한 객실 기준으로 계산한다.
@@ -129,9 +129,7 @@ public class AccommodationService {
         if (checkIn == null && checkOut == null) {
             return null;
         }
-        if (checkIn == null || checkOut == null || !checkOut.isAfter(checkIn)
-                || checkIn.isBefore(LocalDate.now(KOREA))
-                || ChronoUnit.DAYS.between(checkIn, checkOut) > MAX_NIGHTS) {
+        if (!StayDatePolicy.isValid(checkIn, checkOut, LocalDate.now(KOREA))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다.");
         }
         return new Stay(checkIn, checkOut);

@@ -7,6 +7,8 @@ import java.util.UUID;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
 import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.common.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,24 +27,69 @@ public class PaymentService {
     public PaymentEntity prepare(Long userId, Long bookingId, String paymentMethod) {
         BookingEntity booking = ownedBooking(userId, bookingId);
         ensurePaymentPending(booking);
+        long payable = booking.getTotalAmount() - booking.getUsedMileage();
+        if (payable == 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_NOT_REQUIRED",
+                "결제 금액이 0원인 예약은 무료 예약 완료 기능을 이용해 주세요.");
+        }
         PaymentEntity ready = payments.findFirstByBookingBookingIdAndStatusOrderByCreatedAtDesc(
             bookingId, PaymentStatus.READY).orElse(null);
         if (ready != null) {
+            requireBookingAmount(booking, ready);
             if (!ready.getPaymentMethod().equals(paymentMethod)) {
                 throw new IllegalStateException("A different payment method is already prepared");
             }
             return ready;
         }
-        return payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod,
-            booking.getTotalAmount() - booking.getUsedMileage()));
+        return payments.save(new PaymentEntity(booking, newOrderId(), paymentMethod, payable));
+    }
+
+    /** 0원 예약은 PG 결제 없이 승인 대기로 전환한다. 재요청은 기존 무료 결제를 반환한다. */
+    @Transactional
+    public PaymentEntity completeFree(Long userId, Long bookingId) {
+        BookingEntity booking = ownedBooking(userId, bookingId);
+        if (booking.getTotalAmount() - booking.getUsedMileage() != 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_REQUIRED", "결제가 필요한 예약입니다.");
+        }
+        if (booking.getStatus() == BookingStatus.PENDING || booking.getStatus() == BookingStatus.COMPLETED) {
+            var paid = payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID);
+            if (paid.size() == 1 && "FREE".equals(paid.getFirst().getPaymentMethod())
+                    && paid.getFirst().getPaidAmount() == 0) {
+                return paid.getFirst();
+            }
+            throw new IllegalStateException("Free booking payment record is inconsistent");
+        }
+        ensurePaymentPending(booking);
+        if (!payments.findByBookingBookingIdAndStatus(bookingId, PaymentStatus.PAID).isEmpty()) {
+            throw new IllegalStateException("Booking already has a paid payment");
+        }
+        PaymentEntity payment = new PaymentEntity(booking, newOrderId(), "FREE", 0);
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        payment.complete("FREE-" + UUID.randomUUID(), nowUtc);
+        booking.markPaid(nowUtc);
+        return payments.save(payment);
     }
 
     @Transactional
     public PaymentEntity complete(Long userId, String orderId, String paymentKey, long amount) {
+        return completeLocked(userId, orderId, paymentKey, amount, null);
+    }
+
+    private PaymentEntity completeLocked(Long userId, String orderId, String paymentKey,
+                                         long amount, String requiredMethod) {
+        Long bookingId = payments.findBookingIdByOrderId(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        BookingEntity booking = ownedBooking(userId, bookingId);
+        ensurePaymentPending(booking);
         PaymentEntity payment = payments.findByOrderIdForUpdate(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        BookingEntity booking = ownedBooking(userId, payment.getBooking().getBookingId());
-        ensurePaymentPending(booking);
+        if (!payment.getBooking().getBookingId().equals(bookingId)) {
+            throw new IllegalStateException("Payment booking changed");
+        }
+        requireBookingAmount(booking, payment);
+        if (requiredMethod != null && !requiredMethod.equals(payment.getPaymentMethod())) {
+            throw new IllegalStateException("Only demo payments can use demo completion");
+        }
         if (payment.getPaidAmount() != amount) {
             throw new IllegalArgumentException("Payment amount does not match");
         }
@@ -54,9 +101,43 @@ public class PaymentService {
     @Transactional
     public PaymentEntity completeDemo(Long userId, Long bookingId) {
         PaymentEntity prepared = prepare(userId, bookingId, "DEMO");
-        return complete(userId, prepared.getOrderId(), "DEMO-" + UUID.randomUUID(),
-            prepared.getPaidAmount());
+        return completeDemoOrder(userId, prepared.getOrderId(), prepared.getPaidAmount());
     }
+
+    /** 모의 결제 경로에서는 토스 주문을 임의로 결제 완료 처리할 수 없다. */
+    @Transactional
+    public PaymentEntity completeDemoOrder(Long userId, String orderId, long amount) {
+        return completeLocked(userId, orderId, "DEMO-" + UUID.randomUUID(), amount, "DEMO");
+    }
+
+    /** PG 호출 전 읽기 전용 확인. 결제 확정 시에는 예약 상태를 다시 검증한다. */
+    @Transactional(readOnly = true)
+    public PaymentAttempt attempt(Long userId, String orderId) {
+        PaymentEntity payment = ownedPayment(userId, orderId);
+        BookingEntity booking = payment.getBooking();
+        requireBookingAmount(booking, payment);
+        return new PaymentAttempt(payment.getStatus(), payment.getPaymentKey(), payment.getPaidAmount(),
+            payment.getPaymentMethod(), booking.getStatus(), booking.getPaymentExpiresAt());
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentEntity current(Long userId, String orderId) {
+        return ownedPayment(userId, orderId);
+    }
+
+    private PaymentEntity ownedPayment(Long userId, String orderId) {
+        PaymentEntity payment = payments.findByOrderId(orderId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                "결제를 찾을 수 없습니다."));
+        if (!payment.getBooking().getUser().getUserId().equals(userId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다.");
+        }
+        return payment;
+    }
+
+    public record PaymentAttempt(PaymentStatus status, String paymentKey, long paidAmount,
+                                 String paymentMethod, BookingStatus bookingStatus,
+                                 LocalDateTime paymentExpiresAt) { }
 
     private BookingEntity ownedBooking(Long userId, Long bookingId) {
         BookingEntity booking = bookings.findByIdForUpdate(bookingId)
@@ -71,6 +152,13 @@ public class PaymentService {
         if (booking.getStatus() != BookingStatus.PAYMENT_PENDING
                 || !LocalDateTime.now(ZoneOffset.UTC).isBefore(booking.getPaymentExpiresAt())) {
             throw new IllegalStateException("Payment is unavailable");
+        }
+    }
+
+    private static void requireBookingAmount(BookingEntity booking, PaymentEntity payment) {
+        if (payment.getPaidAmount() != booking.getTotalAmount() - booking.getUsedMileage()) {
+            throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_AMOUNT_MISMATCH",
+                "결제 기록 금액이 예약 금액과 일치하지 않습니다.");
         }
     }
 

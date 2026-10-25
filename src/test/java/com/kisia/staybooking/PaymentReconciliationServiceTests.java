@@ -8,6 +8,9 @@ import java.util.Optional;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.booking.BookingEntity;
+import com.kisia.staybooking.booking.BookingStatus;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentReconciliationService;
@@ -26,7 +29,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -46,18 +52,89 @@ class PaymentReconciliationServiceTests {
 
         var report = service.check(7L);
 
-        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, report.result());
+        assertEquals(PaymentReconciliationService.Result.PROVIDER_CHARGED_NOT_RECORDED, report.result());
+        assertEquals(BookingStatus.PAYMENT_PENDING, report.bookingStatus());
         assertEquals("DONE", report.providerStatus());
         assertEquals(PaymentStatus.READY, payment.getStatus());
+    }
+
+    @Test
+    void separatesACancelledBookingChargedByTheProviderFromOtherMismatches() {
+        PaymentEntity payment = payment("TOSS");
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        var report = service.check(7L);
+
+        assertEquals(PaymentReconciliationService.Result.CANCELLED_BOOKING_CHARGED, report.result());
+        assertEquals(BookingStatus.CANCELLED, report.bookingStatus());
+        assertEquals(PaymentStatus.READY, payment.getStatus());
+    }
+
+    @Test
+    void doesNotClassifyAnUnverifiedProviderAmountAsAnUnrecordedCharge() {
+        payment("TOSS");
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 99_000,
+                "DONE", 99_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void doesNotMatchACancelledPaidBookingWithoutARefundRecord() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void doesNotMatchARefundedPaymentForAnActiveBooking() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().markPaid(LocalDateTime.now());
+        payment.refund(100_000);
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 100_000, "예약 취소");
+        refund.start(LocalDateTime.now());
+        refund.refunded(LocalDateTime.now());
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "CANCELED", 0L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
+    }
+
+    @Test
+    void doesNotMatchAPaidPaymentWhileTheBookingStillAwaitsPayment() {
+        PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        when(gateway.findByOrderId("ORDER-100"))
+            .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
+                "DONE", 100_000L));
+
+        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
     }
 
     @Test
     void matchesARecordedChargeAndACompletedPartialRefund() {
         PaymentEntity payment = payment("TOSS");
         payment.complete("toss-key", LocalDateTime.now());
+        payment.getBooking().cancel(payment.getBooking().getUser(), CancellationSource.SYSTEM,
+            CancellationReasonType.ACCOMMODATION_FAULT, "운영 취소", LocalDateTime.now());
         RefundEntity refund = new RefundEntity(payment.getBooking(), 50_000, "취소 요청");
-        refund.process(new UserEntity("admin", "hash", "Admin", "admin@example.test"),
-            RefundStatus.APPROVED, LocalDateTime.now());
+        ReflectionTestUtils.setField(refund, "refundId", 9L);
+        refund.start(LocalDateTime.now());
+        refund.refunded(LocalDateTime.now());
         when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
         when(gateway.findByOrderId("ORDER-100"))
             .thenReturn(new TossPaymentGateway.Confirmation("toss-key", "ORDER-100", 100_000,
@@ -67,7 +144,11 @@ class PaymentReconciliationServiceTests {
 
         assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED, service.check(7L).result());
         payment.refund(50_000);
-        assertEquals(PaymentReconciliationService.Result.MATCHED, service.check(7L).result());
+        var report = service.check(7L);
+        assertEquals(PaymentReconciliationService.Result.MATCHED, report.result());
+        assertEquals(9L, report.refundId());
+        assertEquals(RefundStatus.REFUNDED, report.refundStatus());
+        assertEquals(50_000L, report.refundAmount());
         assertEquals(PaymentStatus.PARTIALLY_REFUNDED, payment.getStatus());
     }
 
@@ -102,14 +183,20 @@ class PaymentReconciliationServiceTests {
 
         assertEquals(1, page.totalElements());
         assertEquals(1, page.content().size());
-        assertEquals(PaymentReconciliationService.Result.REVIEW_REQUIRED,
+        assertEquals(PaymentReconciliationService.Result.PROVIDER_CHARGED_NOT_RECORDED,
             page.content().getFirst().result());
+        assertNull(page.content().getFirst().refundId());
         assertEquals(PaymentStatus.READY, payment.getStatus());
+        verify(payments, never()).findById(7L);
     }
 
     @Test
     void keepsAProviderLookupFailureVisibleInTheScan() {
         PaymentEntity payment = payment("TOSS");
+        payment.complete("toss-key", LocalDateTime.now());
+        RefundEntity refund = new RefundEntity(payment.getBooking(), 50_000, "취소 요청");
+        ReflectionTestUtils.setField(refund, "refundId", 9L);
+        when(refunds.findByBookingBookingIdIn(List.of(3L))).thenReturn(List.of(refund));
         when(payments.findByPaymentMethodOrderByCreatedAtDescPaymentIdDesc("TOSS", PageRequest.of(0, 10)))
             .thenReturn(new PageImpl<>(List.of(payment), PageRequest.of(0, 10), 1));
         when(gateway.findByOrderId("ORDER-100"))
@@ -120,7 +207,10 @@ class PaymentReconciliationServiceTests {
         assertEquals(PaymentReconciliationService.Result.LOOKUP_FAILED,
             page.content().getFirst().result());
         assertEquals("LOOKUP_FAILED", page.content().getFirst().providerStatus());
-        assertEquals(PaymentStatus.READY, payment.getStatus());
+        assertEquals(9L, page.content().getFirst().refundId());
+        assertEquals(RefundStatus.REQUESTED, page.content().getFirst().refundStatus());
+        assertEquals(50_000L, page.content().getFirst().refundAmount());
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
     }
 
     private PaymentEntity payment(String method) {

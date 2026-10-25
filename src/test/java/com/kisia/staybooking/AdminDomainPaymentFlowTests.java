@@ -9,6 +9,8 @@ import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.auth.JwtTokenProvider;
 import com.kisia.staybooking.booking.BookingEntity;
 import com.kisia.staybooking.booking.BookingRepository;
+import com.kisia.staybooking.booking.CancellationReasonType;
+import com.kisia.staybooking.booking.CancellationSource;
 import com.kisia.staybooking.payment.PaymentEntity;
 import com.kisia.staybooking.payment.PaymentRepository;
 import com.kisia.staybooking.refund.RefundEntity;
@@ -27,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,6 +58,9 @@ class AdminDomainPaymentFlowTests {
         BookingEntity booking = bookings.save(new BookingEntity(guest, room,
             LocalDate.now().plusDays(3), LocalDate.now().plusDays(4), 1, 100_000, 0,
             LocalDateTime.now().plusMinutes(10)));
+        booking.cancel(admin, CancellationSource.ADMIN_DIRECT,
+            CancellationReasonType.ACCOMMODATION_FAULT, "예약 취소", LocalDateTime.now());
+        bookings.save(booking);
         PaymentEntity payment = new PaymentEntity(booking, "DEMO-ORDER-" + tag, "DEMO", 100_000);
         payment.complete("DEMO-KEY-" + tag, LocalDateTime.now());
         payments.save(payment);
@@ -74,22 +80,41 @@ class AdminDomainPaymentFlowTests {
         mvc.perform(get("http://admin.localhost" + refundPath).header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].refundId").value(refund.getRefundId()))
-            .andExpect(jsonPath("$.content[0].status").value("REQUESTED"));
-
-        mvc.perform(patch("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId())
-                .header("Authorization", authorization)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"status\":\"APPROVED\"}"))
+            .andExpect(jsonPath("$.content[0].status").value("REQUESTED"))
+            .andExpect(jsonPath("$.content[0].retryable").value(true));
+        String reconciliationPath = "/api/v1/admin/refunds/" + refund.getRefundId() + "/reconciliation";
+        mvc.perform(get("http://localhost" + reconciliationPath).header("Authorization", authorization))
+            .andExpect(status().isNotFound());
+        mvc.perform(get("http://admin.localhost" + reconciliationPath)
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("http://admin.localhost" + reconciliationPath)
+                .header("Authorization", authorization))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("APPROVED"));
+            .andExpect(jsonPath("$.result").value("NOT_APPLICABLE"))
+            .andExpect(jsonPath("$.paymentKey").doesNotExist());
+
+        refund.start(LocalDateTime.now().minusMinutes(1));
+        refund.failed("PAYMENT_CANCEL_FAILED");
+        refunds.save(refund);
+        mvc.perform(post("http://admin.localhost/api/v1/admin/refunds/" + refund.getRefundId() + "/retry")
+                .header("Authorization", authorization))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUNDED"));
 
         mvc.perform(get("http://admin.localhost" + paymentPath).header("Authorization", authorization))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[0].status").value("REFUNDED"))
-            .andExpect(jsonPath("$.content[0].refundStatus").value("APPROVED"));
+            .andExpect(jsonPath("$.content[0].refundStatus").value("REFUNDED"));
         mvc.perform(get("http://admin.localhost" + refundPath).header("Authorization", authorization))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content[0].status").value("APPROVED"))
-            .andExpect(jsonPath("$.content[0].processedBy").value(admin.getUserId()));
+            .andExpect(jsonPath("$.content[0].status").value("REFUNDED"))
+            .andExpect(jsonPath("$.content[0].retryable").value(false))
+            .andExpect(jsonPath("$.content[0].processedAt").isNotEmpty());
+        mvc.perform(get("http://localhost/api/v1/bookings/" + booking.getBookingId())
+                .header("Authorization", "Bearer " + jwt.createAccessToken(guest)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$.refundAmount").value(100_000));
     }
 }

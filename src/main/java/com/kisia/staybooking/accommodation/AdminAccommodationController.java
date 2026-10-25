@@ -1,5 +1,6 @@
 package com.kisia.staybooking.accommodation;
 
+import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
@@ -8,11 +9,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.Set;
 
 @RestController @RequestMapping("/api/v1/admin/accommodations")
 public class AdminAccommodationController {
@@ -30,10 +35,11 @@ public class AdminAccommodationController {
   @PostMapping @ResponseStatus(HttpStatus.CREATED) public AccommodationEntity create(@Valid @RequestBody AccommodationRequest r) {
     AccommodationEntity accommodation = new AccommodationEntity(r.name(), r.address(), r.checkInTime(), r.checkOutTime());
     accommodation.update(r.name(), r.address(), r.checkInTime(), r.checkOutTime(), r.description(), r.status());
+    applyAmenitiesAndRules(accommodation, r);
     return accommodations.save(accommodation);
   }
   @Transactional
-  @PatchMapping("/{id}") public AccommodationEntity update(@PathVariable Long id,@Valid @RequestBody AccommodationRequest r) { var a=accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found")); a.update(r.name(),r.address(),r.checkInTime(),r.checkOutTime(),r.description(),r.status()); return a; }
+  @PatchMapping("/{id}") public AccommodationEntity update(@PathVariable Long id,@Valid @RequestBody AccommodationRequest r) { var a=accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found")); a.update(r.name(),r.address(),r.checkInTime(),r.checkOutTime(),r.description(),r.status()); applyAmenitiesAndRules(a, r); return a; }
   @Transactional
   @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivate(@PathVariable @Positive Long id) {
@@ -62,6 +68,27 @@ public class AdminAccommodationController {
     room.update(room.getName(), room.getPrice(), room.getCapacity(), room.getTotalQuantity(),
         room.getDescription(), RoomStatus.INACTIVE);
   }
-  public record AccommodationRequest(@NotBlank String name,@NotBlank String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status) {}
+  // 관리자 화면(admin-static/accommodations.html)의 편의시설 체크박스와 같은 목록만 받는다
+  static final Set<String> AMENITIES = Set.of("무료 Wi-Fi", "주차", "에어컨", "난방", "TV", "냉장고", "전자레인지",
+      "취사 가능", "세탁기", "수영장", "피트니스", "조식 제공", "바비큐", "엘리베이터", "반려동물 동반", "금연 객실");
+
+  // 값이 없으면(null) 기존 편의시설·이용 규칙을 그대로 둔다
+  private static void applyAmenitiesAndRules(AccommodationEntity accommodation, AccommodationRequest r) {
+    if (r.amenities() != null && !AMENITIES.containsAll(r.amenities())) {
+      throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "입력값이 올바르지 않습니다.", List.of("amenities"));
+    }
+    accommodation.updateAmenitiesAndRules(
+        r.amenities() != null ? r.amenities().stream().distinct().toList() : accommodation.getAmenities(),
+        r.rules() != null ? r.rules() : accommodation.getRules());
+  }
+
+  public record AccommodationRequest(@NotBlank String name,@NotBlank String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status,
+      @Size(max = 16) List<@NotBlank String> amenities,
+      @Size(max = 20) List<@NotBlank @Size(max = 100) @Pattern(regexp = "[^\\r\\n]*") String> rules) {
+    public AccommodationRequest(String name, String address, LocalTime checkInTime, LocalTime checkOutTime,
+                                String description, AccommodationStatus status) {
+      this(name, address, checkInTime, checkOutTime, description, status, null, null);
+    }
+  }
   public record RoomRequest(@NotBlank String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
 }

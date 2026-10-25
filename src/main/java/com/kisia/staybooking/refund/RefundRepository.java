@@ -13,6 +13,9 @@ import java.util.Collection;
 import java.time.LocalDateTime;
 import com.kisia.staybooking.statistics.TimedAmount;
 public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
+ @Override
+ @EntityGraph(attributePaths={"booking","processedBy"})
+ Optional<RefundEntity> findById(Long id);
  long countByStatus(RefundStatus status);
  @Query("select coalesce(sum(r.amount), 0) from RefundEntity r where r.status = :status")
  long sumAmountByStatus(@Param("status") RefundStatus status);
@@ -47,7 +50,18 @@ public interface RefundRepository extends JpaRepository<RefundEntity,Long>{
      Long bookingId, RefundStatus status, Pageable pageable);
  boolean existsByBookingBookingId(Long bookingId);
  List<RefundEntity> findByBookingBookingIdIn(Collection<Long> bookingIds);
+ @Query("select new com.kisia.staybooking.refund.RefundSummary(r.booking.bookingId, r.status, r.amount) "
+     + "from RefundEntity r where r.booking.bookingId in :bookingIds")
+ List<RefundSummary> findSummariesByBookingIdIn(@Param("bookingIds") Collection<Long> bookingIds);
  @Lock(LockModeType.PESSIMISTIC_WRITE)
  @Query("select r from RefundEntity r where r.refundId = :id")
  Optional<RefundEntity> findByIdForUpdate(@Param("id") Long id);
+ @Query("select r.refundId from RefundEntity r where r.autoProcessing = true and "
+     + "((r.status = :requested and r.createdAt < :requestedBefore) "
+     + "or (r.status = :processing and r.startedAt < :processingBefore)) "
+     + "order by r.refundId")
+ List<Long> findRecoveryCandidates(@Param("requested") RefundStatus requested,
+     @Param("requestedBefore") LocalDateTime requestedBefore,
+     @Param("processing") RefundStatus processing,
+     @Param("processingBefore") LocalDateTime processingBefore, Pageable pageable);
 }

@@ -131,7 +131,9 @@ class ApproverBookingDecisionFlowTests {
                 .content("{\"action\":\"APPROVE_CANCELLATION\",\"cancellationRequestId\":"
                     + secondRequestId + "}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("CANCELLED"));
+            .andExpect(jsonPath("$.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.refundStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$.refundAmount").value(100_000));
         assertEquals(BookingStatus.CANCELLED, bookings.findById(booking.getBookingId()).orElseThrow().getStatus());
         assertEquals(CancellationRequestStatus.APPROVED,
             requests.findById(secondRequestId).orElseThrow().getStatus());
@@ -143,6 +145,7 @@ class ApproverBookingDecisionFlowTests {
         mvc.perform(get(searchPath).param("bookingId", booking.getBookingId().toString())
                 .header("Authorization", operatorToken))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].booking.refundStatus").value("REFUNDED"))
             .andExpect(jsonPath("$.content[0].decisionHistory.cancelledByUserId")
                 .value(approver.getUserId()))
             .andExpect(jsonPath("$.content[0].decisionHistory.cancelSource").value("USER_REQUEST"))
@@ -151,6 +154,7 @@ class ApproverBookingDecisionFlowTests {
         mvc.perform(get(adminDetail).header("Authorization", "Bearer " + jwt.createAccessToken(admin)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.summary.booking.status").value("CANCELLED"))
+            .andExpect(jsonPath("$.summary.booking.refundStatus").value("REFUNDED"))
             .andExpect(jsonPath("$.summary.cancellationRequest").doesNotExist())
             .andExpect(jsonPath("$.summary.decisionHistory.cancelledByUserId").value(approver.getUserId()))
             .andExpect(jsonPath("$.cancellationRequests[0].status").value("APPROVED"))
