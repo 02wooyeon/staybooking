@@ -11,7 +11,7 @@
  *   PATCH /api/v1/admin/accommodations/{id}/rooms/{roomId}
  *
  *
- * 숙소 이미지 (아래 IMAGE_API 참고. 백엔드 API가 생기면 IMAGE_API.ready 를 true 로 바꾼다)
+ * 숙소 이미지 (아래 IMAGE_API 참고), 객실 이미지 (객실 표의 "사진" 칸, 저장된 객실만)
  *
  * 주소에 따라 화면이 바뀐다: 목록(기본) / ?mode=new 등록 / ?id={숙소 ID} 상세·수정
  * 등록·상세 화면 모두 저장 버튼은 맨 아래 하나다. 객실 추가·수정은 화면에만 담아 두고,
@@ -135,7 +135,8 @@
       rooms = (detail.rooms || []).map(function (r) {
         return {
           roomId: r.roomId, name: r.name, price: r.price, capacity: r.capacity,
-          totalQuantity: r.totalQuantity, description: r.description || null, status: r.status, changed: false
+          totalQuantity: r.totalQuantity, description: r.description || null, status: r.status, changed: false,
+          images: r.images || []
         };
       });
       closeRoomForm();
@@ -164,6 +165,7 @@
       { label: '정원', render: function (r) { return r.capacity + '명'; } },
       { label: '판매 수량', render: function (r) { return r.totalQuantity + '실'; } },
       { label: '상태', render: function (r) { return AdminUi.badge('openStatus', r.status); } },
+      { label: '사진', render: roomImageCell },
       { label: '관리', render: function (r) {
         var buttons = [AdminUi.actionButton('수정', function () { openRoomForm(r); })];
         // 서버 삭제 API가 없어 저장 전 객실만 뺄 수 있다
@@ -407,23 +409,30 @@
 
   /* ---------- 숙소 이미지 ----------
    *
-   * 백엔드 API 가 아직 없어 아래 형식을 기준으로 만들었다. (엑셀 UPLOADS-001, DATABASE.md accommodation_files)
+   * (엑셀 UPLOADS-001, DATABASE.md accommodation_files·room_files)
    *   1) POST   /api/v1/uploads/Images                         multipart "file" 1개 → { fileId, url }
    *   2) POST   /api/v1/admin/accommodations/{id}/images       { fileId }  숙소에 연결 (순서대로, 첫 장이 대표)
-   *   3) DELETE /api/v1/admin/accommodations/{id}/images/{fileId}
-   *   상세 조회(GET /api/v1/admin/accommodations/{id}) 응답에 images: [{ fileId, url }] 를 넣는다.
-   * 서버도 확장자·MIME·매직 바이트·용량·이중 확장자를 다시 검사하고, 파일명은 UUID 로 저장해야 한다.
-   * 경로가 바뀌면 IMAGE_API 만 고친다.
+   *   3) DELETE /api/v1/admin/accommodations/{id}/images/{fileId}   숙소에서 빼고 파일도 지운다
+   *   객실은 같은 형식으로 /api/v1/admin/accommodations/{id}/rooms/{roomId}/images (최대 5장)
+   *   상세 조회(GET /api/v1/admin/accommodations/{id}) 응답의 images, rooms[].images 에 [{ fileId, url }] 가 온다.
+   * 서버도 확장자·MIME·매직 바이트·용량·이중 확장자를 다시 검사하고, 파일명은 UUID 로 저장한다.
    */
   var IMAGE_API = {
-    ready: false, // 백엔드 API 구현 후 true
+    ready: true,
     upload: '/api/v1/uploads/Images',
     attach: function (id) { return API + '/' + encodeURIComponent(id) + '/images'; },
     detach: function (id, fileId) {
       return API + '/' + encodeURIComponent(id) + '/images/' + encodeURIComponent(fileId);
+    },
+    roomAttach: function (id, roomId) {
+      return API + '/' + encodeURIComponent(id) + '/rooms/' + encodeURIComponent(roomId) + '/images';
+    },
+    roomDetach: function (id, roomId, fileId) {
+      return IMAGE_API.roomAttach(id, roomId) + '/' + encodeURIComponent(fileId);
     }
   };
   var MAX_IMAGES = 10;
+  var MAX_ROOM_IMAGES = 5;
   var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
   var IMAGE_EXT = ['jpg', 'jpeg', 'png', 'webp'];
   var IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp'];
@@ -654,6 +663,88 @@
       await AdminUi.api('DELETE', IMAGE_API.detach(accommodationId, image.fileId));
       await loadDetail();
       AdminUi.showMessage(alertBox, '이미지를 삭제했습니다.', 'success');
+    } catch (e) {
+      button.disabled = false;
+      AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));
+    }
+  }
+
+  /* ---------- 객실 이미지 ---------- */
+
+  // 객실 표의 "사진" 칸: 작은 미리보기와 삭제 버튼, 저장된 객실이면 "사진 추가"
+  function roomImageCell(r) {
+    var wrap = document.createElement('div');
+    wrap.className = 'admin-room-images';
+    (r.images || []).forEach(function (image, index) {
+      var src = safeImageUrl(image.url);
+      var item = document.createElement('div');
+      item.className = 'admin-room-image';
+      if (src) {
+        var img = document.createElement('img');
+        img.src = src;
+        img.alt = r.name + ' 사진 ' + (index + 1);
+        img.loading = 'lazy';
+        item.append(img);
+      }
+      item.append(AdminUi.actionButton('삭제', function (button) { removeRoomImage(r, image, button); }, 'danger'));
+      wrap.append(item);
+    });
+    if (!r.roomId) {
+      var hint = document.createElement('small');
+      hint.className = 'admin-cell-sub';
+      hint.textContent = '저장 후 추가';
+      wrap.append(hint);
+    } else if ((r.images || []).length < MAX_ROOM_IMAGES) {
+      wrap.append(AdminUi.actionButton('사진 추가', function (button) { pickRoomImages(r, button); }));
+    }
+    return wrap;
+  }
+
+  function pickRoomImages(r, button) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
+    input.addEventListener('change', async function () {
+      var files = Array.prototype.slice.call(input.files || [])
+        .slice(0, MAX_ROOM_IMAGES - (r.images || []).length);
+      var problems = [];
+      button.disabled = true;
+      for (var i = 0; i < files.length; i++) {
+        var problem = await checkImage(files[i]);
+        if (problem) {
+          problems.push(files[i].name + ': ' + problem);
+          continue;
+        }
+        try {
+          var form = new FormData();
+          form.append('file', files[i]);
+          var uploaded = await AdminUi.api('POST', IMAGE_API.upload, form);
+          await AdminUi.api('POST', IMAGE_API.roomAttach(accommodationId, r.roomId), { fileId: uploaded.fileId });
+        } catch (e) {
+          problems.push(files[i].name + ': ' + AdminUi.errorMessage(e));
+        }
+      }
+      await loadDetail();
+      if (problems.length) AdminUi.showMessage(alertBox, problems.join('\n'));
+      else AdminUi.showMessage(alertBox, '객실 사진을 추가했습니다.', 'success');
+    });
+    input.click();
+  }
+
+  async function removeRoomImage(r, image, button) {
+    var answer = await AdminUi.confirmAction({
+      title: '객실 사진 삭제',
+      message: '이 사진을 "' + r.name + '" 객실에서 삭제합니다.',
+      confirmLabel: '삭제',
+      danger: true
+    });
+    if (!answer.confirmed) return;
+    button.disabled = true;
+    try {
+      await AdminUi.api('DELETE', IMAGE_API.roomDetach(accommodationId, r.roomId, image.fileId));
+      await loadDetail();
+      AdminUi.showMessage(alertBox, '객실 사진을 삭제했습니다.', 'success');
     } catch (e) {
       button.disabled = false;
       AdminUi.showMessage(alertBox, AdminUi.errorMessage(e));

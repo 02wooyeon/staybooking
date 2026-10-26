@@ -71,7 +71,7 @@ class RoomImageApiTests {
         mvc.perform(post(roomImages).contentType(MediaType.APPLICATION_JSON).content(body)
                 .header("Authorization", fixtures.bearer(admin)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.url").value(imageUrl));
+            .andExpect(jsonPath("$[0].url").value(imageUrl));
         mvc.perform(get(root).header("Authorization", fixtures.bearer(admin)))
             .andExpect(jsonPath("$.rooms[0].images[0].url").value(imageUrl));
         mvc.perform(get("/api/v1/accommodations/" + accommodation.getAccommodationId()))
@@ -116,9 +116,10 @@ class RoomImageApiTests {
         mvc.perform(delete(firstImages + "/" + firstFileId).header("Authorization", bearer))
             .andExpect(status().isNoContent());
         mvc.perform(post(secondImages).header("Authorization", bearer)
-                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isNotFound());
 
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 5; i++) {
             long id = file(admin).getFileId();
             mvc.perform(post(secondImages).header("Authorization", bearer)
                     .contentType(MediaType.APPLICATION_JSON).content("{\"fileId\":" + id + "}"))
@@ -127,9 +128,9 @@ class RoomImageApiTests {
         long extraId = file(admin).getFileId();
         mvc.perform(post(secondImages).header("Authorization", bearer)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"fileId\":" + extraId + "}"))
-            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IMAGE_LIMIT_REACHED"));
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TOO_MANY_IMAGES"));
         mvc.perform(get(root).header("Authorization", bearer))
-            .andExpect(jsonPath("$.rooms[1].images.length()").value(10));
+            .andExpect(jsonPath("$.rooms[1].images.length()").value(5));
     }
 
     private FileEntity file(UserEntity admin) {

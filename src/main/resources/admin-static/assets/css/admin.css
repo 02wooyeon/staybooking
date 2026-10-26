@@ -221,3 +221,8 @@
 .admin-image-pending { margin-bottom: 4px; }
 #images-card .file-box { margin-top: 4px; }
 #image-error { white-space: pre-line; }
+
+/* 객실 표의 사진 칸 */
+.admin-room-images { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; }
+.admin-room-image { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.admin-room-image img { width: 56px; height: 42px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }

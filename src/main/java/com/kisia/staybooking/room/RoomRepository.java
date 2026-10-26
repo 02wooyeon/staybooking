@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 public interface RoomRepository extends JpaRepository<RoomEntity, Long> {
     boolean existsByAccommodationAccommodationIdAndName(Long accommodationId, String name);
     boolean existsByAccommodationAccommodationIdAndNameAndRoomIdNot(Long accommodationId, String name, Long roomId);
+    boolean existsByImagesFileId(Long fileId);
     long countByStatus(RoomStatus status);
     @Query("select count(r) from RoomEntity r where r.status = :roomStatus "
         + "and r.accommodation.status = :accommodationStatus")

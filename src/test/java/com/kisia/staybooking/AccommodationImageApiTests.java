@@ -58,10 +58,11 @@ class AccommodationImageApiTests {
         mvc.perform(post(root + "/images").contentType(MediaType.APPLICATION_JSON).content(request)
                 .header("Authorization", fixtures.bearer(admin)))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.url").value(imageUrl));
+            .andExpect(jsonPath("$[0].url").value(imageUrl));
         mvc.perform(post(root + "/images").contentType(MediaType.APPLICATION_JSON).content(request)
                 .header("Authorization", fixtures.bearer(admin)))
-            .andExpect(status().isCreated());
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("FILE_IN_USE"));
         mvc.perform(get(root).header("Authorization", fixtures.bearer(admin)))
             .andExpect(jsonPath("$.images.length()").value(1))
             .andExpect(jsonPath("$.images[0].url").value(imageUrl));

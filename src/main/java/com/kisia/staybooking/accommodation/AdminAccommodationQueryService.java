@@ -5,9 +5,10 @@ import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.file.FileEntity;
+import com.kisia.staybooking.file.UploadResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
-import com.kisia.staybooking.room.RoomImageService;
 import com.kisia.staybooking.room.RoomStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,15 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminAccommodationQueryService {
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
-    private final AccommodationImageService images;
-    private final RoomImageService roomImages;
 
-    public AdminAccommodationQueryService(AccommodationRepository accommodations, RoomRepository rooms,
-                                          AccommodationImageService images, RoomImageService roomImages) {
+    public AdminAccommodationQueryService(AccommodationRepository accommodations, RoomRepository rooms) {
         this.accommodations = accommodations;
         this.rooms = rooms;
-        this.images = images;
-        this.roomImages = roomImages;
     }
 
     @Transactional(readOnly = true)
@@ -48,10 +44,11 @@ public class AdminAccommodationQueryService {
         AccommodationEntity accommodation = accommodations.findById(accommodationId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "숙소를 찾을 수 없습니다."));
         List<RoomSummary> roomSummaries = rooms.findByAccommodationAccommodationIdOrderByRoomIdAsc(accommodationId)
-            .stream().map(room -> RoomSummary.from(room, roomImages.images(room.getRoomId()))).toList();
+            .stream().map(RoomSummary::from).toList();
         return new Detail(Summary.from(accommodation), accommodation.getDescription(),
             accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
-            accommodation.getAmenities(), accommodation.getRules(), images.images(accommodationId), roomSummaries);
+            accommodation.getAmenities(), accommodation.getRules(), roomSummaries,
+            Image.listOf(accommodation.getImages()));
     }
 
     public record Summary(Long accommodationId, String name, String address, AccommodationStatus status) {
@@ -63,15 +60,20 @@ public class AdminAccommodationQueryService {
 
     public record Detail(Summary accommodation, String description, LocalTime checkInTime,
                          LocalTime checkOutTime, List<String> amenities, List<String> rules,
-                         List<AccommodationImageService.ImageResponse> images,
-                         List<RoomSummary> rooms) { }
+                         List<RoomSummary> rooms, List<Image> images) { }
+
+    public record Image(Long fileId, String url) {
+        static List<Image> listOf(List<FileEntity> files) {
+            return files.stream().map(file -> new Image(file.getFileId(), UploadResponse.urlOf(file.getFileId()))).toList();
+        }
+    }
 
     public record RoomSummary(Long roomId, String name, String description, long price,
-                              int capacity, int totalQuantity, RoomStatus status,
-                              List<RoomImageService.ImageResponse> images) {
-        static RoomSummary from(RoomEntity room, List<RoomImageService.ImageResponse> images) {
+                              int capacity, int totalQuantity, RoomStatus status, List<Image> images) {
+        static RoomSummary from(RoomEntity room) {
             return new RoomSummary(room.getRoomId(), room.getName(), room.getDescription(),
-                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus(), images);
+                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus(),
+                Image.listOf(room.getImages()));
         }
     }
 }

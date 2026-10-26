@@ -15,6 +15,7 @@ public interface AccommodationRepository extends JpaRepository<AccommodationEnti
     @Query("select a from AccommodationEntity a where a.accommodationId = :id")
     Optional<AccommodationEntity> findByIdForUpdate(@Param("id") Long id);
     long countByStatus(AccommodationStatus status);
+    boolean existsByImagesFileId(Long fileId);
     @Query("""
         select a from AccommodationEntity a
         where (:status is null or a.status = :status)

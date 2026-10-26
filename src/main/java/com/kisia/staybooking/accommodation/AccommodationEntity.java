@@ -2,18 +2,29 @@ package com.kisia.staybooking.accommodation;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.kisia.staybooking.common.AuditedEntity;
+import com.kisia.staybooking.file.FileEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -60,6 +71,19 @@ public class AccommodationEntity extends AuditedEntity {
     @ColumnDefault("'ACTIVE'")
     private AccommodationStatus status = AccommodationStatus.ACTIVE;
 
+    // docs/architecture/DATABASE.md의 accommodation_files. 관리자 API가 엔티티를 그대로 응답하므로
+    // 업로드한 사람 정보가 JSON으로 나가지 않게 @JsonIgnore로 뺀다.
+    @JsonIgnore
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "accommodation_files",
+        joinColumns = @JoinColumn(name = "accommodation_id",
+            foreignKey = @ForeignKey(name = "fk_accommodation_files_accommodation")),
+        inverseJoinColumns = @JoinColumn(name = "file_id",
+            foreignKey = @ForeignKey(name = "fk_accommodation_files_file")),
+        uniqueConstraints = @UniqueConstraint(name = "uk_accommodation_files_file", columnNames = "file_id"))
+    @OrderColumn(name = "display_order")
+    private List<FileEntity> images = new ArrayList<>();
+
     protected AccommodationEntity() {
     }
 
@@ -81,6 +105,17 @@ public class AccommodationEntity extends AuditedEntity {
     public AccommodationStatus getStatus() { return status; }
     public List<String> getAmenities() { return lines(amenities); }
     public List<String> getRules() { return lines(rules); }
+
+    // 사진 목록은 화면에 보여 줄 순서대로 둔다. 첫 장이 대표 사진이다.
+    public List<FileEntity> getImages() { return Collections.unmodifiableList(images); }
+
+    public void addImage(FileEntity file) {
+        images.add(Objects.requireNonNull(file));
+    }
+
+    public boolean removeImage(Long fileId) {
+        return images.removeIf(file -> file.getFileId().equals(fileId));
+    }
 
     public void updateAmenitiesAndRules(List<String> amenities, List<String> rules) {
         this.amenities = join(amenities);

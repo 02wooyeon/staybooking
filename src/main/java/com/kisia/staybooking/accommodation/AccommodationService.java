@@ -14,10 +14,11 @@ import com.kisia.staybooking.booking.BookingInventoryService;
 import com.kisia.staybooking.booking.StayDatePolicy;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.file.FileEntity;
+import com.kisia.staybooking.file.UploadResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
-import com.kisia.staybooking.room.RoomImageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -34,17 +35,12 @@ public class AccommodationService {
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
     private final BookingInventoryService inventory;
-    private final AccommodationImageService images;
-    private final RoomImageService roomImages;
 
     public AccommodationService(AccommodationRepository accommodations, RoomRepository rooms,
-                                BookingInventoryService inventory, AccommodationImageService images,
-                                RoomImageService roomImages) {
+                                BookingInventoryService inventory) {
         this.accommodations = accommodations;
         this.rooms = rooms;
         this.inventory = inventory;
-        this.images = images;
-        this.roomImages = roomImages;
     }
 
     @Transactional(readOnly = true)
@@ -93,14 +89,11 @@ public class AccommodationService {
 
         List<RoomEntity> activeRooms = rooms
             .findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(List.of(accommodationId), RoomStatus.ACTIVE);
-        Map<Long, String> roomImageUrls = roomImages.mainImageUrls(
-            activeRooms.stream().map(RoomEntity::getRoomId).toList());
         List<AccommodationDetail.RoomSummary> roomSummaries = activeRooms.stream()
             .map(room -> {
                 int remaining = inventory.remainingUnits(room, stay.checkIn(), stay.checkOut(), nowUtc);
                 return new AccommodationDetail.RoomSummary(room.getRoomId(), room.getName(),
-                    room.getDescription(), roomImageUrls.get(room.getRoomId()),
-                    room.getPrice(), room.getCapacity(), remaining,
+                    room.getDescription(), mainImage(room.getImages()), room.getPrice(), room.getCapacity(), remaining,
                     remaining > 0 ? "AVAILABLE" : "SOLD_OUT");
             })
             .toList();
@@ -108,7 +101,7 @@ public class AccommodationService {
             accommodation.getAddress(), accommodation.getDescription(), accommodation.getCheckInTime(),
             accommodation.getCheckOutTime(), accommodation.getLatitude(), accommodation.getLongitude(),
             accommodation.getStatus(), accommodation.getAmenities(), accommodation.getRules(),
-            images.urls(accommodationId),
+            accommodation.getImages().stream().map(file -> UploadResponse.urlOf(file.getFileId())).toList(),
             roomSummaries);
     }
 
@@ -118,8 +111,6 @@ public class AccommodationService {
             return List.of();
         }
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
-        Map<Long, String> mainImages = images.mainImageUrls(
-            list.stream().map(AccommodationEntity::getAccommodationId).toList());
         Map<Long, List<RoomEntity>> roomsByAccommodation = rooms
             .findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(
                 list.stream().map(AccommodationEntity::getAccommodationId).toList(), RoomStatus.ACTIVE)
@@ -133,12 +124,16 @@ public class AccommodationService {
                     .filter(room -> stay == null || bookable(room, guests, stay, nowUtc))
                     .findFirst()
                     .map(cheapest -> new AccommodationSummary(a.getAccommodationId(), a.getName(),
-                        a.getAddress(), a.getDescription(), mainImages.get(a.getAccommodationId()),
-                        cheapest.getPrice()))
+                        a.getAddress(), a.getDescription(), mainImage(a.getImages()), cheapest.getPrice()))
                     .orElse(null);
             })
             .filter(summary -> summary != null)
             .toList();
+    }
+
+    // 첫 장이 대표 사진이다. 사진이 없으면 화면이 "이미지 준비 중"을 보여 준다.
+    private static String mainImage(List<FileEntity> images) {
+        return images.isEmpty() ? null : UploadResponse.urlOf(images.get(0).getFileId());
     }
 
     private boolean bookable(RoomEntity room, int guests, Stay stay, LocalDateTime nowUtc) {

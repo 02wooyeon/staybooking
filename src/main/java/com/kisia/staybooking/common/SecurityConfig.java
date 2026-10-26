@@ -40,6 +40,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/signup", "/api/v1/auth/login",
                     "/api/v1/auth/reissue", "/api/v1/auth/logout", "/api/v1/auth/find-email").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/check-email").permitAll()
+                // 토스가 보내는 결제 Webhook. 본문은 믿지 않고 토스에 다시 조회해 확인한다(TossWebhookService).
+                .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/accommodations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/mine").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/qna/public", "/api/v1/qna/{qnaId}").permitAll()
