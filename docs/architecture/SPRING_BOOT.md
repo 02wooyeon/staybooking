@@ -9,8 +9,9 @@ src/main/java/com/kisia/staybooking/
 ├── user/           UserEntity, UserRepository, UserRole, UserStatus, UserService
 ├── auth/           AuthController, AuthService, RefreshTokenEntity, RefreshTokenRepository
 ├── accommodation/  AccommodationEntity, AccommodationRepository, AccommodationStatus,
-│                   AccommodationController, AccommodationService, AdminAccommodationController
-├── room/           RoomEntity, RoomRepository, RoomStatus, RoomService, AdminRoomController
+│                   AccommodationController, AccommodationService, AdminAccommodationController,
+│                   AdminAccommodationQueryService, AccommodationImageService
+├── room/           RoomEntity, RoomRepository, RoomStatus, RoomImageService
 ├── booking/        BookingEntity, BookingRepository, BookingStatus, CancellationSource,
 │                   BookingController, BookingService, BookingInventoryService,
 │                   ApproverBookingController, AdminBookingController, BookingApprovalService
@@ -50,6 +51,9 @@ src/main/java/com/kisia/staybooking/
 | 직접 취소 | `POST /api/v1/approver/bookings/{bookingId}/cancel` | APPROVER, ADMIN | 사유·상태·환불액·처리자 기록 |
 | 관리자 전체 예약 | `GET /api/v1/admin/bookings`, `PATCH /api/v1/admin/bookings/{bookingId}` | ADMIN | 조회·승인·취소; 같은 서비스 호출 |
 | 관리자 회원 상세 | `GET /api/v1/admin/members/{userId}` | ADMIN | 예약 상태별 건수·결제/환불 합계·후기/문의 건수 |
+| 숙소 검색·상세 | `GET /api/v1/accommodations/search`, `GET /api/v1/accommodations/{id}` | 공개 | 활성 숙소·객실만 노출, 기간별 재고·최저가 계산 |
+| 관리자 숙소·객실 | `POST /api/v1/admin/accommodations`, `PATCH`·`DELETE /api/v1/admin/accommodations/{id}`, `POST /api/v1/admin/accommodations/{id}/rooms`, `PATCH`·`DELETE /api/v1/admin/accommodations/{id}/rooms/{roomId}` | ADMIN | 상태 변경, 중복 객실명, 기존 예약보다 수량·정원 축소 방지 |
+| 숙소·객실 사진 | `POST /api/v1/admin/accommodations/{id}/images`·`/{id}/rooms/{roomId}/images`, 각각 `/{fileId}`를 붙여 `DELETE` | ADMIN | 업로더 확인, 다른 대상과 중복 연결 차단, 대상별 최대 10장 |
 | 관리자 마일리지 | `GET`·`POST /api/v1/admin/members/{userId}/mileage` | ADMIN | 이력 조회 / 수동 적립(양수)·차감(음수) |
 | 관리자 후기 검색·상세 | `GET /api/v1/admin/reviews/search`, `GET /api/v1/admin/reviews/{reviewId}` | ADMIN | 숙소·작성자·평점·숨김 여부 필터; 상세는 숨긴 후기도 사유와 함께 노출 |
 

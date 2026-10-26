@@ -20,11 +20,13 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
-import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.common.ApiException;
+import com.kisia.staybooking.accommodation.AccommodationFileRepository;
+import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.room.RoomFileRepository;
+import com.kisia.staybooking.room.RoomStatus;
 import com.kisia.staybooking.qna.QnaRepository;
 import com.kisia.staybooking.review.ReviewRepository;
-import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -47,19 +49,20 @@ public class FileService {
     private final UserRepository users;
     private final ReviewRepository reviews;
     private final QnaRepository qnas;
-    private final AccommodationRepository accommodations;
-    private final RoomRepository rooms;
+    private final AccommodationFileRepository accommodationImages;
+    private final RoomFileRepository roomImages;
     private final Path baseDir;
 
     public FileService(FileRepository files, UserRepository users, ReviewRepository reviews, QnaRepository qnas,
-                       AccommodationRepository accommodations, RoomRepository rooms,
+                       AccommodationFileRepository accommodationImages,
+                       RoomFileRepository roomImages,
                        @Value("${staybooking.upload.dir}") String uploadDir) {
         this.files = files;
         this.users = users;
         this.reviews = reviews;
         this.qnas = qnas;
-        this.accommodations = accommodations;
-        this.rooms = rooms;
+        this.accommodationImages = accommodationImages;
+        this.roomImages = roomImages;
         this.baseDir = Path.of(uploadDir).toAbsolutePath().normalize();
     }
 
@@ -92,7 +95,10 @@ public class FileService {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         boolean visible = reviews.existsByFilesFileIdAndDeletedFalse(fileId)
             || qnas.existsByFilesFileIdAndDeletedFalseAndSecretFalse(fileId)
-            || accommodations.existsByImagesFileId(fileId) || rooms.existsByImagesFileId(fileId)
+            || accommodationImages.isPublicImage(fileId, AccommodationStatus.ACTIVE)
+            || roomImages.isPublicImage(fileId, RoomStatus.ACTIVE, AccommodationStatus.ACTIVE)
+            || accommodationImages.isPublicImage(fileId, AccommodationStatus.ACTIVE)
+            || roomImages.isPublicImage(fileId, RoomStatus.ACTIVE, AccommodationStatus.ACTIVE)
             || isUploader(file, actorId) || isAdmin(actorId);
         if (!visible) throw notFound();
         Path path = safePath(file);
@@ -122,7 +128,7 @@ public class FileService {
     @Transactional(readOnly = true)
     public boolean isLinked(Long fileId) {
         return reviews.existsByFilesFileId(fileId) || qnas.existsByFilesFileId(fileId)
-            || accommodations.existsByImagesFileId(fileId) || rooms.existsByImagesFileId(fileId);
+            || accommodationImages.existsByFileFileId(fileId) || roomImages.existsByFileFileId(fileId);
     }
 
     // 관리자가 숙소·객실에서 뺀 사진을 지운다. 다른 관리자가 올린 사진일 수도 있어 올린 사람은 보지 않는다.

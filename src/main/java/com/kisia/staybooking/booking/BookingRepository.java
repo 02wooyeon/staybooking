@@ -80,4 +80,16 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
                              @Param("confirmedStatuses") List<BookingStatus> confirmedStatuses,
                              @Param("paymentPending") BookingStatus paymentPending,
                              @Param("now") LocalDateTime now);
+
+    @Query("""
+        select b from BookingEntity b
+        where b.room.roomId = :roomId and b.checkOutDate > :fromDate
+          and (b.status in :confirmedStatuses
+               or (b.status = :paymentPending and b.paymentExpiresAt > :now))
+        """)
+    List<BookingEntity> findFutureOccupyingBookings(@Param("roomId") Long roomId,
+                                                     @Param("fromDate") LocalDate fromDate,
+                                                     @Param("confirmedStatuses") List<BookingStatus> confirmedStatuses,
+                                                     @Param("paymentPending") BookingStatus paymentPending,
+                                                     @Param("now") LocalDateTime now);
 }

@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -51,9 +52,24 @@ public class ApiExceptionHandler {
             .body(new ErrorResponse(INVALID_INPUT, INVALID_INPUT_MESSAGE, fields));
     }
 
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleMethodValidation(HandlerMethodValidationException e) {
+        List<String> fields = e.getParameterValidationResults().stream()
+            .flatMap(result -> result.getResolvableErrors().stream()
+                .map(error -> fieldName(result.getMethodParameter().getParameterName(), error)))
+            .distinct().sorted().toList();
+        return ResponseEntity.badRequest()
+            .body(new ErrorResponse(INVALID_INPUT, INVALID_INPUT_MESSAGE, fields));
+    }
+
+    private static String fieldName(String parameterName, MessageSourceResolvable error) {
+        if (error instanceof FieldError fieldError) return fieldError.getField();
+        return parameterName == null ? "request" : parameterName;
+    }
+
     // 본문 JSON 형식 오류, 경로 변수 타입 오류(/accommodations/abc), 경로 변수 검증 실패
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-        HandlerMethodValidationException.class, MissingServletRequestParameterException.class,
+        MissingServletRequestParameterException.class,
         MissingServletRequestPartException.class})
     public ResponseEntity<ErrorResponse> handleUnreadable(Exception e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

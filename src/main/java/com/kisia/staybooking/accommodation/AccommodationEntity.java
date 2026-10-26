@@ -81,7 +81,7 @@ public class AccommodationEntity extends AuditedEntity {
         inverseJoinColumns = @JoinColumn(name = "file_id",
             foreignKey = @ForeignKey(name = "fk_accommodation_files_file")),
         uniqueConstraints = @UniqueConstraint(name = "uk_accommodation_files_file", columnNames = "file_id"))
-    @OrderColumn(name = "sort_order")
+    @OrderColumn(name = "display_order")
     private List<FileEntity> images = new ArrayList<>();
 
     protected AccommodationEntity() {
