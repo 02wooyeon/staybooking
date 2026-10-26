@@ -1,13 +1,19 @@
 package com.kisia.staybooking.accommodation;
 
 import com.kisia.staybooking.room.RoomStatus;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AccommodationRepository extends JpaRepository<AccommodationEntity, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from AccommodationEntity a where a.accommodationId = :id")
+    Optional<AccommodationEntity> findByIdForUpdate(@Param("id") Long id);
     long countByStatus(AccommodationStatus status);
     @Query("""
         select a from AccommodationEntity a

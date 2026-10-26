@@ -3,6 +3,7 @@ package com.kisia.staybooking.accommodation;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.booking.BookingInventoryService;
+import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalTime;
@@ -29,9 +31,12 @@ public class AdminAccommodationController {
   private final AccommodationRepository accommodations; private final RoomRepository rooms;
   private final AdminAccommodationQueryService query;
   private final BookingInventoryService inventory;
+  private final AccommodationImageService images;
   public AdminAccommodationController(AccommodationRepository accommodations, RoomRepository rooms,
-                                      AdminAccommodationQueryService query, BookingInventoryService inventory) {
+                                      AdminAccommodationQueryService query, BookingInventoryService inventory,
+                                      AccommodationImageService images) {
     this.accommodations=accommodations; this.rooms=rooms; this.query=query; this.inventory=inventory;
+    this.images=images;
   }
   @GetMapping("/search") public PageResponse<AdminAccommodationQueryService.Summary> search(
       @Valid @ModelAttribute AdminAccommodationSearchRequest request) { return query.search(request); }
@@ -87,6 +92,17 @@ public class AdminAccommodationController {
     room.update(room.getName(), room.getPrice(), room.getCapacity(), room.getTotalQuantity(),
         room.getDescription(), RoomStatus.INACTIVE);
   }
+  @PostMapping("/{id}/images") @ResponseStatus(HttpStatus.CREATED)
+  public AccommodationImageService.ImageResponse attachImage(
+      @AuthenticationPrincipal AuthenticatedUser me,
+      @PathVariable @Positive Long id, @Valid @RequestBody ImageRequest request) {
+    return images.attach(me.userId(), id, request.fileId());
+  }
+
+  @DeleteMapping("/{id}/images/{fileId}") @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void detachImage(@PathVariable @Positive Long id, @PathVariable @Positive Long fileId) {
+    images.detach(id, fileId);
+  }
   // 관리자 화면(admin-static/accommodations.html)의 편의시설 체크박스와 같은 목록만 받는다
   static final Set<String> AMENITIES = Set.of("무료 Wi-Fi", "주차", "에어컨", "난방", "TV", "냉장고", "전자레인지",
       "취사 가능", "세탁기", "수영장", "피트니스", "조식 제공", "바비큐", "엘리베이터", "반려동물 동반", "금연 객실");
@@ -110,4 +126,5 @@ public class AdminAccommodationController {
     }
   }
   public record RoomRequest(@NotBlank String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
+  public record ImageRequest(@NotNull @Positive Long fileId) {}
 }

@@ -18,10 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminAccommodationQueryService {
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
+    private final AccommodationImageService images;
 
-    public AdminAccommodationQueryService(AccommodationRepository accommodations, RoomRepository rooms) {
+    public AdminAccommodationQueryService(AccommodationRepository accommodations, RoomRepository rooms,
+                                          AccommodationImageService images) {
         this.accommodations = accommodations;
         this.rooms = rooms;
+        this.images = images;
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +48,7 @@ public class AdminAccommodationQueryService {
             .stream().map(RoomSummary::from).toList();
         return new Detail(Summary.from(accommodation), accommodation.getDescription(),
             accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
-            accommodation.getAmenities(), accommodation.getRules(), roomSummaries);
+            accommodation.getAmenities(), accommodation.getRules(), images.images(accommodationId), roomSummaries);
     }
 
     public record Summary(Long accommodationId, String name, String address, AccommodationStatus status) {
@@ -57,6 +60,7 @@ public class AdminAccommodationQueryService {
 
     public record Detail(Summary accommodation, String description, LocalTime checkInTime,
                          LocalTime checkOutTime, List<String> amenities, List<String> rules,
+                         List<AccommodationImageService.ImageResponse> images,
                          List<RoomSummary> rooms) { }
 
     public record RoomSummary(Long roomId, String name, String description, long price,

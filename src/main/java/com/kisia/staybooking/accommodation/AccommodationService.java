@@ -32,12 +32,14 @@ public class AccommodationService {
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
     private final BookingInventoryService inventory;
+    private final AccommodationImageService images;
 
     public AccommodationService(AccommodationRepository accommodations, RoomRepository rooms,
-                                BookingInventoryService inventory) {
+                                BookingInventoryService inventory, AccommodationImageService images) {
         this.accommodations = accommodations;
         this.rooms = rooms;
         this.inventory = inventory;
+        this.images = images;
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +91,8 @@ public class AccommodationService {
         return new AccommodationDetail(accommodation.getAccommodationId(), accommodation.getName(),
             accommodation.getAddress(), accommodation.getDescription(), accommodation.getCheckInTime(),
             accommodation.getCheckOutTime(), accommodation.getLatitude(), accommodation.getLongitude(),
-            accommodation.getStatus(), accommodation.getAmenities(), accommodation.getRules(), List.of(),
+            accommodation.getStatus(), accommodation.getAmenities(), accommodation.getRules(),
+            images.urls(accommodationId),
             roomSummaries);
     }
 
@@ -99,6 +102,8 @@ public class AccommodationService {
             return List.of();
         }
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        Map<Long, String> mainImages = images.mainImageUrls(
+            list.stream().map(AccommodationEntity::getAccommodationId).toList());
         Map<Long, List<RoomEntity>> roomsByAccommodation = rooms
             .findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(
                 list.stream().map(AccommodationEntity::getAccommodationId).toList(), RoomStatus.ACTIVE)
@@ -112,7 +117,8 @@ public class AccommodationService {
                     .filter(room -> stay == null || bookable(room, guests, stay, nowUtc))
                     .findFirst()
                     .map(cheapest -> new AccommodationSummary(a.getAccommodationId(), a.getName(),
-                        a.getAddress(), a.getDescription(), null, cheapest.getPrice()))
+                        a.getAddress(), a.getDescription(), mainImages.get(a.getAccommodationId()),
+                        cheapest.getPrice()))
                     .orElse(null);
             })
             .filter(summary -> summary != null)
