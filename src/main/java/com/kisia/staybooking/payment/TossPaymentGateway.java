@@ -35,7 +35,24 @@ public class TossPaymentGateway {
 
     public boolean isConfigured() {
         // 실제 금전 거래와 환불 자동화가 준비되기 전에는 테스트 키만 허용한다.
+        // 결제위젯 키(test_gck_/test_gsk_)와 API 개별 연동 키(test_ck_/test_sk_) 중 같은 종류 한 쌍만 받는다.
+        // 결제 승인·조회·취소 API는 두 종류 모두 같다.
+        return usesWidget() || usesPaymentWindow();
+    }
+
+    // 결제 화면 방식. 위젯 키는 주문서형 결제위젯, 개별 연동 키는 결제창으로 연다.
+    public String mode() {
+        if (usesWidget()) return "WIDGET";
+        if (usesPaymentWindow()) return "PAYMENT_WINDOW";
+        return null;
+    }
+
+    private boolean usesWidget() {
         return clientKey.startsWith("test_gck_") && secretKey.startsWith("test_gsk_");
+    }
+
+    private boolean usesPaymentWindow() {
+        return clientKey.startsWith("test_ck_") && secretKey.startsWith("test_sk_");
     }
 
     public String clientKey() {

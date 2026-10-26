@@ -1,14 +1,21 @@
 # 토스페이먼츠 테스트 결제 설정
 
-이 프로젝트는 토스페이먼츠 JavaScript SDK v2의 **주문서형 결제**를 사용한다. 현재 구현은 테스트 키(`test_gck_`/`test_gsk_`)만 활성화하며, 실제 금전 거래를 만드는 라이브 키는 지원하지 않는다.
+이 프로젝트는 토스페이먼츠 JavaScript SDK v2를 사용한다. 넣은 테스트 키 종류에 따라 결제 화면이 정해진다. 실제 금전 거래를 만드는 라이브 키는 지원하지 않는다.
+
+| 키 종류 | 클라이언트 키 / 시크릿 키 | 결제 화면 |
+|---|---|---|
+| 결제위젯 연동 키 | `test_gck_` / `test_gsk_` | 주문서형 결제위젯 (결제 수단 목록이 결제 페이지 안에 나온다) |
+| API 개별 연동 키 | `test_ck_` / `test_sk_` | 결제창 (결제하기를 누르면 토스 결제창이 열린다, 카드) |
+
+계약 전 상점은 보통 API 개별 연동 키만 받으므로, 팀 상점 키로 결제·웹훅을 확인하려면 개별 연동 키를 쓴다. 두 종류를 섞으면(`test_ck_` + `test_gsk_` 등) 토스 결제는 꺼진다. 결제 승인·조회·취소 API는 두 방식이 같다. 화면 방식은 `GET /api/v1/payments/capabilities`의 `tossMode`(`WIDGET`, `PAYMENT_WINDOW`)로 내려준다.
 
 1. [토스페이먼츠 개발자센터의 API 키](https://developers.tosspayments.com/my/api-keys)에서 **주문서형·결제창형 연동 키**의 테스트 클라이언트 키와 테스트 시크릿 키를 같은 상점의 한 쌍으로 확인한다. 문서용 키보다 팀 상점의 테스트 키를 사용하면 설정과 테스트 결제 내역을 확인하기 쉽다.
 2. 상점관리자에서 주문서형 결제 UI를 활성화한다. 현재 구현은 `DONE`이 즉시 돌아오는 결제만 완료 처리하므로, **가상계좌는 결제 UI에서 제외**한다. 가상계좌를 쓰려면 입금 웹훅, 상태 조회, 만료·환불 처리를 먼저 구현해야 한다.
 3. WAS 실행 환경에 아래 두 환경변수를 설정한다. 시크릿 키는 프런트엔드 파일, 설정 파일, Git, 메신저에 넣지 않는다.
 
    ```bash
-   export STAYBOOKING_TOSS_CLIENT_KEY='test_gck_...'
-   export STAYBOOKING_TOSS_SECRET_KEY='test_gsk_...'
+   export STAYBOOKING_TOSS_CLIENT_KEY='test_gck_...'   # 또는 test_ck_...
+   export STAYBOOKING_TOSS_SECRET_KEY='test_gsk_...'   # 또는 test_sk_...
    ```
 
 4. 서버를 재시작하고 로그인한 뒤 예약을 생성한다. **내 예약 → 결제하기**에서 SDK 주문서를 열고 테스트 결제를 진행한다. 토스 인증이 성공하면 `/payment/success.html`이 서버의 `/api/v1/payments/toss/confirm`을 호출한다. 서버는 저장된 주문번호·금액과 사용자 소유권을 검사한 다음 토스 승인 API를 호출한다. 승인 응답이 `DONE`일 때만 예약이 `PENDING`(승인 대기)으로 바뀐다. 승인 응답이 유실되면 같은 주문번호로 토스 결제를 조회하며, 동일한 승인 요청을 다시 보내도 결제를 중복 기록하지 않는다.
@@ -44,3 +51,9 @@ MySQL 프로필의 복구 작업은 1분마다 신규 자동 환불 중 1분 넘
 운영 전에는 라이브 키 활성화와 함께 가상계좌 입금 웹훅(사용할 경우), 만료 후 불일치 결제의 관리 절차, 정산 검증을 추가해야 한다. 현재 코드에서 라이브 키는 의도적으로 비활성화돼 있다.
 
 참고: [주문서형 결제 가이드](https://docs.tosspayments.com/guides/v2/payment-widget/integration), [결제 승인 API](https://docs.tosspayments.com/reference), [API 키](https://docs.tosspayments.com/reference/using-api/api-keys).
+
+## 결제 Webhook (PAYMENT_003)
+
+`POST /api/v1/payments/webhook`이 토스 `PAYMENT_STATUS_CHANGED` 이벤트를 받는다. 본문에서는 `orderId`만 쓰고, 실제 상태·금액은 시크릿 키로 토스에 다시 조회해 확인한 뒤(승인 응답 유실 복구와 같은 검증) 완료 처리한다. 이미 완료된 주문은 그대로 두므로 같은 이벤트가 여러 번 와도 한 번만 반영된다.
+
+토스 개발자센터 **웹훅** 메뉴(https://developers.tosspayments.com/my/webhooks)에서 서버의 공개 주소 + `/api/v1/payments/webhook`을 등록하고 `PAYMENT_STATUS_CHANGED`를 선택한다. 웹훅은 **등록한 상점의 키로 결제했을 때만** 오므로, 문서용 공용 키(`test_gck_docs_...`)로 결제하면 오지 않는다. 로컬에서 확인할 때는 `ngrok http 8080`으로 임시 공개 주소를 만들고, 확인이 끝나면 바로 끈다.
