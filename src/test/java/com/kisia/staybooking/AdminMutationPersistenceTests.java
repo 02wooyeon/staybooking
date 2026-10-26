@@ -78,8 +78,9 @@ class AdminMutationPersistenceTests {
         AccommodationEntity otherStay = accommodations.save(new AccommodationEntity("Other " + tag, "Busan",
             LocalTime.of(15, 0), LocalTime.of(11, 0)));
 
-        assertThrows(IllegalArgumentException.class,
+        ApiException wrongAccommodation = assertThrows(ApiException.class,
             () -> accommodationsAdmin.deactivateRoom(otherStay.getAccommodationId(), room.getRoomId()));
+        assertEquals("NOT_FOUND", wrongAccommodation.getCode());
         assertEquals(RoomStatus.ACTIVE, rooms.findById(room.getRoomId()).orElseThrow().getStatus());
 
         accommodationsAdmin.deactivateRoom(stay.getAccommodationId(), room.getRoomId());

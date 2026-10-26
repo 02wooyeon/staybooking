@@ -52,26 +52,30 @@ public class AdminAccommodationController {
     return accommodations.save(accommodation);
   }
   @Transactional
-  @PatchMapping("/{id}") public AccommodationEntity update(@PathVariable Long id,@Valid @RequestBody AccommodationRequest r) { var a=accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found")); a.update(r.name(),r.address(),r.checkInTime(),r.checkOutTime(),r.description(),r.status()); applyAmenitiesAndRules(a, r); return a; }
+  @PatchMapping("/{id}") public AccommodationEntity update(@PathVariable @Positive Long id,@Valid @RequestBody AccommodationRequest r) { var a=accommodations.findById(id).orElseThrow(AdminAccommodationController::accommodationNotFound); a.update(r.name(),r.address(),r.checkInTime(),r.checkOutTime(),r.description(),r.status()); applyAmenitiesAndRules(a, r); return a; }
   @Transactional
   @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivate(@PathVariable @Positive Long id) {
     var accommodation = accommodations.findById(id)
-        .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        .orElseThrow(AdminAccommodationController::accommodationNotFound);
     accommodation.update(accommodation.getName(), accommodation.getAddress(),
         accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
         accommodation.getDescription(), AccommodationStatus.INACTIVE);
   }
-  @PostMapping("/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) public RoomEntity createRoom(@PathVariable Long id,@Valid @RequestBody RoomRequest r) {
-    var accommodation = accommodations.findById(id).orElseThrow(()->new IllegalArgumentException("Accommodation not found"));
+  @Transactional
+  @PostMapping("/{id}/rooms") @ResponseStatus(HttpStatus.CREATED) public RoomEntity createRoom(@PathVariable @Positive Long id,@Valid @RequestBody RoomRequest r) {
+    var accommodation = accommodations.findByIdForUpdate(id).orElseThrow(AdminAccommodationController::accommodationNotFound);
+    if (rooms.existsByAccommodationAccommodationIdAndName(id, r.name())) throw duplicateRoomName();
     RoomEntity room = new RoomEntity(accommodation, r.name(), r.price(), r.capacity(), r.totalQuantity());
     room.update(r.name(), r.price(), r.capacity(), r.totalQuantity(), r.description(), r.status());
     return rooms.save(room);
   }
   @Transactional
-  @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable Long id,@PathVariable Long roomId,@Valid @RequestBody RoomRequest r) {
-    var room=rooms.findByIdForUpdate(roomId).orElseThrow(()->new IllegalArgumentException("Room not found"));
-    if(!room.getAccommodation().getAccommodationId().equals(id)) throw new IllegalArgumentException("Room does not belong to accommodation");
+  @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable @Positive Long id,@PathVariable @Positive Long roomId,@Valid @RequestBody RoomRequest r) {
+    accommodations.findByIdForUpdate(id).orElseThrow(AdminAccommodationController::accommodationNotFound);
+    var room=rooms.findByIdForUpdate(roomId).orElseThrow(AdminAccommodationController::roomNotFound);
+    if(!room.getAccommodation().getAccommodationId().equals(id)) throw roomNotFound();
+    if (rooms.existsByAccommodationAccommodationIdAndNameAndRoomIdNot(id, r.name(), roomId)) throw duplicateRoomName();
     LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
     LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
     if (r.totalQuantity() < room.getTotalQuantity()) {
@@ -92,10 +96,11 @@ public class AdminAccommodationController {
   @Transactional
   @DeleteMapping("/{id}/rooms/{roomId}") @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivateRoom(@PathVariable @Positive Long id, @PathVariable @Positive Long roomId) {
+    accommodations.findByIdForUpdate(id).orElseThrow(AdminAccommodationController::accommodationNotFound);
     var room = rooms.findByIdForUpdate(roomId)
-        .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+        .orElseThrow(AdminAccommodationController::roomNotFound);
     if (!room.getAccommodation().getAccommodationId().equals(id)) {
-      throw new IllegalArgumentException("Room does not belong to accommodation");
+      throw roomNotFound();
     }
     room.update(room.getName(), room.getPrice(), room.getCapacity(), room.getTotalQuantity(),
         room.getDescription(), RoomStatus.INACTIVE);
@@ -138,7 +143,19 @@ public class AdminAccommodationController {
         r.rules() != null ? r.rules() : accommodation.getRules());
   }
 
-  public record AccommodationRequest(@NotBlank String name,@NotBlank String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status,
+  private static ApiException accommodationNotFound() {
+    return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "숙소를 찾을 수 없습니다.");
+  }
+
+  private static ApiException roomNotFound() {
+    return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "객실을 찾을 수 없습니다.");
+  }
+
+  private static ApiException duplicateRoomName() {
+    return new ApiException(HttpStatus.CONFLICT, "DUPLICATE_ROOM_NAME", "같은 숙소에 동일한 객실명이 있습니다.", List.of("name"));
+  }
+
+  public record AccommodationRequest(@NotBlank @Size(max = 150) String name,@NotBlank @Size(max = 255) String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status,
       @Size(max = 16) List<@NotBlank String> amenities,
       @Size(max = 20) List<@NotBlank @Size(max = 100) @Pattern(regexp = "[^\\r\\n]*") String> rules) {
     public AccommodationRequest(String name, String address, LocalTime checkInTime, LocalTime checkOutTime,
@@ -146,6 +163,6 @@ public class AdminAccommodationController {
       this(name, address, checkInTime, checkOutTime, description, status, null, null);
     }
   }
-  public record RoomRequest(@NotBlank String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
+  public record RoomRequest(@NotBlank @Size(max = 100) String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
   public record ImageRequest(@NotNull @Positive Long fileId) {}
 }
