@@ -139,7 +139,8 @@
   }
   // 간편결제 버튼: 토스 결제창을 해당 간편결제로 바로 연다 (card.flowMode=DIRECT).
   // 어떤 간편결제를 골라도 금액·주문번호는 서버 값이고, 승인은 결제 완료 페이지에서 서버가 다시 검증한다.
-  var EASY_PAY = ['KAKAOPAY', 'TOSSPAY', 'NAVERPAY'];
+  // 네이버페이는 테스트 서버가 계약 가맹점 전용 계정을 요구해 뺐다.
+  var EASY_PAY = ['KAKAOPAY', 'TOSSPAY'];
   function showEasyPay(paymentWindow, request, amount) {
     var box = document.getElementById('easy-pay');
     box.hidden = false;
