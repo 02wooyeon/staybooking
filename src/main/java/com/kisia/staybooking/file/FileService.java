@@ -20,9 +20,11 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
+import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.qna.QnaRepository;
 import com.kisia.staybooking.review.ReviewRepository;
+import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.user.UserEntity;
 import com.kisia.staybooking.user.UserRepository;
 import com.kisia.staybooking.user.UserRole;
@@ -45,14 +47,19 @@ public class FileService {
     private final UserRepository users;
     private final ReviewRepository reviews;
     private final QnaRepository qnas;
+    private final AccommodationRepository accommodations;
+    private final RoomRepository rooms;
     private final Path baseDir;
 
     public FileService(FileRepository files, UserRepository users, ReviewRepository reviews, QnaRepository qnas,
+                       AccommodationRepository accommodations, RoomRepository rooms,
                        @Value("${staybooking.upload.dir}") String uploadDir) {
         this.files = files;
         this.users = users;
         this.reviews = reviews;
         this.qnas = qnas;
+        this.accommodations = accommodations;
+        this.rooms = rooms;
         this.baseDir = Path.of(uploadDir).toAbsolutePath().normalize();
     }
 
@@ -85,6 +92,7 @@ public class FileService {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         boolean visible = reviews.existsByFilesFileIdAndDeletedFalse(fileId)
             || qnas.existsByFilesFileIdAndDeletedFalseAndSecretFalse(fileId)
+            || accommodations.existsByImagesFileId(fileId) || rooms.existsByImagesFileId(fileId)
             || isUploader(file, actorId) || isAdmin(actorId);
         if (!visible) throw notFound();
         Path path = safePath(file);
@@ -99,9 +107,28 @@ public class FileService {
     public void delete(Long actorId, Long fileId) {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         if (!isUploader(file, actorId)) throw notFound();
-        if (reviews.existsByFilesFileId(fileId) || qnas.existsByFilesFileId(fileId)) {
+        if (isLinked(fileId)) {
             throw new ApiException(HttpStatus.CONFLICT, "FILE_IN_USE", "글에 연결된 사진은 글을 수정해서 빼 주세요.");
         }
+        files.delete(file);
+        try {
+            Files.deleteIfExists(safePath(file));
+        } catch (IOException e) {
+            // DB 기록은 지웠으므로 남은 파일은 운영자가 정리한다.
+        }
+    }
+
+    // 후기·문의·숙소·객실 중 어디에든 붙어 있는 사진인지. 한 사진은 한 곳에만 붙인다.
+    @Transactional(readOnly = true)
+    public boolean isLinked(Long fileId) {
+        return reviews.existsByFilesFileId(fileId) || qnas.existsByFilesFileId(fileId)
+            || accommodations.existsByImagesFileId(fileId) || rooms.existsByImagesFileId(fileId);
+    }
+
+    // 관리자가 숙소·객실에서 뺀 사진을 지운다. 다른 관리자가 올린 사진일 수도 있어 올린 사람은 보지 않는다.
+    @Transactional
+    public void deleteDetached(FileEntity file) {
+        if (isLinked(file.getFileId())) return;
         files.delete(file);
         try {
             Files.deleteIfExists(safePath(file));

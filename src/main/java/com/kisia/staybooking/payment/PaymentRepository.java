@@ -66,6 +66,9 @@ public interface PaymentRepository extends JpaRepository<PaymentEntity, Long> {
     @EntityGraph(attributePaths = "booking")
     Optional<PaymentEntity> findByOrderId(String orderId);
 
+    @Query("select p.booking.user.userId from PaymentEntity p where p.orderId = :orderId")
+    Optional<Long> findUserIdByOrderId(@Param("orderId") String orderId);
+
     @Query("select p.booking.bookingId from PaymentEntity p where p.orderId = :orderId")
     Optional<Long> findBookingIdByOrderId(@Param("orderId") String orderId);
 

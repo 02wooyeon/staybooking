@@ -1,9 +1,14 @@
 package com.kisia.staybooking.room;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.common.AuditedEntity;
+import com.kisia.staybooking.file.FileEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,7 +20,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.Check;
@@ -63,6 +71,16 @@ public class RoomEntity extends AuditedEntity {
     @ColumnDefault("'ACTIVE'")
     private RoomStatus status = RoomStatus.ACTIVE;
 
+    // docs/architecture/DATABASE.md의 room_files. 숙소와 같은 이유로 JSON에서 뺀다.
+    @JsonIgnore
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "room_files",
+        joinColumns = @JoinColumn(name = "room_id", foreignKey = @ForeignKey(name = "fk_room_files_room")),
+        inverseJoinColumns = @JoinColumn(name = "file_id", foreignKey = @ForeignKey(name = "fk_room_files_file")),
+        uniqueConstraints = @UniqueConstraint(name = "uk_room_files_file", columnNames = "file_id"))
+    @OrderColumn(name = "sort_order")
+    private List<FileEntity> images = new ArrayList<>();
+
     protected RoomEntity() {
     }
 
@@ -75,6 +93,17 @@ public class RoomEntity extends AuditedEntity {
         this.price = price;
         this.capacity = capacity;
         this.totalQuantity = totalQuantity;
+    }
+
+    // 사진 목록은 화면에 보여 줄 순서대로 둔다. 첫 장이 대표 사진이다.
+    public List<FileEntity> getImages() { return Collections.unmodifiableList(images); }
+
+    public void addImage(FileEntity file) {
+        images.add(Objects.requireNonNull(file));
+    }
+
+    public boolean removeImage(Long fileId) {
+        return images.removeIf(file -> file.getFileId().equals(fileId));
     }
 
     public Long getRoomId() { return roomId; }
