@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,8 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccommodationService {
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
     private static final int DEFAULT_PAGE_SIZE = 20;
-    // 날짜 조건이 있으면 빈 객실 확인을 위해 후보를 메모리로 가져오므로 개수를 제한한다.
-    private static final int MAX_DATE_SEARCH_CANDIDATES = 300;
+    // 날짜별 재고는 애플리케이션에서 계산하지만 후보 전체를 한 번에 적재하지 않는다.
+    private static final int DATE_SEARCH_BATCH_SIZE = 200;
 
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
@@ -57,13 +58,21 @@ public class AccommodationService {
                 result.getTotalElements(), result.getTotalPages());
         }
 
-        List<AccommodationEntity> candidates = accommodations.search(AccommodationStatus.ACTIVE, pattern,
-            RoomStatus.ACTIVE, guests, PageRequest.of(0, MAX_DATE_SEARCH_CANDIDATES)).getContent();
-        List<AccommodationSummary> available = summaries(candidates, guests, stay);
-        int from = Math.min(page * size, available.size());
-        int to = Math.min(from + size, available.size());
-        int totalPages = (available.size() + size - 1) / size;
-        return new PageResponse<>(available.subList(from, to), page, size, available.size(), totalPages);
+        long from = (long) page * size;
+        List<AccommodationSummary> content = new ArrayList<>(size);
+        long total = 0;
+        int batch = 0;
+        Page<AccommodationEntity> candidates;
+        do {
+            candidates = accommodations.search(AccommodationStatus.ACTIVE, pattern,
+                RoomStatus.ACTIVE, guests, PageRequest.of(batch++, DATE_SEARCH_BATCH_SIZE));
+            for (AccommodationSummary summary : summaries(candidates.getContent(), guests, stay)) {
+                if (total >= from && content.size() < size) content.add(summary);
+                total++;
+            }
+        } while (candidates.hasNext());
+        int totalPages = Math.toIntExact((total + size - 1) / size);
+        return new PageResponse<>(content, page, size, total, totalPages);
     }
 
     @Transactional(readOnly = true)
