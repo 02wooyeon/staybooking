@@ -11,6 +11,10 @@
     .payment-summary p { margin: 8px 0; }
     #payment-button { width: 100%; padding: 15px; border: 0; border-radius: 9px; cursor: pointer; }
     #payment-button:disabled { cursor: not-allowed; opacity: .6; }
+    .saved-card { padding: 16px 20px; border: 1px solid #ddd; border-radius: 12px; margin: 0 0 16px; }
+    .saved-card label { display: block; margin: 10px 0 6px; font-size: 14px; }
+    .saved-card input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #ccc; border-radius: 8px; font: inherit; }
+    .saved-card button { width: 100%; margin-top: 12px; padding: 13px; border: 0; border-radius: 9px; cursor: pointer; }
   </style>
 </head>
 <body data-payment-page="checkout">
@@ -22,6 +26,13 @@
     <p id="payment-dates"></p>
     <strong id="payment-amount"></strong>
   </div>
+  <!-- 등록 카드 결제 (PAYMENT_005). 카드가 등록돼 있고 개별 연동 키일 때만 보인다. -->
+  <form id="saved-card" class="saved-card" hidden novalidate>
+    <strong id="saved-card-label"></strong>
+    <label for="saved-card-password">계정 비밀번호 확인</label>
+    <input id="saved-card-password" type="password" maxlength="100" autocomplete="current-password" required>
+    <button id="saved-card-button" type="submit">등록 카드로 결제</button>
+  </form>
   <div id="payment-method"></div>
   <div id="payment-agreement"></div>
   <button id="payment-button" type="button" disabled>결제하기</button>

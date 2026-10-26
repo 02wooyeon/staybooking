@@ -94,6 +94,18 @@
           <button id="password-submit" class="btn-primary" type="submit">비밀번호 변경</button>
         </form>
 
+        <!-- 카드 등록 (PAYMENT_004). billing-card.js가 토스 카드 등록 창을 연다. -->
+        <section id="billing-card" class="info-card" aria-labelledby="billing-title" hidden>
+          <h2 id="billing-title">등록 카드</h2>
+          <p class="card-sub">카드를 등록해 두면 예약 결제 때 비밀번호만 입력해 바로 결제할 수 있습니다. 카드 정보는 토스페이먼츠 창에만 입력되고 스테이북에는 저장되지 않습니다.</p>
+          <div id="billing-alert" class="alert" role="alert" hidden></div>
+          <p id="billing-current" class="billing-current" hidden></p>
+          <div class="form-actions">
+            <button id="billing-register" class="btn-primary" type="button">카드 등록</button>
+            <button id="billing-delete" class="btn-outline" type="button" hidden>카드 삭제</button>
+          </div>
+        </section>
+
         <div class="info-card">
           <h2>보안</h2>
 
@@ -278,5 +290,6 @@
   <script src="/assets/js/api.js"></script>
   <script src="/assets/js/common.js"></script>
   <script src="/assets/js/settings.js"></script>
+  <script src="/assets/js/billing-card.js"></script>
 </body>
 </html>

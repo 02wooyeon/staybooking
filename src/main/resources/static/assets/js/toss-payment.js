@@ -107,6 +107,7 @@
             amount: { currency: 'KRW', value: payment.amount }
           }, request));
         };
+        if (capabilities.billingEnabled) await showSavedCard(payment.amount);
       } else {
         var widgets = tossPayments.widgets({ customerKey: payment.orderId });
         await widgets.setAmount({ currency: 'KRW', value: payment.amount });
@@ -135,5 +136,39 @@
       Ui.showAlert(alertBox, e.message, 'error');
     }
   }
+  // 등록 카드가 있으면 비밀번호만 다시 입력해 바로 결제한다. 금액·주문번호는 서버가 정한다.
+  async function showSavedCard(amount) {
+    var cards = await BookingApi.getBillingCards().catch(function () { return []; });
+    if (!cards.length) return;
+    var card = cards[0];
+    var form = document.getElementById('saved-card');
+    var password = document.getElementById('saved-card-password');
+    var submit = document.getElementById('saved-card-button');
+    document.getElementById('saved-card-label').textContent =
+      '등록 카드 ' + (card.cardCompany || '') + ' ' + (card.cardNumber || '');
+    submit.textContent = '등록 카드로 ' + Number(amount).toLocaleString('ko-KR') + '원 결제';
+    form.hidden = false;
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      Ui.hideAlert(alertBox);
+      if (!password.value) {
+        Ui.showAlert(alertBox, '계정 비밀번호를 입력해 주세요.', 'error');
+        return;
+      }
+      submit.disabled = true;
+      button.disabled = true;
+      try {
+        await BookingApi.payWithBillingCard(card.billingCardId, bookingId, password.value);
+        window.location.replace('/booking/my.html');
+      } catch (e) {
+        Ui.showAlert(alertBox, e.message, 'error');
+        submit.disabled = false;
+        button.disabled = false;
+      } finally {
+        password.value = '';
+      }
+    });
+  }
+
   init();
 })();

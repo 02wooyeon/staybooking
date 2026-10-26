@@ -60,6 +60,31 @@ public class TossPaymentConfirmationService {
         return recordConfirmation(userId, confirmed);
     }
 
+    /**
+     * 등록 카드(빌링키)로 결제한다 (PAYMENT_005). 결제창 승인과 같은 검증을 거친다:
+     * 결제 가능한 TOSS 주문인지 먼저 확인하고, 토스 응답의 상태(DONE)·주문번호·금액이 사전 등록한 값과 같을 때만 완료한다.
+     */
+    public PaymentEntity payWithBillingKey(Long userId, String orderId, String billingKey, String customerKey,
+                                           String orderName) {
+        PaymentService.PaymentAttempt prepared = payments.attempt(userId, orderId);
+        if (prepared.status() == PaymentStatus.PAID) return payments.current(userId, orderId);
+        requireConfirmable(prepared);
+        TossPaymentGateway.Confirmation confirmed;
+        try {
+            confirmed = gateway.chargeBillingKey(billingKey, customerKey, orderId, orderName, prepared.paidAmount());
+        } catch (ApiException chargeFailure) {
+            if (chargeFailure.getStatus() != HttpStatus.BAD_GATEWAY) throw chargeFailure;
+            // 승인은 됐는데 응답만 유실됐을 수 있다. 같은 주문의 실제 상태를 조회한다.
+            try {
+                confirmed = gateway.findByOrderId(orderId);
+            } catch (ApiException lookupFailure) {
+                throw chargeFailure;
+            }
+        }
+        requireMatchingConfirmation(orderId, prepared, confirmed, null);
+        return recordConfirmation(userId, confirmed);
+    }
+
     private PaymentEntity recordConfirmation(Long userId, TossPaymentGateway.Confirmation confirmed) {
         try {
             return payments.complete(userId, confirmed.orderId(), confirmed.paymentKey(), confirmed.totalAmount());

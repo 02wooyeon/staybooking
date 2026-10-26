@@ -257,6 +257,28 @@
       return authed('POST', '/api/v1/payments/toss/recover', { orderId: orderId });
     },
 
+    /* 카드 등록(자동결제). 빌링키는 서버만 알고, 화면은 가린 카드번호만 받는다. */
+    getBillingCustomerKey: function () {
+      return authed('POST', '/api/v1/payments/billing-keys/customer');
+    },
+
+    registerBillingCard: function (customerKey, authKey) {
+      return authed('POST', '/api/v1/payments/billing-keys', { customerKey: customerKey, authKey: authKey });
+    },
+
+    getBillingCards: function () {
+      return authed('GET', '/api/v1/payments/billing-keys');
+    },
+
+    deleteBillingCard: function (billingCardId) {
+      return authed('DELETE', '/api/v1/payments/billing-keys/' + encodeURIComponent(billingCardId));
+    },
+
+    payWithBillingCard: function (billingCardId, bookingId, password) {
+      return authed('POST', '/api/v1/payments/billing-keys/' + encodeURIComponent(billingCardId) + '/pay',
+        { bookingId: bookingId, password: password });
+    },
+
     /** 사용자는 예약을 즉시 취소하지 않고 승인자에게 취소를 신청한다. */
     requestBookingCancellation: function (bookingId, form) {
       return authed('POST', '/api/v1/bookings/' + encodeURIComponent(bookingId)
