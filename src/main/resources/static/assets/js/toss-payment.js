@@ -107,6 +107,7 @@
             amount: { currency: 'KRW', value: payment.amount }
           }, request));
         };
+        showEasyPay(paymentWindow, request, payment.amount);
         if (capabilities.billingEnabled) await showBillingOptions(capabilities.tossClientKey, payment.amount);
       } else {
         var widgets = tossPayments.widgets({ customerKey: payment.orderId });
@@ -136,6 +137,35 @@
       Ui.showAlert(alertBox, e.message, 'error');
     }
   }
+  // 간편결제 버튼: 토스 결제창을 해당 간편결제로 바로 연다 (card.flowMode=DIRECT).
+  // 어떤 간편결제를 골라도 금액·주문번호는 서버 값이고, 승인은 결제 완료 페이지에서 서버가 다시 검증한다.
+  var EASY_PAY = ['KAKAOPAY', 'TOSSPAY', 'NAVERPAY'];
+  function showEasyPay(paymentWindow, request, amount) {
+    var box = document.getElementById('easy-pay');
+    box.hidden = false;
+    box.querySelectorAll('[data-easy-pay]').forEach(function (easyButton) {
+      easyButton.addEventListener('click', async function () {
+        var provider = easyButton.dataset.easyPay;
+        if (EASY_PAY.indexOf(provider) === -1) return;
+        Ui.hideAlert(alertBox);
+        easyButton.disabled = true;
+        try {
+          await paymentWindow.requestPayment(Object.assign({
+            method: 'CARD',
+            amount: { currency: 'KRW', value: amount },
+            card: { flowMode: 'DIRECT', easyPay: provider }
+          }, request));
+        } catch (e) {
+          if (e.code !== 'USER_CANCEL') {
+            Ui.showAlert(alertBox, e.message || '간편결제를 시작하지 못했습니다. 다른 결제 방법을 이용해 주세요.', 'error');
+          }
+        } finally {
+          easyButton.disabled = false;
+        }
+      });
+    });
+  }
+
   // 등록 카드(PAYMENT_005)가 있으면 비밀번호만 다시 입력해 바로 결제한다. 금액·주문번호는 서버가 정한다.
   // 없으면 카드 등록(PAYMENT_004)을 안내하고, 등록이 끝나면 이 페이지로 돌아온다.
   async function showBillingOptions(clientKey, amount) {
