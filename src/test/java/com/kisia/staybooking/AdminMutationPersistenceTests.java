@@ -3,6 +3,8 @@ package com.kisia.staybooking;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.accommodation.AccommodationRepository;
@@ -31,6 +33,7 @@ import com.kisia.staybooking.user.UserStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -42,6 +45,7 @@ class AdminMutationPersistenceTests {
     @Autowired private AccommodationRepository accommodations;
     @Autowired private RoomRepository rooms;
     @Autowired private BookingRepository bookings;
+    @Autowired private JdbcTemplate jdbc;
     @Autowired private RefundRepository refunds;
     @Autowired private PaymentService paymentService;
     @Autowired private PaymentRepository payments;
@@ -111,6 +115,35 @@ class AdminMutationPersistenceTests {
         assertEquals("Deluxe", saved.getName());
         assertEquals(2, saved.getTotalQuantity());
         assertEquals(RoomStatus.INACTIVE, saved.getStatus());
+    }
+
+    @Test
+    void roomQuantityCannotFallBelowPeakOccupiedUnits() {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity guest = users.save(new UserEntity("occupancy" + tag, "hash", "Guest",
+            "occupancy" + tag + "@example.test"));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Occupied " + tag, "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 3));
+        LocalDate day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(5);
+        BookingEntity first = bookings.save(new BookingEntity(guest, room, day, day.plusDays(2), 1,
+            200_000, 0, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(15)));
+        BookingEntity second = bookings.save(new BookingEntity(guest, room, day.plusDays(1), day.plusDays(3), 1,
+            200_000, 0, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(15)));
+        jdbc.update("update bookings set status = 'PENDING' where booking_id in (?, ?)",
+            first.getBookingId(), second.getBookingId());
+
+        var tooSmall = new AdminAccommodationController.RoomRequest("Standard", 100_000, 2, 1,
+            null, RoomStatus.ACTIVE);
+        ApiException conflict = assertThrows(ApiException.class,
+            () -> accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(), tooSmall));
+        assertEquals("ROOM_QUANTITY_BELOW_BOOKINGS", conflict.getCode());
+        assertEquals(3, rooms.findById(room.getRoomId()).orElseThrow().getTotalQuantity());
+
+        var enough = new AdminAccommodationController.RoomRequest("Standard", 100_000, 2, 2,
+            null, RoomStatus.ACTIVE);
+        accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(), enough);
+        assertEquals(2, rooms.findById(room.getRoomId()).orElseThrow().getTotalQuantity());
     }
 
     @Test

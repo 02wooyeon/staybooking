@@ -2,6 +2,7 @@ package com.kisia.staybooking.accommodation;
 
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.booking.BookingInventoryService;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
@@ -16,6 +17,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -23,9 +28,10 @@ import java.util.Set;
 public class AdminAccommodationController {
   private final AccommodationRepository accommodations; private final RoomRepository rooms;
   private final AdminAccommodationQueryService query;
+  private final BookingInventoryService inventory;
   public AdminAccommodationController(AccommodationRepository accommodations, RoomRepository rooms,
-                                      AdminAccommodationQueryService query) {
-    this.accommodations=accommodations; this.rooms=rooms; this.query=query;
+                                      AdminAccommodationQueryService query, BookingInventoryService inventory) {
+    this.accommodations=accommodations; this.rooms=rooms; this.query=query; this.inventory=inventory;
   }
   @GetMapping("/search") public PageResponse<AdminAccommodationQueryService.Summary> search(
       @Valid @ModelAttribute AdminAccommodationSearchRequest request) { return query.search(request); }
@@ -56,7 +62,20 @@ public class AdminAccommodationController {
     return rooms.save(room);
   }
   @Transactional
-  @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable Long id,@PathVariable Long roomId,@Valid @RequestBody RoomRequest r) { var room=rooms.findByIdForUpdate(roomId).orElseThrow(()->new IllegalArgumentException("Room not found")); if(!room.getAccommodation().getAccommodationId().equals(id)) throw new IllegalArgumentException("Room does not belong to accommodation"); room.update(r.name(),r.price(),r.capacity(),r.totalQuantity(),r.description(),r.status()); return room; }
+  @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable Long id,@PathVariable Long roomId,@Valid @RequestBody RoomRequest r) {
+    var room=rooms.findByIdForUpdate(roomId).orElseThrow(()->new IllegalArgumentException("Room not found"));
+    if(!room.getAccommodation().getAccommodationId().equals(id)) throw new IllegalArgumentException("Room does not belong to accommodation");
+    if (r.totalQuantity() < room.getTotalQuantity()) {
+      int occupied = inventory.maximumOccupiedUnitsFrom(room, LocalDate.now(ZoneId.of("Asia/Seoul")),
+          LocalDateTime.now(ZoneOffset.UTC));
+      if (r.totalQuantity() < occupied) {
+        throw new ApiException(HttpStatus.CONFLICT, "ROOM_QUANTITY_BELOW_BOOKINGS",
+            "기존 예약이 점유한 객실 수보다 판매 수량을 줄일 수 없습니다.", List.of("totalQuantity"));
+      }
+    }
+    room.update(r.name(),r.price(),r.capacity(),r.totalQuantity(),r.description(),r.status());
+    return room;
+  }
   @Transactional
   @DeleteMapping("/{id}/rooms/{roomId}") @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deactivateRoom(@PathVariable @Positive Long id, @PathVariable @Positive Long roomId) {
