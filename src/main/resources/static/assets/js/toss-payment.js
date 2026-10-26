@@ -1,4 +1,5 @@
-/* 토스페이먼츠 주문서형 결제: 서버의 주문번호와 금액을 그대로 사용한다. */
+/* 토스페이먼츠 결제: 서버의 주문번호와 금액을 그대로 사용한다.
+ * 서버가 알려 주는 tossMode에 따라 결제위젯(WIDGET) 또는 결제창(PAYMENT_WINDOW)으로 연다. */
 (function () {
   'use strict';
   var page = document.body.dataset.paymentPage;
@@ -87,22 +88,39 @@
       document.getElementById('payment-stay').textContent = booking.accommodationName + ' · ' + booking.roomName;
       document.getElementById('payment-dates').textContent = booking.checkIn + ' ~ ' + booking.checkOut;
       document.getElementById('payment-amount').textContent = Number(payment.amount).toLocaleString('ko-KR') + '원';
-      var widgets = TossPayments(capabilities.tossClientKey).widgets({ customerKey: payment.orderId });
-      await widgets.setAmount({ currency: 'KRW', value: payment.amount });
-      await Promise.all([
-        widgets.renderPaymentMethods({ selector: '#payment-method' }),
-        widgets.renderAgreement({ selector: '#payment-agreement' })
-      ]);
+      var request = {
+        orderId: payment.orderId,
+        orderName: (booking.accommodationName + ' ' + booking.roomName).slice(0, 100),
+        successUrl: window.location.origin + '/payment/success.html',
+        failUrl: window.location.origin + '/payment/fail.html'
+      };
+      var tossPayments = TossPayments(capabilities.tossClientKey);
+      var startPayment;
+      if (capabilities.tossMode === 'PAYMENT_WINDOW') {
+        // 결제창: 결제 수단 선택·약관은 토스 결제창에서 한다. 금액은 서버가 준 값만 쓴다.
+        document.getElementById('payment-method').hidden = true;
+        document.getElementById('payment-agreement').hidden = true;
+        var paymentWindow = tossPayments.payment({ customerKey: payment.orderId });
+        startPayment = function () {
+          return paymentWindow.requestPayment(Object.assign({
+            method: 'CARD',
+            amount: { currency: 'KRW', value: payment.amount }
+          }, request));
+        };
+      } else {
+        var widgets = tossPayments.widgets({ customerKey: payment.orderId });
+        await widgets.setAmount({ currency: 'KRW', value: payment.amount });
+        await Promise.all([
+          widgets.renderPaymentMethods({ selector: '#payment-method' }),
+          widgets.renderAgreement({ selector: '#payment-agreement' })
+        ]);
+        startPayment = function () { return widgets.requestPayment(request); };
+      }
       button.disabled = false;
       button.addEventListener('click', async function () {
         button.disabled = true;
         try {
-          await widgets.requestPayment({
-            orderId: payment.orderId,
-            orderName: (booking.accommodationName + ' ' + booking.roomName).slice(0, 100),
-            successUrl: window.location.origin + '/payment/success.html',
-            failUrl: window.location.origin + '/payment/fail.html'
-          });
+          await startPayment();
         } catch (e) {
           button.disabled = false;
           Ui.showAlert(alertBox, '결제 요청을 시작하지 못했습니다. 다시 시도해 주세요.', 'error');
