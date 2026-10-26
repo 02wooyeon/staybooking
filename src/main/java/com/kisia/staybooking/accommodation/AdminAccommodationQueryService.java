@@ -62,10 +62,9 @@ public class AdminAccommodationQueryService {
                          LocalTime checkOutTime, List<String> amenities, List<String> rules,
                          List<RoomSummary> rooms, List<Image> images) { }
 
-    // 관리자 화면(admin-accommodations.js)이 사진을 지울 때 fileId를 쓴다.
     public record Image(Long fileId, String url) {
         static List<Image> listOf(List<FileEntity> files) {
-            return files.stream().map(f -> new Image(f.getFileId(), UploadResponse.urlOf(f.getFileId()))).toList();
+            return files.stream().map(file -> new Image(file.getFileId(), UploadResponse.urlOf(file.getFileId()))).toList();
         }
     }
 

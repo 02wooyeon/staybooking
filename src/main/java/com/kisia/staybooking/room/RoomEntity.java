@@ -78,7 +78,7 @@ public class RoomEntity extends AuditedEntity {
         joinColumns = @JoinColumn(name = "room_id", foreignKey = @ForeignKey(name = "fk_room_files_room")),
         inverseJoinColumns = @JoinColumn(name = "file_id", foreignKey = @ForeignKey(name = "fk_room_files_file")),
         uniqueConstraints = @UniqueConstraint(name = "uk_room_files_file", columnNames = "file_id"))
-    @OrderColumn(name = "sort_order")
+    @OrderColumn(name = "display_order")
     private List<FileEntity> images = new ArrayList<>();
 
     protected RoomEntity() {

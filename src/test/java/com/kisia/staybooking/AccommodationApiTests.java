@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.accommodation.AccommodationRepository;
@@ -135,6 +137,27 @@ class AccommodationApiTests {
             .andExpect(jsonPath("$.rooms[0].status").value("SOLD_OUT"))
             .andExpect(jsonPath("$.rooms[1].availableCount").value(1))
             .andExpect(jsonPath("$.rooms[1].status").value("AVAILABLE"));
+    }
+
+    @Test
+    void dateSearchIncludesAvailableAccommodationsBeyondFirstThreeHundredCandidates() throws Exception {
+        String bulkTag = "bulk" + System.nanoTime();
+        List<AccommodationEntity> properties = new ArrayList<>();
+        for (int i = 0; i < 301; i++) {
+            properties.add(new AccommodationEntity("Stay " + bulkTag + " " + i,
+                "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        }
+        accommodations.saveAll(properties);
+        rooms.saveAll(properties.stream().map(property -> new RoomEntity(property, "Standard",
+            100_000, 2, 1)).toList());
+
+        mvc.perform(get("/api/v1/accommodations/search").param("keyword", bulkTag)
+                .param("checkIn", checkIn.toString()).param("checkOut", checkIn.plusDays(1).toString())
+                .param("page", "6").param("size", "50"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(301))
+            .andExpect(jsonPath("$.totalPages").value(7))
+            .andExpect(jsonPath("$.content.length()").value(1));
     }
 
     @Test

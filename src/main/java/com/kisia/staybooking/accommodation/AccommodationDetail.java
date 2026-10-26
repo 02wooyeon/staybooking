@@ -5,7 +5,8 @@ import java.time.LocalTime;
 import java.util.List;
 
 // 필드 이름은 화면(accommodation-detail.js)과 맞춘다.
-// amenities, rules 는 관리자 숙소 등록·수정 화면에서 저장한 값이다. images는 사진 주소 목록이고 첫 장이 대표 사진이다.
+// amenities, rules 는 관리자 숙소 등록·수정 화면에서 저장한 값이다.
+// images와 객실 image는 연결된 파일의 공개 URL이며, 사진이 없으면 각각 빈 목록/null이다.
 public record AccommodationDetail(
     Long accommodationId,
     String name,
