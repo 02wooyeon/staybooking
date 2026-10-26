@@ -260,16 +260,6 @@
       'booking-final-price'
     );
 
-  var paymentNote =
-    document.getElementById(
-      'payment-next-step'
-    );
-
-  var mileageOnlyNote =
-    document.getElementById(
-      'payment-mileage-only'
-    );
-
   // 보유 마일리지. 결제수단은 다음 결제 페이지에서 고른다.
   var mileageBalance = 0;
   var paymentMethod = 'CARD';
@@ -1313,23 +1303,6 @@
         ? '-'
         : formatPrice(finalAmount) + '원';
 
-    updatePaymentPanels();
-  }
-
-
-  /*
-   * 마일리지로 전액 결제하면 결제 단계가 없다는 안내를, 아니면 다음 화면에서 결제한다는 안내를 보여 준다.
-   */
-  function updatePaymentPanels() {
-
-    var mileageOnly =
-      getFinalAmount() === 0;
-
-    paymentNote.hidden =
-      mileageOnly;
-
-    mileageOnlyNote.hidden =
-      !mileageOnly;
   }
 
 
