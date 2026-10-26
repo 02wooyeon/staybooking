@@ -155,7 +155,7 @@ public class AdminAccommodationController {
     return new ApiException(HttpStatus.CONFLICT, "DUPLICATE_ROOM_NAME", "같은 숙소에 동일한 객실명이 있습니다.", List.of("name"));
   }
 
-  public record AccommodationRequest(@NotBlank @Size(max = 150) String name,@NotBlank @Size(max = 255) String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,String description,@NotNull AccommodationStatus status,
+  public record AccommodationRequest(@NotBlank @Size(max = 150) String name,@NotBlank @Size(max = 255) String address,@NotNull LocalTime checkInTime,@NotNull LocalTime checkOutTime,@Size(max = 10000) String description,@NotNull AccommodationStatus status,
       @Size(max = 16) List<@NotBlank String> amenities,
       @Size(max = 20) List<@NotBlank @Size(max = 100) @Pattern(regexp = "[^\\r\\n]*") String> rules) {
     public AccommodationRequest(String name, String address, LocalTime checkInTime, LocalTime checkOutTime,
@@ -163,6 +163,6 @@ public class AdminAccommodationController {
       this(name, address, checkInTime, checkOutTime, description, status, null, null);
     }
   }
-  public record RoomRequest(@NotBlank @Size(max = 100) String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,String description,@NotNull RoomStatus status) {}
+  public record RoomRequest(@NotBlank @Size(max = 100) String name,@Min(0) long price,@Min(1) int capacity,@Min(1) int totalQuantity,@Size(max = 10000) String description,@NotNull RoomStatus status) {}
   public record ImageRequest(@NotNull @Positive Long fileId) {}
 }

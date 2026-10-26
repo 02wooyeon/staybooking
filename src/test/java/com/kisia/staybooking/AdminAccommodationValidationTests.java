@@ -2,6 +2,7 @@ package com.kisia.staybooking;
 
 import java.time.LocalTime;
 
+import com.jayway.jsonpath.JsonPath;
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.accommodation.AccommodationRepository;
 import com.kisia.staybooking.room.RoomEntity;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,6 +32,85 @@ class AdminAccommodationValidationTests {
     @Autowired private TestFixtures fixtures;
     @Autowired private AccommodationRepository accommodations;
     @Autowired private RoomRepository rooms;
+
+    @Test
+    void accommodationMutationsRequireAdministratorRole() throws Exception {
+        UserEntity member = fixtures.user("회원");
+        UserEntity approver = fixtures.user("승인자", UserRole.ROLE_APPROVER);
+        String body = "{\"name\":\"Authorized stay\",\"address\":\"Seoul\","
+            + "\"checkInTime\":\"15:00\",\"checkOutTime\":\"11:00\",\"status\":\"ACTIVE\"}";
+        mvc.perform(post("/api/v1/admin/accommodations")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/admin/accommodations")
+                .header("Authorization", fixtures.bearer(member))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/admin/accommodations")
+                .header("Authorization", fixtures.bearer(approver))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanCreateAndUpdateAccommodationAndRoomThroughHttp() throws Exception {
+        UserEntity admin = fixtures.user("관리자", UserRole.ROLE_ADMIN);
+        String bearer = fixtures.bearer(admin);
+        String tag = Long.toString(System.nanoTime());
+        String accommodationBody = "{\"name\":\"New stay " + tag + "\",\"address\":\"Seoul\","
+            + "\"checkInTime\":\"15:00\",\"checkOutTime\":\"11:00\","
+            + "\"description\":\"Welcome\",\"status\":\"ACTIVE\","
+            + "\"amenities\":[\"무료 Wi-Fi\"],\"rules\":[\"금연\"]}";
+        String created = mvc.perform(post("/api/v1/admin/accommodations").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(accommodationBody))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.name").value("New stay " + tag))
+            .andReturn().getResponse().getContentAsString();
+        Number accommodationId = JsonPath.read(created, "$.accommodationId");
+        String base = "/api/v1/admin/accommodations/" + accommodationId.longValue();
+        String createdRoom = mvc.perform(post(base + "/rooms").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(roomBody("Standard")))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.name").value("Standard"))
+            .andReturn().getResponse().getContentAsString();
+        Number roomId = JsonPath.read(createdRoom, "$.roomId");
+
+        mvc.perform(patch(base).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(accommodationBody.replace("Welcome", "Updated")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.description").value("Updated"));
+        mvc.perform(patch(base + "/rooms/" + roomId.longValue()).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(roomBody("Deluxe")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Deluxe"));
+        mvc.perform(get(base).header("Authorization", bearer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.description").value("Updated"))
+            .andExpect(jsonPath("$.amenities[0]").value("무료 Wi-Fi"))
+            .andExpect(jsonPath("$.rooms[0].name").value("Deluxe"));
+    }
+
+    @Test
+    void deactivatedRoomAndAccommodationDisappearFromPublicDetailButRemainAdminVisible() throws Exception {
+        UserEntity admin = fixtures.user("관리자", UserRole.ROLE_ADMIN);
+        String bearer = fixtures.bearer(admin);
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Status stay " + System.nanoTime(),
+            "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Standard", 100_000, 2, 1));
+        String base = "/api/v1/admin/accommodations/" + stay.getAccommodationId();
+        String publicUrl = "/api/v1/accommodations/" + stay.getAccommodationId();
+
+        mvc.perform(delete(base + "/rooms/" + room.getRoomId()).header("Authorization", bearer))
+            .andExpect(status().isNoContent());
+        mvc.perform(get(publicUrl)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.rooms.length()").value(0));
+        mvc.perform(get(base).header("Authorization", bearer)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.rooms[0].status").value("INACTIVE"));
+        mvc.perform(patch(base + "/rooms/" + room.getRoomId()).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(roomBody("Standard")))
+            .andExpect(status().isOk());
+        mvc.perform(get(publicUrl)).andExpect(jsonPath("$.rooms.length()").value(1));
+
+        mvc.perform(delete(base).header("Authorization", bearer)).andExpect(status().isNoContent());
+        mvc.perform(get(publicUrl)).andExpect(status().isNotFound());
+        mvc.perform(get(base).header("Authorization", bearer)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.accommodation.status").value("INACTIVE"));
+    }
 
     @Test
     void missingAccommodationAndWrongRoomReturnNotFound() throws Exception {
@@ -86,6 +167,11 @@ class AdminAccommodationValidationTests {
                     + "\",\"address\":\"Seoul\",\"checkInTime\":\"15:00\","
                     + "\"checkOutTime\":\"11:00\",\"status\":\"ACTIVE\"}"))
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields[0]").value("name"));
+        mvc.perform(post(base).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(roomBody("Large")
+                    .replace("\"status\":\"ACTIVE\"", "\"description\":\"" + "x".repeat(10001)
+                        + "\",\"status\":\"ACTIVE\"")))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields[0]").value("description"));
         mvc.perform(patch(base + "/" + existing.getRoomId()).header("Authorization", bearer)
                 .contentType(MediaType.APPLICATION_JSON).content(roomBody("Standard")))
             .andExpect(status().isOk());

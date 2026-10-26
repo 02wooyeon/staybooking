@@ -1,10 +1,15 @@
 package com.kisia.staybooking;
 
 import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
 
 import com.jayway.jsonpath.JsonPath;
 import com.kisia.staybooking.accommodation.AccommodationEntity;
 import com.kisia.staybooking.accommodation.AccommodationRepository;
+import com.kisia.staybooking.file.FileEntity;
+import com.kisia.staybooking.file.FileRepository;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
@@ -34,6 +39,7 @@ class RoomImageApiTests {
     @Autowired private TestFixtures fixtures;
     @Autowired private AccommodationRepository accommodations;
     @Autowired private RoomRepository rooms;
+    @Autowired private FileRepository files;
 
     @Test
     void adminCanAttachRoomImageAndInactiveRoomDoesNotExposeIt() throws Exception {
@@ -83,5 +89,52 @@ class RoomImageApiTests {
             .andExpect(status().isNoContent());
         mvc.perform(get(root).header("Authorization", fixtures.bearer(admin)))
             .andExpect(jsonPath("$.rooms[0].images.length()").value(0));
+    }
+
+    @Test
+    void roomImageCannotBeReusedAndEleventhImageIsRejected() throws Exception {
+        UserEntity admin = fixtures.user("관리자", UserRole.ROLE_ADMIN);
+        String bearer = fixtures.bearer(admin);
+        AccommodationEntity accommodation = accommodations.save(new AccommodationEntity(
+            "Image limit stay " + System.nanoTime(), "Seoul", LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity first = rooms.save(new RoomEntity(accommodation, "Standard", 100_000, 2, 1));
+        RoomEntity second = rooms.save(new RoomEntity(accommodation, "Deluxe", 150_000, 2, 1));
+        String root = "/api/v1/admin/accommodations/" + accommodation.getAccommodationId();
+        String firstImages = root + "/rooms/" + first.getRoomId() + "/images";
+        String secondImages = root + "/rooms/" + second.getRoomId() + "/images";
+        long firstFileId = file(admin).getFileId();
+        String body = "{\"fileId\":" + firstFileId + "}";
+
+        mvc.perform(post(firstImages).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
+        mvc.perform(post(secondImages).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("FILE_IN_USE"));
+        mvc.perform(post(root + "/images").header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("FILE_IN_USE"));
+        mvc.perform(delete(firstImages + "/" + firstFileId).header("Authorization", bearer))
+            .andExpect(status().isNoContent());
+        mvc.perform(post(secondImages).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isCreated());
+
+        for (int i = 0; i < 9; i++) {
+            long id = file(admin).getFileId();
+            mvc.perform(post(secondImages).header("Authorization", bearer)
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"fileId\":" + id + "}"))
+                .andExpect(status().isCreated());
+        }
+        long extraId = file(admin).getFileId();
+        mvc.perform(post(secondImages).header("Authorization", bearer)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"fileId\":" + extraId + "}"))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IMAGE_LIMIT_REACHED"));
+        mvc.perform(get(root).header("Authorization", bearer))
+            .andExpect(jsonPath("$.rooms[1].images.length()").value(10));
+    }
+
+    private FileEntity file(UserEntity admin) {
+        String storedName = UUID.randomUUID() + ".png";
+        return files.save(new FileEntity(admin, "room.png", storedName, "/tmp/" + storedName,
+            "image/png", 8, LocalDateTime.now(ZoneOffset.UTC)));
     }
 }
