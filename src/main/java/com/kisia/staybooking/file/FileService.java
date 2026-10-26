@@ -23,6 +23,8 @@ import javax.imageio.stream.ImageInputStream;
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.accommodation.AccommodationFileRepository;
 import com.kisia.staybooking.accommodation.AccommodationStatus;
+import com.kisia.staybooking.room.RoomFileRepository;
+import com.kisia.staybooking.room.RoomStatus;
 import com.kisia.staybooking.qna.QnaRepository;
 import com.kisia.staybooking.review.ReviewRepository;
 import com.kisia.staybooking.user.UserEntity;
@@ -48,16 +50,19 @@ public class FileService {
     private final ReviewRepository reviews;
     private final QnaRepository qnas;
     private final AccommodationFileRepository accommodationImages;
+    private final RoomFileRepository roomImages;
     private final Path baseDir;
 
     public FileService(FileRepository files, UserRepository users, ReviewRepository reviews, QnaRepository qnas,
                        AccommodationFileRepository accommodationImages,
+                       RoomFileRepository roomImages,
                        @Value("${staybooking.upload.dir}") String uploadDir) {
         this.files = files;
         this.users = users;
         this.reviews = reviews;
         this.qnas = qnas;
         this.accommodationImages = accommodationImages;
+        this.roomImages = roomImages;
         this.baseDir = Path.of(uploadDir).toAbsolutePath().normalize();
     }
 
@@ -91,6 +96,7 @@ public class FileService {
         boolean visible = reviews.existsByFilesFileIdAndDeletedFalse(fileId)
             || qnas.existsByFilesFileIdAndDeletedFalseAndSecretFalse(fileId)
             || accommodationImages.isPublicImage(fileId, AccommodationStatus.ACTIVE)
+            || roomImages.isPublicImage(fileId, RoomStatus.ACTIVE, AccommodationStatus.ACTIVE)
             || isUploader(file, actorId) || isAdmin(actorId);
         if (!visible) throw notFound();
         Path path = safePath(file);
@@ -106,7 +112,8 @@ public class FileService {
         FileEntity file = files.findById(fileId).orElseThrow(FileService::notFound);
         if (!isUploader(file, actorId)) throw notFound();
         if (reviews.existsByFilesFileId(fileId) || qnas.existsByFilesFileId(fileId)
-                || accommodationImages.existsByFileFileId(fileId)) {
+                || accommodationImages.existsByFileFileId(fileId)
+                || roomImages.existsByFileFileId(fileId)) {
             throw new ApiException(HttpStatus.CONFLICT, "FILE_IN_USE", "글에 연결된 사진은 글을 수정해서 빼 주세요.");
         }
         files.delete(file);

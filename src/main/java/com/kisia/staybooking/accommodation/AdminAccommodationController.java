@@ -7,6 +7,7 @@ import com.kisia.staybooking.auth.AuthenticatedUser;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
+import com.kisia.staybooking.room.RoomImageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -32,11 +33,12 @@ public class AdminAccommodationController {
   private final AdminAccommodationQueryService query;
   private final BookingInventoryService inventory;
   private final AccommodationImageService images;
+  private final RoomImageService roomImages;
   public AdminAccommodationController(AccommodationRepository accommodations, RoomRepository rooms,
                                       AdminAccommodationQueryService query, BookingInventoryService inventory,
-                                      AccommodationImageService images) {
+                                      AccommodationImageService images, RoomImageService roomImages) {
     this.accommodations=accommodations; this.rooms=rooms; this.query=query; this.inventory=inventory;
-    this.images=images;
+    this.images=images; this.roomImages=roomImages;
   }
   @GetMapping("/search") public PageResponse<AdminAccommodationQueryService.Summary> search(
       @Valid @ModelAttribute AdminAccommodationSearchRequest request) { return query.search(request); }
@@ -102,6 +104,19 @@ public class AdminAccommodationController {
   @DeleteMapping("/{id}/images/{fileId}") @ResponseStatus(HttpStatus.NO_CONTENT)
   public void detachImage(@PathVariable @Positive Long id, @PathVariable @Positive Long fileId) {
     images.detach(id, fileId);
+  }
+
+  @PostMapping("/{id}/rooms/{roomId}/images") @ResponseStatus(HttpStatus.CREATED)
+  public RoomImageService.ImageResponse attachRoomImage(
+      @AuthenticationPrincipal AuthenticatedUser me, @PathVariable @Positive Long id,
+      @PathVariable @Positive Long roomId, @Valid @RequestBody ImageRequest request) {
+    return roomImages.attach(me.userId(), id, roomId, request.fileId());
+  }
+
+  @DeleteMapping("/{id}/rooms/{roomId}/images/{fileId}") @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void detachRoomImage(@PathVariable @Positive Long id, @PathVariable @Positive Long roomId,
+                              @PathVariable @Positive Long fileId) {
+    roomImages.detach(id, roomId, fileId);
   }
   // 관리자 화면(admin-static/accommodations.html)의 편의시설 체크박스와 같은 목록만 받는다
   static final Set<String> AMENITIES = Set.of("무료 Wi-Fi", "주차", "에어컨", "난방", "TV", "냉장고", "전자레인지",

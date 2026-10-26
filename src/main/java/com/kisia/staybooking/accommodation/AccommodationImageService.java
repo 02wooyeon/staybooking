@@ -11,6 +11,7 @@ import com.kisia.staybooking.file.FileService;
 import com.kisia.staybooking.file.UploadResponse;
 import com.kisia.staybooking.qna.QnaRepository;
 import com.kisia.staybooking.review.ReviewRepository;
+import com.kisia.staybooking.room.RoomFileRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,14 +26,17 @@ public class AccommodationImageService {
     private final FileService files;
     private final ReviewRepository reviews;
     private final QnaRepository questions;
+    private final RoomFileRepository roomImages;
 
     public AccommodationImageService(AccommodationRepository accommodations, AccommodationFileRepository images,
-                                     FileService files, ReviewRepository reviews, QnaRepository questions) {
+                                     FileService files, ReviewRepository reviews, QnaRepository questions,
+                                     RoomFileRepository roomImages) {
         this.accommodations = accommodations;
         this.images = images;
         this.files = files;
         this.reviews = reviews;
         this.questions = questions;
+        this.roomImages = roomImages;
     }
 
     @Transactional
@@ -42,7 +46,8 @@ public class AccommodationImageService {
         FileEntity file = files.ownedFile(adminId, fileId);
         AccommodationFileId id = new AccommodationFileId(accommodationId, fileId);
         if (images.existsById(id)) return ImageResponse.from(file);
-        if (images.existsByFileFileId(fileId) || reviews.existsByFilesFileId(fileId)
+        if (images.existsByFileFileId(fileId) || roomImages.existsByFileFileId(fileId)
+                || reviews.existsByFilesFileId(fileId)
                 || questions.existsByFilesFileId(fileId)) {
             throw new ApiException(HttpStatus.CONFLICT, "FILE_IN_USE", "이미 다른 글에 연결된 사진입니다.");
         }

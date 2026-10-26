@@ -17,6 +17,7 @@ import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
+import com.kisia.staybooking.room.RoomImageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -34,13 +35,16 @@ public class AccommodationService {
     private final RoomRepository rooms;
     private final BookingInventoryService inventory;
     private final AccommodationImageService images;
+    private final RoomImageService roomImages;
 
     public AccommodationService(AccommodationRepository accommodations, RoomRepository rooms,
-                                BookingInventoryService inventory, AccommodationImageService images) {
+                                BookingInventoryService inventory, AccommodationImageService images,
+                                RoomImageService roomImages) {
         this.accommodations = accommodations;
         this.rooms = rooms;
         this.inventory = inventory;
         this.images = images;
+        this.roomImages = roomImages;
     }
 
     @Transactional(readOnly = true)
@@ -87,13 +91,16 @@ public class AccommodationService {
         Stay stay = requested != null ? requested : new Stay(today, today.plusDays(1));
         LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
 
-        List<AccommodationDetail.RoomSummary> roomSummaries = rooms
-            .findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(List.of(accommodationId), RoomStatus.ACTIVE)
-            .stream()
+        List<RoomEntity> activeRooms = rooms
+            .findByAccommodationAccommodationIdInAndStatusOrderByPriceAsc(List.of(accommodationId), RoomStatus.ACTIVE);
+        Map<Long, String> roomImageUrls = roomImages.mainImageUrls(
+            activeRooms.stream().map(RoomEntity::getRoomId).toList());
+        List<AccommodationDetail.RoomSummary> roomSummaries = activeRooms.stream()
             .map(room -> {
                 int remaining = inventory.remainingUnits(room, stay.checkIn(), stay.checkOut(), nowUtc);
                 return new AccommodationDetail.RoomSummary(room.getRoomId(), room.getName(),
-                    room.getDescription(), null, room.getPrice(), room.getCapacity(), remaining,
+                    room.getDescription(), roomImageUrls.get(room.getRoomId()),
+                    room.getPrice(), room.getCapacity(), remaining,
                     remaining > 0 ? "AVAILABLE" : "SOLD_OUT");
             })
             .toList();

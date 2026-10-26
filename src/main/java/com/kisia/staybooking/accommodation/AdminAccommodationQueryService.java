@@ -7,6 +7,7 @@ import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
+import com.kisia.staybooking.room.RoomImageService;
 import com.kisia.staybooking.room.RoomStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,12 +20,14 @@ public class AdminAccommodationQueryService {
     private final AccommodationRepository accommodations;
     private final RoomRepository rooms;
     private final AccommodationImageService images;
+    private final RoomImageService roomImages;
 
     public AdminAccommodationQueryService(AccommodationRepository accommodations, RoomRepository rooms,
-                                          AccommodationImageService images) {
+                                          AccommodationImageService images, RoomImageService roomImages) {
         this.accommodations = accommodations;
         this.rooms = rooms;
         this.images = images;
+        this.roomImages = roomImages;
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +48,7 @@ public class AdminAccommodationQueryService {
         AccommodationEntity accommodation = accommodations.findById(accommodationId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "숙소를 찾을 수 없습니다."));
         List<RoomSummary> roomSummaries = rooms.findByAccommodationAccommodationIdOrderByRoomIdAsc(accommodationId)
-            .stream().map(RoomSummary::from).toList();
+            .stream().map(room -> RoomSummary.from(room, roomImages.images(room.getRoomId()))).toList();
         return new Detail(Summary.from(accommodation), accommodation.getDescription(),
             accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
             accommodation.getAmenities(), accommodation.getRules(), images.images(accommodationId), roomSummaries);
@@ -64,10 +67,11 @@ public class AdminAccommodationQueryService {
                          List<RoomSummary> rooms) { }
 
     public record RoomSummary(Long roomId, String name, String description, long price,
-                              int capacity, int totalQuantity, RoomStatus status) {
-        static RoomSummary from(RoomEntity room) {
+                              int capacity, int totalQuantity, RoomStatus status,
+                              List<RoomImageService.ImageResponse> images) {
+        static RoomSummary from(RoomEntity room, List<RoomImageService.ImageResponse> images) {
             return new RoomSummary(room.getRoomId(), room.getName(), room.getDescription(),
-                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus());
+                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus(), images);
         }
     }
 }

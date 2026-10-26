@@ -185,7 +185,9 @@ DB01에는 이 테이블이 없으므로 배포 전 [수동 생성 SQL](../sql/2
 
 이미지 연결은 `accommodation_files(accommodation_id,file_id)`, `room_files(room_id,file_id)`, `review_files(review_id,file_id)`, `qna_files(qna_id,file_id)`를 각각 복합 PK와 양쪽 FK로 둡니다. `files` 하나에 `owner_type/owner_id`를 넣는 방식은 실제 FK를 만들 수 없어 사용하지 않습니다.
 
-숙소 이미지는 `accommodation_files`에 연결 순서(`display_order`)를 저장하고 첫 사진을 대표 이미지로 사용합니다. `file_id`에는 추가 고유 제약을 두어 한 파일을 여러 숙소에 연결하지 않습니다. 관리자 업로드·연결·해제 API와 공개 숙소 조회는 구현됐지만, DB01에는 테이블을 아직 생성하지 않았습니다. 배포 전 [수동 생성 SQL](../sql/2026-10-26-accommodation-images.sql)을 적용해야 합니다. 객실별 이미지 연결(`room_files`)은 별도 작업입니다.
+숙소 이미지는 `accommodation_files`에 연결 순서(`display_order`)를 저장하고 첫 사진을 대표 이미지로 사용합니다. `file_id`에는 추가 고유 제약을 두어 한 파일을 여러 숙소에 연결하지 않습니다. 관리자 업로드·연결·해제 API와 공개 숙소 조회는 구현됐지만, DB01에는 테이블을 아직 생성하지 않았습니다. 배포 전 [수동 생성 SQL](../sql/2026-10-26-accommodation-images.sql)을 적용해야 합니다.
+
+객실 이미지도 `room_files`에 연결 순서(`display_order`)를 저장하며, 첫 사진이 숙소 상세의 객실 대표 이미지로 내려갑니다. `file_id`는 객실 사이에서 고유합니다. 관리자 API는 `POST /api/v1/admin/accommodations/{id}/rooms/{roomId}/images`와 `DELETE /api/v1/admin/accommodations/{id}/rooms/{roomId}/images/{fileId}`를 제공합니다. DB01에는 테이블을 아직 생성하지 않았으므로 배포 전 [수동 생성 SQL](../sql/2026-10-26-room-images.sql)을 적용해야 합니다.
 
 ## 우선 생성할 인덱스
 
