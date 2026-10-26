@@ -133,8 +133,30 @@ public class TossPaymentGateway {
 
     private record BillingChargeRequest(String customerKey, long amount, String orderId, String orderName) { }
 
-    // 토스 응답 중 쓰는 값만 받는다. cardNumber는 토스가 가린 번호다.
-    public record BillingIssue(String billingKey, String customerKey, String cardCompany, String cardNumber) { }
+    // 토스 응답 중 쓰는 값만 받는다. cardNumber·card.number는 토스가 가린 번호다.
+    public record BillingIssue(String billingKey, String customerKey, String cardCompany, String cardNumber,
+                               Card card) {
+        public BillingIssue(String billingKey, String customerKey, String cardCompany, String cardNumber) {
+            this(billingKey, customerKey, cardCompany, cardNumber, null);
+        }
+
+        /** 화면에 보여 줄 카드사 이름. 응답에 이름이 없으면 카드사 코드로 찾는다. */
+        public String companyName() {
+            if (cardCompany != null && !cardCompany.isBlank()) return cardCompany;
+            return card == null ? null : CardCompanies.name(card.issuerCode());
+        }
+
+        public String maskedNumber() {
+            if (cardNumber != null && !cardNumber.isBlank()) return cardNumber;
+            return card == null ? null : card.number();
+        }
+
+        public String cardType() {
+            return card == null ? null : card.cardType();
+        }
+    }
+
+    public record Card(String issuerCode, String number, String cardType) { }
 
     public Confirmation confirm(String paymentKey, String orderId, long amount) {
         if (!isConfigured()) {

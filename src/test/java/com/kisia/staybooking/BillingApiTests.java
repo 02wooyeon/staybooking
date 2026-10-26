@@ -66,7 +66,7 @@ class BillingApiTests {
         when(gateway.issueBillingKey("auth_1", customerKey)).thenReturn(
             new TossPaymentGateway.BillingIssue(BILLING_KEY, customerKey, "신한", "43301234****123*"));
         register(user, customerKey, "auth_1").andExpect(status().isCreated())
-            .andExpect(jsonPath("$.cardCompany").value("신한"))
+            .andExpect(jsonPath("$.cardCompany").value("신한카드"))
             .andExpect(jsonPath("$.cardNumber").value("43301234****123*"))
             .andExpect(jsonPath("$.billingKey").doesNotExist())
             .andExpect(jsonPath("$.customerKey").doesNotExist());
@@ -78,6 +78,18 @@ class BillingApiTests {
         // DB에도 암호문만 있다.
         String stored = cards.findByUserUserId(user.getUserId()).orElseThrow().getBillingKeyEncrypted();
         assertFalse(stored.contains(BILLING_KEY));
+    }
+
+    @Test
+    void namesTheCardFromTheIssuerCodeWhenTossLeavesTheCompanyEmpty() throws Exception {
+        UserEntity user = fixtures.user("농협회원");
+        String customerKey = customerKey(user);
+        when(gateway.issueBillingKey("auth_nh", customerKey)).thenReturn(new TossPaymentGateway.BillingIssue(
+            BILLING_KEY, customerKey, null, null, new TossPaymentGateway.Card("91", "53651234****567*", "체크")));
+
+        register(user, customerKey, "auth_nh").andExpect(status().isCreated())
+            .andExpect(jsonPath("$.cardCompany").value("NH농협 체크카드"))
+            .andExpect(jsonPath("$.cardNumber").value("53651234****567*"));
     }
 
     @Test

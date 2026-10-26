@@ -77,7 +77,7 @@ public class BillingService {
             cards.flush();
         });
         BillingCardEntity saved = cards.saveAndFlush(new BillingCardEntity(user, customerKey,
-            cipher.encrypt(issued.billingKey()), shorten(issued.cardCompany()), shorten(issued.cardNumber())));
+            cipher.encrypt(issued.billingKey()), shorten(cardLabel(issued)), shorten(issued.maskedNumber())));
         return CardResponse.from(saved);
     }
 
@@ -128,6 +128,17 @@ public class BillingService {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "BILLING_NOT_CONFIGURED",
                 "카드 등록 결제를 사용할 수 없습니다.");
         }
+    }
+
+    // 예: "NH농협카드", "KB국민 체크카드". 카드사를 모르면 "카드"
+    private static String cardLabel(TossPaymentGateway.BillingIssue issued) {
+        String company = issued.companyName();
+        String type = "체크".equals(issued.cardType()) ? " 체크카드" : "카드";
+        if (company == null || company.isBlank()) return "카드";
+        if (company.endsWith("카드") || company.endsWith("뱅크") || company.endsWith("은행")) {
+            return "체크".equals(issued.cardType()) ? company + " 체크" : company;
+        }
+        return company + type;
     }
 
     private static String shorten(String value) {

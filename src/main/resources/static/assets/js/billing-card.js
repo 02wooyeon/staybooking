@@ -7,8 +7,11 @@
 (function () {
   'use strict';
 
+  // 예: "NH농협카드 4330-1234-****-123*". 카드번호는 토스가 가린 값을 4자리씩 끊어 보여 준다.
   function cardLabel(card) {
-    return (card.cardCompany || '카드') + ' ' + (card.cardNumber || '');
+    var number = String(card.cardNumber || '').replace(/[^0-9*]/g, '');
+    var grouped = number.replace(/(.{4})(?=.)/g, '$1-');
+    return (card.cardCompany || '카드') + (grouped ? ' ' + grouped : '');
   }
 
   // 돌아갈 결제 페이지. 예약 번호는 숫자만 받아 다른 주소로 보내지 못하게 한다.

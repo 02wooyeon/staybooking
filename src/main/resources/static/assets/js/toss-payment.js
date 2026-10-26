@@ -165,7 +165,7 @@
     var card = cards[0];
     var password = document.getElementById('saved-card-password');
     var submit = document.getElementById('saved-card-button');
-    document.getElementById('saved-card-label').textContent = '등록 카드 ' + BillingCard.label(card);
+    document.getElementById('saved-card-label').textContent = '등록 카드: ' + BillingCard.label(card);
     submit.textContent = '등록 카드로 ' + Number(amount).toLocaleString('ko-KR') + '원 결제';
     form.hidden = false;
 
