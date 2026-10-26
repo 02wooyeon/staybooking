@@ -61,6 +61,13 @@ public class BookingInventoryService {
         return maximum;
     }
 
+    // 정원을 낮출 때 앞으로 이용할 예약 중 가장 많은 인원을 수용할 수 있어야 한다.
+    public int maximumBookedGuestsFrom(RoomEntity room, LocalDate fromDate, LocalDateTime nowUtc) {
+        return bookings.findFutureOccupyingBookings(room.getRoomId(), fromDate,
+                CONFIRMED_STATUSES, BookingStatus.PAYMENT_PENDING, nowUtc)
+            .stream().mapToInt(BookingEntity::getGuests).max().orElse(0);
+    }
+
     private Optional<LocalDate> firstUnavailableDay(RoomEntity room, LocalDate checkIn, LocalDate checkOut,
                                                     LocalDateTime nowUtc) {
         for (LocalDate day = checkIn; day.isBefore(checkOut); day = day.plusDays(1)) {

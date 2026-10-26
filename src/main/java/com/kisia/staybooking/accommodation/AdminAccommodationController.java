@@ -72,13 +72,19 @@ public class AdminAccommodationController {
   @PatchMapping("/{id}/rooms/{roomId}") public RoomEntity updateRoom(@PathVariable Long id,@PathVariable Long roomId,@Valid @RequestBody RoomRequest r) {
     var room=rooms.findByIdForUpdate(roomId).orElseThrow(()->new IllegalArgumentException("Room not found"));
     if(!room.getAccommodation().getAccommodationId().equals(id)) throw new IllegalArgumentException("Room does not belong to accommodation");
+    LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+    LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
     if (r.totalQuantity() < room.getTotalQuantity()) {
-      int occupied = inventory.maximumOccupiedUnitsFrom(room, LocalDate.now(ZoneId.of("Asia/Seoul")),
-          LocalDateTime.now(ZoneOffset.UTC));
+      int occupied = inventory.maximumOccupiedUnitsFrom(room, today, nowUtc);
       if (r.totalQuantity() < occupied) {
         throw new ApiException(HttpStatus.CONFLICT, "ROOM_QUANTITY_BELOW_BOOKINGS",
             "기존 예약이 점유한 객실 수보다 판매 수량을 줄일 수 없습니다.", List.of("totalQuantity"));
       }
+    }
+    if (r.capacity() < room.getCapacity() &&
+        r.capacity() < inventory.maximumBookedGuestsFrom(room, today, nowUtc)) {
+      throw new ApiException(HttpStatus.CONFLICT, "ROOM_CAPACITY_BELOW_BOOKINGS",
+          "기존 예약 인원보다 객실 정원을 줄일 수 없습니다.", List.of("capacity"));
     }
     room.update(r.name(),r.price(),r.capacity(),r.totalQuantity(),r.description(),r.status());
     return room;

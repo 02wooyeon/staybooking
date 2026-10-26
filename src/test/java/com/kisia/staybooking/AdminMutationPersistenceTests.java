@@ -147,6 +147,53 @@ class AdminMutationPersistenceTests {
     }
 
     @Test
+    void roomCapacityCannotFallBelowFutureBookingGuests() {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity guest = users.save(new UserEntity("capacity" + tag, "hash", "Guest",
+            "capacity" + tag + "@example.test"));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Capacity stay " + tag, "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Family", 150_000, 4, 2));
+        LocalDate day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(5);
+        BookingEntity booking = bookings.save(new BookingEntity(guest, room, day, day.plusDays(1), 3,
+            150_000, 0, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(15)));
+        jdbc.update("update bookings set status = 'PENDING' where booking_id = ?", booking.getBookingId());
+
+        var tooSmall = new AdminAccommodationController.RoomRequest("Family", 150_000, 2, 2,
+            null, RoomStatus.ACTIVE);
+        ApiException conflict = assertThrows(ApiException.class,
+            () -> accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(), tooSmall));
+        assertEquals("ROOM_CAPACITY_BELOW_BOOKINGS", conflict.getCode());
+        assertEquals(4, rooms.findById(room.getRoomId()).orElseThrow().getCapacity());
+
+        var enough = new AdminAccommodationController.RoomRequest("Family", 150_000, 3, 2,
+            null, RoomStatus.ACTIVE);
+        accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(), enough);
+        assertEquals(3, rooms.findById(room.getRoomId()).orElseThrow().getCapacity());
+    }
+
+    @Test
+    void expiredOrCancelledBookingsDoNotBlockRoomCapacityReduction() {
+        String tag = Long.toString(System.nanoTime());
+        UserEntity guest = users.save(new UserEntity("released" + tag, "hash", "Guest",
+            "released" + tag + "@example.test"));
+        AccommodationEntity stay = accommodations.save(new AccommodationEntity("Released stay " + tag, "Seoul",
+            LocalTime.of(15, 0), LocalTime.of(11, 0)));
+        RoomEntity room = rooms.save(new RoomEntity(stay, "Family", 150_000, 4, 2));
+        LocalDate day = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(5);
+        bookings.save(new BookingEntity(guest, room, day, day.plusDays(1), 4,
+            150_000, 0, LocalDateTime.now(ZoneOffset.UTC).minusMinutes(1)));
+        BookingEntity cancelled = bookings.save(new BookingEntity(guest, room, day, day.plusDays(1), 4,
+            150_000, 0, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(15)));
+        jdbc.update("update bookings set status = 'CANCELLED' where booking_id = ?", cancelled.getBookingId());
+
+        accommodationsAdmin.updateRoom(stay.getAccommodationId(), room.getRoomId(),
+            new AdminAccommodationController.RoomRequest("Family", 150_000, 2, 2,
+                null, RoomStatus.ACTIVE));
+        assertEquals(2, rooms.findById(room.getRoomId()).orElseThrow().getCapacity());
+    }
+
+    @Test
     void refundAutomaticallySettlesAfterBookingCancellation() {
         String tag = Long.toString(System.nanoTime());
         UserEntity admin = users.save(new UserEntity("refundadmin" + tag, "hash", "Admin", null,
