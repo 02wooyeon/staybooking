@@ -319,161 +319,20 @@
       </section>
 
 
-      <!-- 결제수단 -->
+      <!-- 결제 안내: 카드 정보는 이 화면에서 받지 않고 다음 결제 페이지(토스 결제창·등록 카드)에서 결제한다 -->
 
       <section class="booking-card">
 
         <h2>
-          결제수단
+          결제
         </h2>
 
-        <div
-          class="payment-methods"
-          role="radiogroup"
-          aria-label="결제수단">
-
-          <button
-            class="payment-method"
-            type="button"
-            role="radio"
-            aria-checked="true"
-            data-method="CARD"
-            form="booking-form">
-            카드 번호 직접 입력
-          </button>
-
-          <button
-            class="payment-method"
-            type="button"
-            role="radio"
-            aria-checked="false"
-            data-method="EASY_PAY"
-            form="booking-form">
-            간편 결제
-          </button>
-
-        </div>
-
-
-        <!-- 카드 번호 직접 입력 -->
-
-        <div
-          id="payment-card-panel"
-          class="payment-panel">
-
-          <div class="booking-field">
-
-            <label for="booking-card-number">
-              카드 번호
-            </label>
-
-            <input
-              id="booking-card-number"
-              type="text"
-              inputmode="numeric"
-              maxlength="19"
-              autocomplete="cc-number"
-              placeholder="0000-0000-0000-0000"
-              form="booking-form">
-
-          </div>
-
-
-          <div class="booking-form-grid booking-form-grid-two">
-
-            <div class="booking-field">
-
-              <label for="booking-card-expiry">
-                유효기간 (MM/YY)
-              </label>
-
-              <input
-                id="booking-card-expiry"
-                type="text"
-                inputmode="numeric"
-                maxlength="5"
-                autocomplete="cc-exp"
-                placeholder="MM/YY"
-                form="booking-form">
-
-            </div>
-
-
-            <div class="booking-field">
-
-              <label for="booking-card-cvc">
-                CVC
-              </label>
-
-              <input
-                id="booking-card-cvc"
-                type="password"
-                inputmode="numeric"
-                maxlength="4"
-                autocomplete="cc-csc"
-                placeholder="카드 뒷면 3자리"
-                form="booking-form">
-
-            </div>
-
-          </div>
-
-          <p class="booking-field-help">
-            카드 정보는 결제대행사(PG)로만 전달되며 스테이북 서버에 저장되지 않습니다.
-          </p>
-
-        </div>
-
-
-        <!-- 간편 결제 -->
-
-        <div
-          id="payment-easy-panel"
-          class="payment-panel"
-          hidden>
-
-          <div
-            class="easy-pay-options"
-            role="radiogroup"
-            aria-label="간편 결제 수단">
-
-            <button
-              class="easy-pay-option"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-provider="KAKAOPAY"
-              form="booking-form">
-              카카오페이
-            </button>
-
-            <button
-              class="easy-pay-option"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-provider="NAVERPAY"
-              form="booking-form">
-              네이버페이
-            </button>
-
-            <button
-              class="easy-pay-option"
-              type="button"
-              role="radio"
-              aria-checked="false"
-              data-provider="TOSSPAY"
-              form="booking-form">
-              토스페이
-            </button>
-
-          </div>
-
-          <p class="booking-field-help">
-            예약 요청 후 선택한 간편 결제 화면으로 이동합니다.
-          </p>
-
-        </div>
+        <p
+          id="payment-next-step"
+          class="booking-field-help">
+          예약 요청 후 다음 화면에서 결제합니다. 토스페이먼츠 결제창 또는 등록 카드로 결제하며,
+          카드 정보는 스테이북 화면에 입력하지 않습니다.
+        </p>
 
 
         <p

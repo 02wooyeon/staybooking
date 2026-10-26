@@ -260,24 +260,9 @@
       'booking-final-price'
     );
 
-  var methodButtons =
-    document.querySelectorAll(
-      '.payment-method'
-    );
-
-  var easyPayButtons =
-    document.querySelectorAll(
-      '.easy-pay-option'
-    );
-
-  var cardPanel =
+  var paymentNote =
     document.getElementById(
-      'payment-card-panel'
-    );
-
-  var easyPanel =
-    document.getElementById(
-      'payment-easy-panel'
+      'payment-next-step'
     );
 
   var mileageOnlyNote =
@@ -285,23 +270,7 @@
       'payment-mileage-only'
     );
 
-  var cardNumber =
-    document.getElementById(
-      'booking-card-number'
-    );
-
-  var cardExpiry =
-    document.getElementById(
-      'booking-card-expiry'
-    );
-
-  var cardCvc =
-    document.getElementById(
-      'booking-card-cvc'
-    );
-
-
-  // 보유 마일리지와 선택한 결제수단
+  // 보유 마일리지. 결제수단은 다음 결제 페이지에서 고른다.
   var mileageBalance = 0;
   var paymentMethod = 'CARD';
   var easyPayProvider = null;
@@ -527,104 +496,6 @@
         getMaxMileage();
 
       updatePrice();
-    }
-  );
-
-
-  /*
-   * 결제수단 선택
-   */
-  methodButtons.forEach(
-    function (button) {
-
-      button.addEventListener(
-        'click',
-        function () {
-
-          hideAlert();
-
-          paymentMethod =
-            button.dataset.method;
-
-          setChecked(
-            methodButtons,
-            button
-          );
-
-          updatePaymentPanels();
-        }
-      );
-    }
-  );
-
-
-  easyPayButtons.forEach(
-    function (button) {
-
-      button.addEventListener(
-        'click',
-        function () {
-
-          hideAlert();
-
-          easyPayProvider =
-            button.dataset.provider;
-
-          setChecked(
-            easyPayButtons,
-            button
-          );
-        }
-      );
-    }
-  );
-
-
-  // 0000-0000-0000-0000
-  cardNumber.addEventListener(
-    'input',
-    function () {
-
-      var digits =
-        cardNumber.value
-          .replace(/\D/g, '')
-          .slice(0, 16);
-
-      cardNumber.value =
-        digits.replace(
-          /(\d{4})(?=\d)/g,
-          '$1-'
-        );
-    }
-  );
-
-
-  // MM/YY
-  cardExpiry.addEventListener(
-    'input',
-    function () {
-
-      var digits =
-        cardExpiry.value
-          .replace(/\D/g, '')
-          .slice(0, 4);
-
-      cardExpiry.value =
-        digits.length > 2
-          ? digits.slice(0, 2) + '/' + digits.slice(2)
-          : digits;
-    }
-  );
-
-
-  cardCvc.addEventListener(
-    'input',
-    function () {
-
-      cardCvc.value =
-        cardCvc.value
-          .replace(/\D/g, '')
-          .slice(0, 4);
     }
   );
 
@@ -1254,71 +1125,7 @@
     }
 
 
-    /* 결제수단 (마일리지로 전액 결제하거나 실제 연동이면 생략: 토스 결제창에서 고른다) */
-
-    if (
-      !USE_MOCK_DATA ||
-      getFinalAmount() === 0
-    ) {
-      return true;
-    }
-
-
-    if (
-      paymentMethod === 'EASY_PAY'
-    ) {
-
-      if (!easyPayProvider) {
-
-        return fail(
-          easyPayButtons[0],
-          '간편 결제 수단을 선택해 주세요.'
-        );
-      }
-
-      return true;
-    }
-
-
-    if (
-      !isValidCardNumber(
-        cardNumber.value
-      )
-    ) {
-
-      return fail(
-        cardNumber,
-        '카드 번호를 확인해 주세요.'
-      );
-    }
-
-
-    if (
-      !isValidExpiry(
-        cardExpiry.value
-      )
-    ) {
-
-      return fail(
-        cardExpiry,
-        '카드 유효기간을 확인해 주세요.'
-      );
-    }
-
-
-    if (
-      !/^\d{3,4}$/.test(
-        cardCvc.value
-      )
-    ) {
-
-      return fail(
-        cardCvc,
-        'CVC 3~4자리를 입력해 주세요.'
-      );
-    }
-
-
+    // 결제수단·카드 정보는 다음 결제 페이지(토스 결제창·등록 카드)에서 받는다.
     return true;
   }
 
@@ -1511,31 +1318,18 @@
 
 
   /*
-   * 선택한 결제수단 입력 칸만 보여 준다.
-   * 마일리지로 전액 결제하면 결제수단을 숨긴다.
+   * 마일리지로 전액 결제하면 결제 단계가 없다는 안내를, 아니면 다음 화면에서 결제한다는 안내를 보여 준다.
    */
   function updatePaymentPanels() {
 
     var mileageOnly =
       getFinalAmount() === 0;
 
-    cardPanel.hidden =
-      mileageOnly ||
-      paymentMethod !== 'CARD';
-
-    easyPanel.hidden =
-      mileageOnly ||
-      paymentMethod !== 'EASY_PAY';
+    paymentNote.hidden =
+      mileageOnly;
 
     mileageOnlyNote.hidden =
       !mileageOnly;
-
-    methodButtons.forEach(
-      function (button) {
-        button.disabled =
-          mileageOnly;
-      }
-    );
   }
 
 
@@ -1651,79 +1445,6 @@
     }
 
     return d;
-  }
-
-
-  // 16자리 + Luhn 검사 (입력 실수 확인용, 실제 승인은 PG가 한다)
-  function isValidCardNumber(
-    value
-  ) {
-
-    var digits =
-      value.replace(/\D/g, '');
-
-    if (
-      !/^\d{16}$/.test(digits)
-    ) {
-      return false;
-    }
-
-    var sum = 0;
-
-    for (var i = 0; i < digits.length; i++) {
-
-      var n =
-        Number(
-          digits[digits.length - 1 - i]
-        );
-
-      if (i % 2 === 1) {
-        n *= 2;
-        if (n > 9) n -= 9;
-      }
-
-      sum += n;
-    }
-
-    return sum % 10 === 0;
-  }
-
-
-  // MM/YY, 이번 달까지 유효
-  function isValidExpiry(
-    value
-  ) {
-
-    var match =
-      /^(\d{2})\/(\d{2})$/.exec(value);
-
-    if (!match) {
-      return false;
-    }
-
-    var month =
-      Number(match[1]);
-
-    var year =
-      2000 + Number(match[2]);
-
-    if (
-      month < 1 ||
-      month > 12
-    ) {
-      return false;
-    }
-
-    var now =
-      new Date();
-
-    return (
-      year > now.getFullYear() ||
-      (
-        year === now.getFullYear() &&
-        month >= now.getMonth() + 1
-      )
-    );
   }
 
 
