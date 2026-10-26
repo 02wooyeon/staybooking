@@ -5,6 +5,8 @@ import java.util.List;
 
 import com.kisia.staybooking.common.ApiException;
 import com.kisia.staybooking.common.PageResponse;
+import com.kisia.staybooking.file.FileEntity;
+import com.kisia.staybooking.file.UploadResponse;
 import com.kisia.staybooking.room.RoomEntity;
 import com.kisia.staybooking.room.RoomRepository;
 import com.kisia.staybooking.room.RoomStatus;
@@ -45,7 +47,8 @@ public class AdminAccommodationQueryService {
             .stream().map(RoomSummary::from).toList();
         return new Detail(Summary.from(accommodation), accommodation.getDescription(),
             accommodation.getCheckInTime(), accommodation.getCheckOutTime(),
-            accommodation.getAmenities(), accommodation.getRules(), roomSummaries);
+            accommodation.getAmenities(), accommodation.getRules(), roomSummaries,
+            Image.listOf(accommodation.getImages()));
     }
 
     public record Summary(Long accommodationId, String name, String address, AccommodationStatus status) {
@@ -57,13 +60,21 @@ public class AdminAccommodationQueryService {
 
     public record Detail(Summary accommodation, String description, LocalTime checkInTime,
                          LocalTime checkOutTime, List<String> amenities, List<String> rules,
-                         List<RoomSummary> rooms) { }
+                         List<RoomSummary> rooms, List<Image> images) { }
+
+    // 관리자 화면(admin-accommodations.js)이 사진을 지울 때 fileId를 쓴다.
+    public record Image(Long fileId, String url) {
+        static List<Image> listOf(List<FileEntity> files) {
+            return files.stream().map(f -> new Image(f.getFileId(), UploadResponse.urlOf(f.getFileId()))).toList();
+        }
+    }
 
     public record RoomSummary(Long roomId, String name, String description, long price,
-                              int capacity, int totalQuantity, RoomStatus status) {
+                              int capacity, int totalQuantity, RoomStatus status, List<Image> images) {
         static RoomSummary from(RoomEntity room) {
             return new RoomSummary(room.getRoomId(), room.getName(), room.getDescription(),
-                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus());
+                room.getPrice(), room.getCapacity(), room.getTotalQuantity(), room.getStatus(),
+                Image.listOf(room.getImages()));
         }
     }
 }

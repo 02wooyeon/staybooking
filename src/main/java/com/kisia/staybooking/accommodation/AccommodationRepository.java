@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface AccommodationRepository extends JpaRepository<AccommodationEntity, Long> {
     long countByStatus(AccommodationStatus status);
+    boolean existsByImagesFileId(Long fileId);
     @Query("""
         select a from AccommodationEntity a
         where (:status is null or a.status = :status)
