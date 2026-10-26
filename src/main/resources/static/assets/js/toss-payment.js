@@ -107,7 +107,7 @@
             amount: { currency: 'KRW', value: payment.amount }
           }, request));
         };
-        if (capabilities.billingEnabled) await showSavedCard(payment.amount);
+        if (capabilities.billingEnabled) await showBillingOptions(capabilities.tossClientKey, payment.amount);
       } else {
         var widgets = tossPayments.widgets({ customerKey: payment.orderId });
         await widgets.setAmount({ currency: 'KRW', value: payment.amount });
@@ -136,18 +136,51 @@
       Ui.showAlert(alertBox, e.message, 'error');
     }
   }
-  // 등록 카드가 있으면 비밀번호만 다시 입력해 바로 결제한다. 금액·주문번호는 서버가 정한다.
-  async function showSavedCard(amount) {
+  // 등록 카드(PAYMENT_005)가 있으면 비밀번호만 다시 입력해 바로 결제한다. 금액·주문번호는 서버가 정한다.
+  // 없으면 카드 등록(PAYMENT_004)을 안내하고, 등록이 끝나면 이 페이지로 돌아온다.
+  async function showBillingOptions(clientKey, amount) {
     var cards = await BookingApi.getBillingCards().catch(function () { return []; });
-    if (!cards.length) return;
-    var card = cards[0];
     var form = document.getElementById('saved-card');
+    var register = document.getElementById('card-register');
+    var openRegister = async function (trigger) {
+      Ui.hideAlert(alertBox);
+      trigger.disabled = true;
+      try {
+        await BillingCard.openRegister(clientKey, bookingId);
+      } catch (e) {
+        // 사용자가 창을 닫으면 USER_CANCEL이 온다
+        if (e.code !== 'USER_CANCEL') Ui.showAlert(alertBox, e.message || '카드 등록 창을 열지 못했습니다.', 'error');
+      } finally {
+        trigger.disabled = false;
+      }
+    };
+
+    if (!cards.length) {
+      register.hidden = false;
+      var registerButton = document.getElementById('card-register-button');
+      registerButton.addEventListener('click', function () { openRegister(registerButton); });
+      return;
+    }
+
+    var card = cards[0];
     var password = document.getElementById('saved-card-password');
     var submit = document.getElementById('saved-card-button');
-    document.getElementById('saved-card-label').textContent =
-      '등록 카드 ' + (card.cardCompany || '') + ' ' + (card.cardNumber || '');
+    document.getElementById('saved-card-label').textContent = '등록 카드 ' + BillingCard.label(card);
     submit.textContent = '등록 카드로 ' + Number(amount).toLocaleString('ko-KR') + '원 결제';
     form.hidden = false;
+
+    var change = document.getElementById('saved-card-change');
+    change.addEventListener('click', function () { openRegister(change); });
+    document.getElementById('saved-card-delete').addEventListener('click', async function () {
+      if (!window.confirm('등록된 카드를 삭제할까요?')) return;
+      try {
+        await BookingApi.deleteBillingCard(card.billingCardId);
+        window.location.reload();
+      } catch (e) {
+        Ui.showAlert(alertBox, e.message, 'error');
+      }
+    });
+
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       Ui.hideAlert(alertBox);
